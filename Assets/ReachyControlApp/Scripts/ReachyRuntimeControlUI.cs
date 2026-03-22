@@ -7,6 +7,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 using UnityEngine;
@@ -53,13 +54,15 @@ namespace Reachy.ControlApp
         private enum OnlineAiPersonaMode
         {
             Assistant = 0,
-            FortuneTeller = 1
+            FortuneTeller = 1,
+            Custom = 2
         }
 
         private static readonly string[] OnlineAiPersonaModeLabels =
         {
             "Assistant",
-            "Fortune Teller"
+            "Fortune Teller",
+            "Custom"
         };
 
         private static readonly string[] OnlineAiTtsVoiceOptions =
@@ -111,8 +114,9 @@ namespace Reachy.ControlApp
             OnlineAiSelected = 1,
             AssistantPersonaSelected = 2,
             FortuneTellerPersonaSelected = 3,
-            OnlineAiEnabled = 4,
-            OnlineAiDisabled = 5
+            CustomPersonaSelected = 4,
+            OnlineAiEnabled = 5,
+            OnlineAiDisabled = 6
         }
 
         private const float DesignMarginPixels = 10f;
@@ -190,6 +194,7 @@ namespace Reachy.ControlApp
         private const string SidecarTtsModePath = "/tts-mode";
         private const string SidecarOnlineReplyAudioPath = "/online-reply-audio";
         private const string SidecarOnlineAiModePath = "/online-ai-mode";
+        private const string SidecarOnlineAiCustomPersonaPath = "/online-ai-custom-persona";
         private const string LocalAiAgentActivationAnnouncement =
             "Local AI agent is now active. Use voice commands to control Reachy or ask for help.";
         private const string DefaultAssistantOnlineAiSystemPrompt =
@@ -207,6 +212,18 @@ namespace Reachy.ControlApp
             "but you naturally lean toward fortunes, futures, possibilities, long-term trends, and the future of robots. " +
             "Never pretend uncertainty is certainty. When you speculate, say so. When the operator needs concrete facts " +
             "or practical help, answer directly first and then add only a brief fortune-teller flourish when it fits.";
+        private const string DefaultCustomOnlineAiPersonaName = "Custom Persona";
+        private const string DefaultCustomOnlineAiPersonaSummary =
+            "A manually tuned runtime persona for Reachy. Overwrite it by voice when you want a new custom character.";
+        private const float DefaultCustomOnlineAiWarmth = 0.72f;
+        private const float DefaultCustomOnlineAiPlayfulness = 0.58f;
+        private const float DefaultCustomOnlineAiDirectness = 0.66f;
+        private const float DefaultCustomOnlineAiRoleplayCommitment = 0.68f;
+        private const float DefaultCustomOnlineAiFactualGrounding = 0.86f;
+        private const string DefaultCustomOnlineAiSystemPrompt =
+            "You are Reachy performing with a configurable custom persona. Stay helpful, expressive, and operator-friendly, " +
+            "while remaining honest about uncertainty and real robot limitations. Do not proactively bring up Reachy assistance, " +
+            "robot embodiment, or movement/control help unless the operator asks for it or the persona itself explicitly calls for it.";
         private const float OnlineAiModesLiveApplyDebounceSeconds = 0.45f;
         private const string DefaultOnlineAiModel = "gpt-5.4";
         private const int DefaultOnlineAiMaxOutputTokens = 480;
@@ -897,6 +914,19 @@ namespace Reachy.ControlApp
         [TextArea(4, 10)]
         private string onlineAiFortuneTellerSystemPrompt = DefaultFortuneTellerOnlineAiSystemPrompt;
         [SerializeField] private string onlineAiFortuneTellerTtsVoice = DefaultFortuneTellerOnlineTtsVoice;
+        [SerializeField] private string onlineAiCustomPersonaName = DefaultCustomOnlineAiPersonaName;
+        [SerializeField]
+        [TextArea(2, 6)]
+        private string onlineAiCustomPersonaSummary = DefaultCustomOnlineAiPersonaSummary;
+        [SerializeField] private float onlineAiCustomWarmth = DefaultCustomOnlineAiWarmth;
+        [SerializeField] private float onlineAiCustomPlayfulness = DefaultCustomOnlineAiPlayfulness;
+        [SerializeField] private float onlineAiCustomDirectness = DefaultCustomOnlineAiDirectness;
+        [SerializeField] private float onlineAiCustomRoleplayCommitment = DefaultCustomOnlineAiRoleplayCommitment;
+        [SerializeField] private float onlineAiCustomFactualGrounding = DefaultCustomOnlineAiFactualGrounding;
+        [SerializeField]
+        [TextArea(4, 10)]
+        private string onlineAiCustomSystemPrompt = DefaultCustomOnlineAiSystemPrompt;
+        [SerializeField] private string onlineAiCustomTtsVoice = DefaultOnlineTtsVoice;
         [SerializeField] private bool onlineAiAllowVoicePersonaSwitch = true;
         [SerializeField]
         [TextArea(2, 6)]
@@ -1205,6 +1235,22 @@ namespace Reachy.ControlApp
             public string Error;
         }
 
+        private struct OnlineAiCustomPersonaResult
+        {
+            public bool Success;
+            public string PersonaName;
+            public string PersonaSummary;
+            public string TtsVoice;
+            public float Warmth;
+            public float Playfulness;
+            public float Directness;
+            public float RoleplayCommitment;
+            public float FactualGrounding;
+            public string SystemPrompt;
+            public string ConfirmationMessage;
+            public string Error;
+        }
+
         private struct RobotSpeakerProbeResult
         {
             public bool Reachable;
@@ -1360,6 +1406,30 @@ namespace Reachy.ControlApp
         }
 
         [Serializable]
+        private sealed class OnlineAiCustomPersonaPayload
+        {
+            public string spoken_text = string.Empty;
+            public string persona_request = string.Empty;
+        }
+
+        [Serializable]
+        private sealed class OnlineAiCustomPersonaResponseEnvelope
+        {
+            public bool ok;
+            public string message = string.Empty;
+            public string persona_name = string.Empty;
+            public string persona_summary = string.Empty;
+            public string tts_voice = DefaultOnlineTtsVoice;
+            public float warmth = DefaultCustomOnlineAiWarmth;
+            public float playfulness = DefaultCustomOnlineAiPlayfulness;
+            public float directness = DefaultCustomOnlineAiDirectness;
+            public float roleplay_commitment = DefaultCustomOnlineAiRoleplayCommitment;
+            public float factual_grounding = DefaultCustomOnlineAiFactualGrounding;
+            public string system_prompt = DefaultCustomOnlineAiSystemPrompt;
+            public string confirmation_message = string.Empty;
+        }
+
+        [Serializable]
         private sealed class RobotSpeakerAudioMirrorPayload
         {
             public string audio_base64 = string.Empty;
@@ -1451,6 +1521,15 @@ namespace Reachy.ControlApp
             public float online_ai_fortune_teller_factual_grounding = DefaultFortuneTellerFactualGrounding;
             public string online_ai_fortune_teller_system_prompt = DefaultFortuneTellerOnlineAiSystemPrompt;
             public string online_ai_fortune_teller_tts_voice = DefaultFortuneTellerOnlineTtsVoice;
+            public string online_ai_custom_persona_name = DefaultCustomOnlineAiPersonaName;
+            public string online_ai_custom_persona_summary = DefaultCustomOnlineAiPersonaSummary;
+            public float online_ai_custom_warmth = DefaultCustomOnlineAiWarmth;
+            public float online_ai_custom_playfulness = DefaultCustomOnlineAiPlayfulness;
+            public float online_ai_custom_directness = DefaultCustomOnlineAiDirectness;
+            public float online_ai_custom_roleplay_commitment = DefaultCustomOnlineAiRoleplayCommitment;
+            public float online_ai_custom_factual_grounding = DefaultCustomOnlineAiFactualGrounding;
+            public string online_ai_custom_system_prompt = DefaultCustomOnlineAiSystemPrompt;
+            public string online_ai_custom_tts_voice = DefaultOnlineTtsVoice;
             public string online_ai_system_prompt = DefaultAssistantOnlineAiSystemPrompt;
             public bool online_ai_allow_direct_joint_commands = true;
             public bool online_ai_require_motion_confirmation = false;
@@ -1533,6 +1612,15 @@ namespace Reachy.ControlApp
             public float online_ai_fortune_teller_factual_grounding = DefaultFortuneTellerFactualGrounding;
             public string online_ai_fortune_teller_system_prompt = DefaultFortuneTellerOnlineAiSystemPrompt;
             public string online_ai_fortune_teller_tts_voice = DefaultFortuneTellerOnlineTtsVoice;
+            public string online_ai_custom_persona_name = DefaultCustomOnlineAiPersonaName;
+            public string online_ai_custom_persona_summary = DefaultCustomOnlineAiPersonaSummary;
+            public float online_ai_custom_warmth = DefaultCustomOnlineAiWarmth;
+            public float online_ai_custom_playfulness = DefaultCustomOnlineAiPlayfulness;
+            public float online_ai_custom_directness = DefaultCustomOnlineAiDirectness;
+            public float online_ai_custom_roleplay_commitment = DefaultCustomOnlineAiRoleplayCommitment;
+            public float online_ai_custom_factual_grounding = DefaultCustomOnlineAiFactualGrounding;
+            public string online_ai_custom_system_prompt = DefaultCustomOnlineAiSystemPrompt;
+            public string online_ai_custom_tts_voice = DefaultOnlineTtsVoice;
             public string online_ai_system_prompt = DefaultAssistantOnlineAiSystemPrompt;
             public bool online_ai_allow_direct_joint_commands = true;
             public bool online_ai_require_motion_confirmation = false;
@@ -4834,6 +4922,13 @@ namespace Reachy.ControlApp
                 : string.Empty;
         }
 
+        private static string BuildOnlineAiCustomPersonaEndpoint(string intentEndpoint)
+        {
+            return TryBuildSiblingEndpoint(intentEndpoint, SidecarOnlineAiCustomPersonaPath, out string endpoint)
+                ? endpoint
+                : string.Empty;
+        }
+
         private void LogOnlineReplyAudioRuntimeEvent(string title, string detail, string severity)
         {
             string key = $"{title}|{severity}|{detail}";
@@ -5480,6 +5575,114 @@ namespace Reachy.ControlApp
                     RequestedMode = payload?.online_ai_persona_mode ?? string.Empty,
                     EffectiveMode = payload?.online_ai_persona_mode ?? string.Empty,
                     Message = "Online AI mode update failed.",
+                    Error = ex.Message
+                };
+            }
+        }
+
+        private static OnlineAiCustomPersonaResult SendOnlineAiCustomPersonaRequest(
+            string endpoint,
+            int timeoutMs,
+            OnlineAiCustomPersonaPayload payload)
+        {
+            try
+            {
+                string jsonBody = JsonUtility.ToJson(payload);
+                byte[] bodyBytes = Encoding.UTF8.GetBytes(jsonBody);
+                HttpWebRequest request = WebRequest.CreateHttp(endpoint);
+                request.Method = "POST";
+                request.Timeout = timeoutMs;
+                request.ReadWriteTimeout = timeoutMs;
+                request.ContentType = "application/json; charset=utf-8";
+                request.Accept = "application/json";
+                request.ContentLength = bodyBytes.Length;
+                request.Proxy = null;
+
+                using (Stream requestStream = request.GetRequestStream())
+                {
+                    requestStream.Write(bodyBytes, 0, bodyBytes.Length);
+                }
+
+                using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                using (Stream responseStream = response.GetResponseStream())
+                using (var reader = new StreamReader(responseStream ?? Stream.Null, Encoding.UTF8))
+                {
+                    string responseText = reader.ReadToEnd();
+                    OnlineAiCustomPersonaResponseEnvelope parsed =
+                        string.IsNullOrWhiteSpace(responseText)
+                            ? null
+                            : JsonUtility.FromJson<OnlineAiCustomPersonaResponseEnvelope>(responseText);
+                    bool ok = parsed != null && parsed.ok;
+                    return new OnlineAiCustomPersonaResult
+                    {
+                        Success = ok,
+                        PersonaName = parsed?.persona_name ?? string.Empty,
+                        PersonaSummary = parsed?.persona_summary ?? string.Empty,
+                        TtsVoice = parsed?.tts_voice ?? DefaultOnlineTtsVoice,
+                        Warmth = parsed != null ? parsed.warmth : DefaultCustomOnlineAiWarmth,
+                        Playfulness = parsed != null ? parsed.playfulness : DefaultCustomOnlineAiPlayfulness,
+                        Directness = parsed != null ? parsed.directness : DefaultCustomOnlineAiDirectness,
+                        RoleplayCommitment = parsed != null
+                            ? parsed.roleplay_commitment
+                            : DefaultCustomOnlineAiRoleplayCommitment,
+                        FactualGrounding = parsed != null
+                            ? parsed.factual_grounding
+                            : DefaultCustomOnlineAiFactualGrounding,
+                        SystemPrompt = parsed?.system_prompt ?? string.Empty,
+                        ConfirmationMessage = parsed?.confirmation_message ?? string.Empty,
+                        Error = ok
+                            ? string.Empty
+                            : (parsed?.message ?? "Custom persona generation was rejected.")
+                    };
+                }
+            }
+            catch (WebException webEx)
+            {
+                string detail = webEx.Message;
+                if (webEx.Response != null)
+                {
+                    using (Stream responseStream = webEx.Response.GetResponseStream())
+                    using (var reader = new StreamReader(responseStream ?? Stream.Null, Encoding.UTF8))
+                    {
+                        string responseText = reader.ReadToEnd();
+                        if (!string.IsNullOrWhiteSpace(responseText))
+                        {
+                            detail = $"{detail} ({responseText})";
+                        }
+                    }
+                }
+
+                return new OnlineAiCustomPersonaResult
+                {
+                    Success = false,
+                    PersonaName = string.Empty,
+                    PersonaSummary = string.Empty,
+                    TtsVoice = DefaultOnlineTtsVoice,
+                    Warmth = DefaultCustomOnlineAiWarmth,
+                    Playfulness = DefaultCustomOnlineAiPlayfulness,
+                    Directness = DefaultCustomOnlineAiDirectness,
+                    RoleplayCommitment = DefaultCustomOnlineAiRoleplayCommitment,
+                    FactualGrounding = DefaultCustomOnlineAiFactualGrounding,
+                    SystemPrompt = string.Empty,
+                    ConfirmationMessage = string.Empty,
+                    Error = detail
+                };
+            }
+            catch (Exception ex)
+            {
+                return new OnlineAiCustomPersonaResult
+                {
+                    Success = false,
+                    PersonaName = string.Empty,
+                    PersonaSummary = string.Empty,
+                    TtsVoice = DefaultOnlineTtsVoice,
+                    Warmth = DefaultCustomOnlineAiWarmth,
+                    Playfulness = DefaultCustomOnlineAiPlayfulness,
+                    Directness = DefaultCustomOnlineAiDirectness,
+                    RoleplayCommitment = DefaultCustomOnlineAiRoleplayCommitment,
+                    FactualGrounding = DefaultCustomOnlineAiFactualGrounding,
+                    SystemPrompt = string.Empty,
+                    ConfirmationMessage = string.Empty,
                     Error = ex.Message
                 };
             }
@@ -6258,6 +6461,14 @@ namespace Reachy.ControlApp
                         new ToneStep(783.99f, 0.08f, 0.025f, 0.75f),
                         new ToneStep(659.25f, 0.08f, 0.025f, 0.72f),
                         new ToneStep(523.25f, 0.13f, 0.01f, 0.88f));
+                    break;
+
+                case UiModeAudioCue.CustomPersonaSelected:
+                    createdClip = CreateUiModeAudioCueClip(
+                        "ui_custom_mode_selected",
+                        new ToneStep(587.33f, 0.08f, 0.02f, 0.76f),
+                        new ToneStep(739.99f, 0.08f, 0.02f, 0.84f),
+                        new ToneStep(932.33f, 0.12f, 0.01f, 0.92f));
                     break;
 
                 case UiModeAudioCue.OnlineAiEnabled:
@@ -7304,12 +7515,23 @@ namespace Reachy.ControlApp
         private static string NormalizeOnlineAiPersonaModeValue(string value)
         {
             string normalized = (value ?? string.Empty).Trim().ToLowerInvariant();
-            return normalized == "fortune_teller" ||
-                   normalized == "fortune-teller" ||
-                   normalized == "fortune teller" ||
-                   normalized == "fortuneteller"
-                ? "fortune_teller"
-                : "assistant";
+            if (normalized == "fortune_teller" ||
+                normalized == "fortune-teller" ||
+                normalized == "fortune teller" ||
+                normalized == "fortuneteller")
+            {
+                return "fortune_teller";
+            }
+
+            if (normalized == "custom" ||
+                normalized == "custom_mode" ||
+                normalized == "custom-mode" ||
+                normalized == "custom mode")
+            {
+                return "custom";
+            }
+
+            return "assistant";
         }
 
         private static bool LooksLikeOpenAiApiKey(string value)
@@ -7626,9 +7848,18 @@ namespace Reachy.ControlApp
 
         private static OnlineAiPersonaMode ParseOnlineAiPersonaMode(string value)
         {
-            return NormalizeOnlineAiPersonaModeValue(value) == "fortune_teller"
-                ? OnlineAiPersonaMode.FortuneTeller
-                : OnlineAiPersonaMode.Assistant;
+            string normalized = NormalizeOnlineAiPersonaModeValue(value);
+            if (normalized == "fortune_teller")
+            {
+                return OnlineAiPersonaMode.FortuneTeller;
+            }
+
+            if (normalized == "custom")
+            {
+                return OnlineAiPersonaMode.Custom;
+            }
+
+            return OnlineAiPersonaMode.Assistant;
         }
 
         private string GetCurrentAiModeConfigValue()
@@ -7638,9 +7869,17 @@ namespace Reachy.ControlApp
 
         private string GetOnlineAiPersonaModeConfigValue()
         {
-            return onlineAiPersonaMode == OnlineAiPersonaMode.FortuneTeller
-                ? "fortune_teller"
-                : "assistant";
+            if (onlineAiPersonaMode == OnlineAiPersonaMode.FortuneTeller)
+            {
+                return "fortune_teller";
+            }
+
+            if (onlineAiPersonaMode == OnlineAiPersonaMode.Custom)
+            {
+                return "custom";
+            }
+
+            return "assistant";
         }
 
         private string GetManagedVoiceSttBackend()
@@ -7655,9 +7894,17 @@ namespace Reachy.ControlApp
 
         private string GetOnlineAiPersonaModeLabel()
         {
-            return onlineAiPersonaMode == OnlineAiPersonaMode.FortuneTeller
-                ? "Fortune Teller"
-                : "Assistant";
+            if (onlineAiPersonaMode == OnlineAiPersonaMode.FortuneTeller)
+            {
+                return "Fortune Teller";
+            }
+
+            if (onlineAiPersonaMode == OnlineAiPersonaMode.Custom)
+            {
+                return GetOnlineAiCustomPersonaName();
+            }
+
+            return "Assistant";
         }
 
         private static string NormalizeOnlineAiTtsVoiceValue(string value, string fallback)
@@ -7668,9 +7915,19 @@ namespace Reachy.ControlApp
 
         private string GetOnlineAiTtsVoiceForMode(OnlineAiPersonaMode mode)
         {
-            return mode == OnlineAiPersonaMode.FortuneTeller
-                ? NormalizeOnlineAiTtsVoiceValue(onlineAiFortuneTellerTtsVoice, DefaultFortuneTellerOnlineTtsVoice)
-                : NormalizeOnlineAiTtsVoiceValue(onlineAiAssistantTtsVoice, DefaultOnlineTtsVoice);
+            if (mode == OnlineAiPersonaMode.FortuneTeller)
+            {
+                return NormalizeOnlineAiTtsVoiceValue(
+                    onlineAiFortuneTellerTtsVoice,
+                    DefaultFortuneTellerOnlineTtsVoice);
+            }
+
+            if (mode == OnlineAiPersonaMode.Custom)
+            {
+                return NormalizeOnlineAiTtsVoiceValue(onlineAiCustomTtsVoice, DefaultOnlineTtsVoice);
+            }
+
+            return NormalizeOnlineAiTtsVoiceValue(onlineAiAssistantTtsVoice, DefaultOnlineTtsVoice);
         }
 
         private string GetSelectedOnlineAiTtsVoice()
@@ -7700,6 +7957,11 @@ namespace Reachy.ControlApp
             onlineAiFortuneTellerFutureFocus = Mathf.Clamp01(onlineAiFortuneTellerFutureFocus);
             onlineAiFortuneTellerRobotFutureFocus = Mathf.Clamp01(onlineAiFortuneTellerRobotFutureFocus);
             onlineAiFortuneTellerFactualGrounding = Mathf.Clamp01(onlineAiFortuneTellerFactualGrounding);
+            onlineAiCustomWarmth = Mathf.Clamp01(onlineAiCustomWarmth);
+            onlineAiCustomPlayfulness = Mathf.Clamp01(onlineAiCustomPlayfulness);
+            onlineAiCustomDirectness = Mathf.Clamp01(onlineAiCustomDirectness);
+            onlineAiCustomRoleplayCommitment = Mathf.Clamp01(onlineAiCustomRoleplayCommitment);
+            onlineAiCustomFactualGrounding = Mathf.Clamp01(onlineAiCustomFactualGrounding);
 
             if (string.IsNullOrWhiteSpace(onlineAiAssistantSystemPrompt))
             {
@@ -7716,9 +7978,27 @@ namespace Reachy.ControlApp
                 onlineAiFortuneTellerSystemPrompt = DefaultFortuneTellerOnlineAiSystemPrompt;
             }
 
+            if (string.IsNullOrWhiteSpace(onlineAiCustomPersonaName))
+            {
+                onlineAiCustomPersonaName = DefaultCustomOnlineAiPersonaName;
+            }
+
+            if (string.IsNullOrWhiteSpace(onlineAiCustomPersonaSummary))
+            {
+                onlineAiCustomPersonaSummary = DefaultCustomOnlineAiPersonaSummary;
+            }
+
+            if (string.IsNullOrWhiteSpace(onlineAiCustomSystemPrompt))
+            {
+                onlineAiCustomSystemPrompt = DefaultCustomOnlineAiSystemPrompt;
+            }
+
             onlineAiAssistantTtsVoice = NormalizeOnlineAiTtsVoiceValue(onlineAiAssistantTtsVoice, DefaultOnlineTtsVoice);
             onlineAiFortuneTellerTtsVoice =
                 NormalizeOnlineAiTtsVoiceValue(onlineAiFortuneTellerTtsVoice, DefaultFortuneTellerOnlineTtsVoice);
+            onlineAiCustomTtsVoice = NormalizeOnlineAiTtsVoiceValue(onlineAiCustomTtsVoice, DefaultOnlineTtsVoice);
+            onlineAiCustomPersonaName = onlineAiCustomPersonaName.Trim();
+            onlineAiCustomPersonaSummary = (onlineAiCustomPersonaSummary ?? string.Empty).Trim();
             onlineAiSharedModeInstructions = (onlineAiSharedModeInstructions ?? string.Empty).Trim();
         }
 
@@ -7745,6 +8025,15 @@ namespace Reachy.ControlApp
             builder.Append(onlineAiFortuneTellerFactualGrounding.ToString("F3", CultureInfo.InvariantCulture)).Append('\n');
             builder.Append(onlineAiFortuneTellerSystemPrompt ?? string.Empty).Append('\n');
             builder.Append(onlineAiFortuneTellerTtsVoice ?? string.Empty).Append('\n');
+            builder.Append(onlineAiCustomPersonaName ?? string.Empty).Append('\n');
+            builder.Append(onlineAiCustomPersonaSummary ?? string.Empty).Append('\n');
+            builder.Append(onlineAiCustomWarmth.ToString("F3", CultureInfo.InvariantCulture)).Append('\n');
+            builder.Append(onlineAiCustomPlayfulness.ToString("F3", CultureInfo.InvariantCulture)).Append('\n');
+            builder.Append(onlineAiCustomDirectness.ToString("F3", CultureInfo.InvariantCulture)).Append('\n');
+            builder.Append(onlineAiCustomRoleplayCommitment.ToString("F3", CultureInfo.InvariantCulture)).Append('\n');
+            builder.Append(onlineAiCustomFactualGrounding.ToString("F3", CultureInfo.InvariantCulture)).Append('\n');
+            builder.Append(onlineAiCustomSystemPrompt ?? string.Empty).Append('\n');
+            builder.Append(onlineAiCustomTtsVoice ?? string.Empty).Append('\n');
             builder.Append(onlineAiSystemPrompt ?? string.Empty);
             return builder.ToString();
         }
@@ -7849,12 +8138,21 @@ namespace Reachy.ControlApp
 
         private string BuildEffectiveOnlineAiSystemPrompt()
         {
-            string basePrompt =
-                onlineAiPersonaMode == OnlineAiPersonaMode.FortuneTeller
-                    ? BuildFortuneTellerOnlineAiSystemPrompt()
-                    : (string.IsNullOrWhiteSpace(onlineAiAssistantSystemPrompt)
-                        ? DefaultAssistantOnlineAiSystemPrompt
-                        : onlineAiAssistantSystemPrompt.Trim());
+            string basePrompt;
+            if (onlineAiPersonaMode == OnlineAiPersonaMode.FortuneTeller)
+            {
+                basePrompt = BuildFortuneTellerOnlineAiSystemPrompt();
+            }
+            else if (onlineAiPersonaMode == OnlineAiPersonaMode.Custom)
+            {
+                basePrompt = BuildCustomOnlineAiSystemPrompt();
+            }
+            else
+            {
+                basePrompt = string.IsNullOrWhiteSpace(onlineAiAssistantSystemPrompt)
+                    ? DefaultAssistantOnlineAiSystemPrompt
+                    : onlineAiAssistantSystemPrompt.Trim();
+            }
 
             if (string.IsNullOrWhiteSpace(onlineAiSharedModeInstructions))
             {
@@ -7896,6 +8194,50 @@ namespace Reachy.ControlApp
                 "- Do not end normal conversation replies by inviting the operator to tell Reachy what movement to do next.";
         }
 
+        private string BuildCustomOnlineAiSystemPrompt()
+        {
+            string basePrompt = string.IsNullOrWhiteSpace(onlineAiCustomSystemPrompt)
+                ? DefaultCustomOnlineAiSystemPrompt
+                : onlineAiCustomSystemPrompt.Trim();
+            string personaName = GetOnlineAiCustomPersonaName();
+            string personaSummary = GetOnlineAiCustomPersonaSummary();
+            int warmthPercent = Mathf.RoundToInt(Mathf.Clamp01(onlineAiCustomWarmth) * 100f);
+            int playfulnessPercent = Mathf.RoundToInt(Mathf.Clamp01(onlineAiCustomPlayfulness) * 100f);
+            int directnessPercent = Mathf.RoundToInt(Mathf.Clamp01(onlineAiCustomDirectness) * 100f);
+            int roleplayPercent = Mathf.RoundToInt(Mathf.Clamp01(onlineAiCustomRoleplayCommitment) * 100f);
+            int groundingPercent = Mathf.RoundToInt(Mathf.Clamp01(onlineAiCustomFactualGrounding) * 100f);
+
+            return
+                $"{basePrompt}\n" +
+                "Performance guidance:\n" +
+                $"- Persona name: {personaName}.\n" +
+                $"- Persona brief: {personaSummary}.\n" +
+                $"- Keep warmth, empathy, and social ease at about {warmthPercent}% strength.\n" +
+                $"- Keep playfulness, wit, and color at about {playfulnessPercent}% strength.\n" +
+                $"- Keep directness and concision at about {directnessPercent}% strength.\n" +
+                $"- Commit to the chosen persona voice at about {roleplayPercent}% strength without inventing facts.\n" +
+                $"- Keep factual grounding, honesty, and practical usefulness at about {groundingPercent}% strength.\n" +
+                "- Stay recognizably Reachy even when the persona is stylized or theatrical.\n" +
+                "- Do not proactively talk about assisting with Reachy, being a robot, or movement/control help unless the operator explicitly asks for those topics or the configured persona prompt explicitly makes them central.\n" +
+                "- Answer practical or technical requests clearly before adding extra persona flavor when there is a tradeoff.\n" +
+                "- Do not invent capabilities, world knowledge, or certainty just to stay in character.\n" +
+                "- If the persona calls for speculation or fictional framing, mark it clearly instead of presenting it as fact.";
+        }
+
+        private string GetOnlineAiCustomPersonaName()
+        {
+            return string.IsNullOrWhiteSpace(onlineAiCustomPersonaName)
+                ? DefaultCustomOnlineAiPersonaName
+                : onlineAiCustomPersonaName.Trim();
+        }
+
+        private string GetOnlineAiCustomPersonaSummary()
+        {
+            return string.IsNullOrWhiteSpace(onlineAiCustomPersonaSummary)
+                ? DefaultCustomOnlineAiPersonaSummary
+                : onlineAiCustomPersonaSummary.Trim();
+        }
+
         private string GetOnlineAiPersonaSummary()
         {
             if (onlineAiPersonaMode == OnlineAiPersonaMode.FortuneTeller)
@@ -7905,6 +8247,13 @@ namespace Reachy.ControlApp
                     : onlineAiFortuneTellerMachineName.Trim();
                 return
                     $"{machineName} keeps the robot smart and broadly capable, but leans into fortunes, futures, and the future of robots.";
+            }
+
+            if (onlineAiPersonaMode == OnlineAiPersonaMode.Custom)
+            {
+                return
+                    $"{GetOnlineAiCustomPersonaName()} is the single overwriteable runtime persona slot. " +
+                    $"{GetOnlineAiCustomPersonaSummary()}";
             }
 
             return "Default Reachy assistant behavior. Reachy identifies as itself, can explain the robot, and helps with whatever the user wants assistance with.";
@@ -7919,6 +8268,12 @@ namespace Reachy.ControlApp
                     : onlineAiFortuneTellerMachineName.Trim();
                 return
                     $"{machineName}: I see a future where robots become calmer collaborators, more embodied, more helpful, and a little more conversational than people expect.";
+            }
+
+            if (onlineAiPersonaMode == OnlineAiPersonaMode.Custom)
+            {
+                return
+                    $"{GetOnlineAiCustomPersonaName()}: {GetOnlineAiCustomPersonaSummary()}";
             }
 
             return
@@ -8007,7 +8362,9 @@ namespace Reachy.ControlApp
                 "fortune telling",
                 "fortune telling mode",
                 "fortune mode",
-                "oracle mode");
+                "oracle mode",
+                "madam circuit",
+                "madame circuit");
             if (targetsAssistant == targetsFortuneTeller)
             {
                 return false;
@@ -8019,7 +8376,9 @@ namespace Reachy.ControlApp
                 "fortune teller mode",
                 "fortune telling mode",
                 "fortune mode",
-                "oracle mode");
+                "oracle mode",
+                "madam circuit",
+                "madame circuit");
             bool explicitSwitchVerb = ContainsAnyNormalizedPhrase(
                 normalizedTranscript,
                 "switch",
@@ -8031,6 +8390,7 @@ namespace Reachy.ControlApp
                 "go to",
                 "enter",
                 "act as",
+                "pretend to be",
                 "be a",
                 "be the");
             bool startsLikeCommand = normalizedTranscript.StartsWith(" switch ", StringComparison.Ordinal) ||
@@ -8052,6 +8412,147 @@ namespace Reachy.ControlApp
             return true;
         }
 
+        private static bool TryParseCustomOnlineAiPersonaCommand(
+            string transcript,
+            out string personaDescription,
+            out bool switchToExistingCustomMode)
+        {
+            personaDescription = string.Empty;
+            switchToExistingCustomMode = false;
+
+            string normalizedTranscript = NormalizeVoiceModeSwitchTranscript(transcript);
+            if (string.IsNullOrWhiteSpace(normalizedTranscript))
+            {
+                return false;
+            }
+
+            bool explicitSwitchVerb = ContainsAnyNormalizedPhrase(
+                normalizedTranscript,
+                "switch",
+                "change",
+                "set",
+                "use",
+                "become",
+                "turn into",
+                "go to",
+                "enter",
+                "act as",
+                "act like",
+                "pretend to be",
+                "you are now",
+                "from now on");
+            bool mentionsCustomMode = ContainsAnyNormalizedPhrase(
+                normalizedTranscript,
+                "custom",
+                "custom mode",
+                "custom persona");
+            bool mentionsPersonaChange = ContainsAnyNormalizedPhrase(
+                normalizedTranscript,
+                "persona",
+                "change persona",
+                "set persona",
+                "switch persona",
+                "change your persona",
+                "set your persona",
+                "switch your persona",
+                "personality",
+                "character");
+
+            if (!explicitSwitchVerb && !mentionsPersonaChange && !mentionsCustomMode)
+            {
+                return false;
+            }
+
+            if (TryExtractCustomOnlineAiPersonaDescription(transcript, out personaDescription))
+            {
+                return true;
+            }
+
+            if (mentionsCustomMode && explicitSwitchVerb)
+            {
+                switchToExistingCustomMode = true;
+                return true;
+            }
+
+            if (mentionsPersonaChange && explicitSwitchVerb)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool TryExtractCustomOnlineAiPersonaDescription(
+            string transcript,
+            out string personaDescription)
+        {
+            personaDescription = string.Empty;
+            if (string.IsNullOrWhiteSpace(transcript))
+            {
+                return false;
+            }
+
+            string[] patterns =
+            {
+                @"\breachy[\s,]+you are now[\s:,-]*(.+)$",
+                @"\byou are now[\s:,-]*(.+)$",
+                @"\bfrom now on[\s:,-]*(?:you(?:'re| are)\s+)?(.+)$",
+                @"\bact as if you were[\s:,-]*(.+)$",
+                @"\bact as though you were[\s:,-]*(.+)$",
+                @"\bact as you were[\s:,-]*(.+)$",
+                @"\bact as[\s:,-]*(.+)$",
+                @"\bact like[\s:,-]*(.+)$",
+                @"\bpretend to be[\s:,-]*(.+)$",
+                @"\bbecome[\s:,-]*(.+)$",
+                @"\b(?:change|set|switch)(?:\s+your)?\s+(?:persona|personality|character)\s+(?:to|into|as)[\s:,-]*(.+)$",
+                @"\b(?:change|set|switch)\s+to\s+custom(?:\s+mode)?\s+(?:and\s+(?:be|act\s+as)|as)[\s:,-]*(.+)$"
+            };
+
+            for (int i = 0; i < patterns.Length; i++)
+            {
+                Match match = Regex.Match(
+                    transcript,
+                    patterns[i],
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+                if (!match.Success || match.Groups.Count < 2)
+                {
+                    continue;
+                }
+
+                string candidate = SanitizeCustomOnlineAiPersonaDescription(match.Groups[1].Value);
+                if (string.IsNullOrWhiteSpace(candidate))
+                {
+                    continue;
+                }
+
+                personaDescription = candidate;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static string SanitizeCustomOnlineAiPersonaDescription(string value)
+        {
+            string trimmed = (value ?? string.Empty).Trim();
+            while (!string.IsNullOrWhiteSpace(trimmed) &&
+                   (trimmed[0] == ':' || trimmed[0] == ',' || trimmed[0] == '-' || trimmed[0] == ';'))
+            {
+                trimmed = trimmed.Substring(1).TrimStart();
+            }
+
+            while (!string.IsNullOrWhiteSpace(trimmed) &&
+                   (trimmed.EndsWith(".", StringComparison.Ordinal) ||
+                    trimmed.EndsWith("!", StringComparison.Ordinal) ||
+                    trimmed.EndsWith("?", StringComparison.Ordinal) ||
+                    trimmed.EndsWith(";", StringComparison.Ordinal)))
+            {
+                trimmed = trimmed.Substring(0, trimmed.Length - 1).TrimEnd();
+            }
+
+            return trimmed;
+        }
+
         private OnlineAiModeUpdatePayload BuildOnlineAiModeUpdatePayload()
         {
             RefreshEffectiveOnlineAiSystemPrompt();
@@ -8066,6 +8567,38 @@ namespace Reachy.ControlApp
                 online_tts_voice = GetSelectedOnlineAiTtsVoice(),
                 online_ai_allow_voice_persona_switch = onlineAiAllowVoicePersonaSwitch
             };
+        }
+
+        private OnlineAiCustomPersonaPayload BuildOnlineAiCustomPersonaPayload(
+            string spokenText,
+            string personaDescription)
+        {
+            return new OnlineAiCustomPersonaPayload
+            {
+                spoken_text = spokenText ?? string.Empty,
+                persona_request = personaDescription ?? string.Empty
+            };
+        }
+
+        private void ApplyGeneratedOnlineAiCustomPersonaProfile(OnlineAiCustomPersonaResult result)
+        {
+            onlineAiPersonaMode = OnlineAiPersonaMode.Custom;
+            onlineAiCustomPersonaName = string.IsNullOrWhiteSpace(result.PersonaName)
+                ? DefaultCustomOnlineAiPersonaName
+                : result.PersonaName.Trim();
+            onlineAiCustomPersonaSummary = string.IsNullOrWhiteSpace(result.PersonaSummary)
+                ? DefaultCustomOnlineAiPersonaSummary
+                : result.PersonaSummary.Trim();
+            onlineAiCustomTtsVoice = NormalizeOnlineAiTtsVoiceValue(result.TtsVoice, DefaultOnlineTtsVoice);
+            onlineAiCustomWarmth = Mathf.Clamp01(result.Warmth);
+            onlineAiCustomPlayfulness = Mathf.Clamp01(result.Playfulness);
+            onlineAiCustomDirectness = Mathf.Clamp01(result.Directness);
+            onlineAiCustomRoleplayCommitment = Mathf.Clamp01(result.RoleplayCommitment);
+            onlineAiCustomFactualGrounding = Mathf.Clamp01(result.FactualGrounding);
+            onlineAiCustomSystemPrompt = string.IsNullOrWhiteSpace(result.SystemPrompt)
+                ? DefaultCustomOnlineAiSystemPrompt
+                : result.SystemPrompt.Trim();
+            RefreshEffectiveOnlineAiSystemPrompt();
         }
 
         private bool TryApplyOnlineAiModeToRunningSidecar(out string message)
@@ -8149,12 +8682,94 @@ namespace Reachy.ControlApp
                 !IsOnlineAiModeSelected() ||
                 !onlineAiAllowVoicePersonaSwitch ||
                 incomingIntent == null ||
-                !incomingIntent.transcript_is_final ||
-                !TryParseRequestedOnlineAiPersonaMode(incomingIntent.spoken_text, out OnlineAiPersonaMode requestedMode))
+                !incomingIntent.transcript_is_final)
             {
                 return false;
             }
 
+            if (TryParseRequestedOnlineAiPersonaMode(incomingIntent.spoken_text, out OnlineAiPersonaMode requestedMode))
+            {
+                return CompleteOnlineAiPersonaVoiceCommand(
+                    requestedMode,
+                    "Handled online AI persona switch from spoken command.");
+            }
+
+            if (!TryParseCustomOnlineAiPersonaCommand(
+                    incomingIntent.spoken_text,
+                    out string personaDescription,
+                    out bool switchToExistingCustomMode))
+            {
+                return false;
+            }
+
+            if (switchToExistingCustomMode)
+            {
+                return CompleteOnlineAiPersonaVoiceCommand(
+                    OnlineAiPersonaMode.Custom,
+                    "Handled online AI custom mode switch from spoken command.");
+            }
+
+            if (string.IsNullOrWhiteSpace(personaDescription))
+            {
+                string clarificationMessage =
+                    "Describe the custom persona after the switch command, for example: Reachy, you are now a pirate captain.";
+                _voiceLastParserMessage = clarificationMessage;
+                _voiceLastIntentSummary = clarificationMessage;
+                _voiceLastActionResult = clarificationMessage;
+                QueueVoiceFeedback(clarificationMessage, interrupt: false, bypassRateLimit: true);
+                return true;
+            }
+
+            string intentEndpoint = string.IsNullOrWhiteSpace(localAiAgentEndpoint)
+                ? VoiceAgentBridge.DefaultEndpoint
+                : localAiAgentEndpoint.Trim();
+            string endpoint = BuildOnlineAiCustomPersonaEndpoint(intentEndpoint);
+            if (string.IsNullOrWhiteSpace(endpoint))
+            {
+                string missingEndpointMessage =
+                    "Custom persona generation failed because the sidecar custom-persona endpoint is unavailable.";
+                _voiceLastParserMessage = missingEndpointMessage;
+                _voiceLastIntentSummary = missingEndpointMessage;
+                _voiceLastActionResult = missingEndpointMessage;
+                QueueVoiceFeedback(missingEndpointMessage, interrupt: false, bypassRateLimit: true);
+                return true;
+            }
+
+            int timeoutMs = Mathf.Clamp(
+                Mathf.RoundToInt((Mathf.Max(onlineAiTimeoutSeconds, 10f) + 20f) * 1000f),
+                12000,
+                90000);
+            OnlineAiCustomPersonaResult generatedProfile = SendOnlineAiCustomPersonaRequest(
+                endpoint,
+                timeoutMs,
+                BuildOnlineAiCustomPersonaPayload(incomingIntent.spoken_text, personaDescription));
+            if (!generatedProfile.Success)
+            {
+                string generationFailure = string.IsNullOrWhiteSpace(generatedProfile.Error)
+                    ? "Custom persona generation failed."
+                    : $"Custom persona generation failed: {generatedProfile.Error}";
+                _voiceLastParserMessage = generationFailure;
+                _voiceLastIntentSummary = generationFailure;
+                _voiceLastActionResult = generationFailure;
+                QueueVoiceFeedback(generationFailure, interrupt: false, bypassRateLimit: true);
+                return true;
+            }
+
+            ApplyGeneratedOnlineAiCustomPersonaProfile(generatedProfile);
+            string confirmationMessage = string.IsNullOrWhiteSpace(generatedProfile.ConfirmationMessage)
+                ? $"Custom mode updated: {GetOnlineAiPersonaModeLabel()}."
+                : generatedProfile.ConfirmationMessage.Trim();
+            return CompleteOnlineAiPersonaVoiceCommand(
+                OnlineAiPersonaMode.Custom,
+                "Handled online AI custom persona generation from spoken command.",
+                confirmationMessage);
+        }
+
+        private bool CompleteOnlineAiPersonaVoiceCommand(
+            OnlineAiPersonaMode requestedMode,
+            string parserMessage,
+            string confirmationMessageOverride = null)
+        {
             OnlineAiPersonaMode previousMode = onlineAiPersonaMode;
             onlineAiPersonaMode = requestedMode;
             RefreshEffectiveOnlineAiSystemPrompt();
@@ -8168,7 +8783,11 @@ namespace Reachy.ControlApp
             }
 
             string resultMessage;
-            if (previousMode == requestedMode)
+            if (!string.IsNullOrWhiteSpace(confirmationMessageOverride))
+            {
+                resultMessage = confirmationMessageOverride.Trim();
+            }
+            else if (previousMode == requestedMode)
             {
                 resultMessage = $"Already in {GetOnlineAiPersonaModeLabel()} mode.";
             }
@@ -8190,7 +8809,7 @@ namespace Reachy.ControlApp
                 resultMessage += $" Running sidecar update failed: {runtimeUpdateMessage}";
             }
 
-            _voiceLastParserMessage = "Handled online AI persona switch from spoken command.";
+            _voiceLastParserMessage = parserMessage;
             _voiceLastIntentSummary = resultMessage;
             _voiceLastActionResult = resultMessage;
             QueueVoiceFeedback(resultMessage, interrupt: false, bypassRateLimit: true);
@@ -8209,6 +8828,18 @@ namespace Reachy.ControlApp
                 onlineAiFortuneTellerFactualGrounding = DefaultFortuneTellerFactualGrounding;
                 onlineAiFortuneTellerSystemPrompt = DefaultFortuneTellerOnlineAiSystemPrompt;
                 onlineAiFortuneTellerTtsVoice = DefaultFortuneTellerOnlineTtsVoice;
+            }
+            else if (modeToReset == OnlineAiPersonaMode.Custom)
+            {
+                onlineAiCustomPersonaName = DefaultCustomOnlineAiPersonaName;
+                onlineAiCustomPersonaSummary = DefaultCustomOnlineAiPersonaSummary;
+                onlineAiCustomWarmth = DefaultCustomOnlineAiWarmth;
+                onlineAiCustomPlayfulness = DefaultCustomOnlineAiPlayfulness;
+                onlineAiCustomDirectness = DefaultCustomOnlineAiDirectness;
+                onlineAiCustomRoleplayCommitment = DefaultCustomOnlineAiRoleplayCommitment;
+                onlineAiCustomFactualGrounding = DefaultCustomOnlineAiFactualGrounding;
+                onlineAiCustomSystemPrompt = DefaultCustomOnlineAiSystemPrompt;
+                onlineAiCustomTtsVoice = DefaultOnlineTtsVoice;
             }
             else
             {
@@ -10793,6 +11424,33 @@ namespace Reachy.ControlApp
                 bool hasOnlineFortuneTellerTtsVoiceField = json.IndexOf(
                     "\"online_ai_fortune_teller_tts_voice\"",
                     StringComparison.OrdinalIgnoreCase) >= 0;
+                bool hasOnlineCustomPersonaNameField = json.IndexOf(
+                    "\"online_ai_custom_persona_name\"",
+                    StringComparison.OrdinalIgnoreCase) >= 0;
+                bool hasOnlineCustomPersonaSummaryField = json.IndexOf(
+                    "\"online_ai_custom_persona_summary\"",
+                    StringComparison.OrdinalIgnoreCase) >= 0;
+                bool hasOnlineCustomWarmthField = json.IndexOf(
+                    "\"online_ai_custom_warmth\"",
+                    StringComparison.OrdinalIgnoreCase) >= 0;
+                bool hasOnlineCustomPlayfulnessField = json.IndexOf(
+                    "\"online_ai_custom_playfulness\"",
+                    StringComparison.OrdinalIgnoreCase) >= 0;
+                bool hasOnlineCustomDirectnessField = json.IndexOf(
+                    "\"online_ai_custom_directness\"",
+                    StringComparison.OrdinalIgnoreCase) >= 0;
+                bool hasOnlineCustomRoleplayCommitmentField = json.IndexOf(
+                    "\"online_ai_custom_roleplay_commitment\"",
+                    StringComparison.OrdinalIgnoreCase) >= 0;
+                bool hasOnlineCustomFactualGroundingField = json.IndexOf(
+                    "\"online_ai_custom_factual_grounding\"",
+                    StringComparison.OrdinalIgnoreCase) >= 0;
+                bool hasOnlineCustomSystemPromptField = json.IndexOf(
+                    "\"online_ai_custom_system_prompt\"",
+                    StringComparison.OrdinalIgnoreCase) >= 0;
+                bool hasOnlineCustomTtsVoiceField = json.IndexOf(
+                    "\"online_ai_custom_tts_voice\"",
+                    StringComparison.OrdinalIgnoreCase) >= 0;
 
                 VoiceAgentConfig config = JsonUtility.FromJson<VoiceAgentConfig>(json);
                 if (config == null)
@@ -10994,6 +11652,38 @@ namespace Reachy.ControlApp
                         config.online_ai_fortune_teller_tts_voice,
                         DefaultFortuneTellerOnlineTtsVoice)
                     : DefaultFortuneTellerOnlineTtsVoice;
+                onlineAiCustomPersonaName = hasOnlineCustomPersonaNameField &&
+                                            !string.IsNullOrWhiteSpace(config.online_ai_custom_persona_name)
+                    ? config.online_ai_custom_persona_name.Trim()
+                    : DefaultCustomOnlineAiPersonaName;
+                onlineAiCustomPersonaSummary = hasOnlineCustomPersonaSummaryField &&
+                                               !string.IsNullOrWhiteSpace(config.online_ai_custom_persona_summary)
+                    ? config.online_ai_custom_persona_summary.Trim()
+                    : DefaultCustomOnlineAiPersonaSummary;
+                onlineAiCustomWarmth = hasOnlineCustomWarmthField
+                    ? Mathf.Clamp01(config.online_ai_custom_warmth)
+                    : DefaultCustomOnlineAiWarmth;
+                onlineAiCustomPlayfulness = hasOnlineCustomPlayfulnessField
+                    ? Mathf.Clamp01(config.online_ai_custom_playfulness)
+                    : DefaultCustomOnlineAiPlayfulness;
+                onlineAiCustomDirectness = hasOnlineCustomDirectnessField
+                    ? Mathf.Clamp01(config.online_ai_custom_directness)
+                    : DefaultCustomOnlineAiDirectness;
+                onlineAiCustomRoleplayCommitment = hasOnlineCustomRoleplayCommitmentField
+                    ? Mathf.Clamp01(config.online_ai_custom_roleplay_commitment)
+                    : DefaultCustomOnlineAiRoleplayCommitment;
+                onlineAiCustomFactualGrounding = hasOnlineCustomFactualGroundingField
+                    ? Mathf.Clamp01(config.online_ai_custom_factual_grounding)
+                    : DefaultCustomOnlineAiFactualGrounding;
+                onlineAiCustomSystemPrompt = hasOnlineCustomSystemPromptField &&
+                                             !string.IsNullOrWhiteSpace(config.online_ai_custom_system_prompt)
+                    ? config.online_ai_custom_system_prompt
+                    : DefaultCustomOnlineAiSystemPrompt;
+                onlineAiCustomTtsVoice = hasOnlineCustomTtsVoiceField
+                    ? NormalizeOnlineAiTtsVoiceValue(
+                        config.online_ai_custom_tts_voice,
+                        DefaultOnlineTtsVoice)
+                    : DefaultOnlineTtsVoice;
                 RefreshEffectiveOnlineAiSystemPrompt();
                 ResetOnlineAiPersonaLiveApplyTracking();
                 onlineAiAllowDirectJointCommands = hasOnlineAllowDirectJointCommandsField
@@ -11160,6 +11850,24 @@ namespace Reachy.ControlApp
                 config.online_ai_fortune_teller_tts_voice = NormalizeOnlineAiTtsVoiceValue(
                     onlineAiFortuneTellerTtsVoice,
                     DefaultFortuneTellerOnlineTtsVoice);
+                config.online_ai_custom_persona_name = string.IsNullOrWhiteSpace(onlineAiCustomPersonaName)
+                    ? DefaultCustomOnlineAiPersonaName
+                    : onlineAiCustomPersonaName.Trim();
+                config.online_ai_custom_persona_summary = string.IsNullOrWhiteSpace(onlineAiCustomPersonaSummary)
+                    ? DefaultCustomOnlineAiPersonaSummary
+                    : onlineAiCustomPersonaSummary.Trim();
+                config.online_ai_custom_warmth = Mathf.Clamp01(onlineAiCustomWarmth);
+                config.online_ai_custom_playfulness = Mathf.Clamp01(onlineAiCustomPlayfulness);
+                config.online_ai_custom_directness = Mathf.Clamp01(onlineAiCustomDirectness);
+                config.online_ai_custom_roleplay_commitment = Mathf.Clamp01(onlineAiCustomRoleplayCommitment);
+                config.online_ai_custom_factual_grounding = Mathf.Clamp01(onlineAiCustomFactualGrounding);
+                config.online_ai_custom_system_prompt =
+                    string.IsNullOrWhiteSpace(onlineAiCustomSystemPrompt)
+                        ? DefaultCustomOnlineAiSystemPrompt
+                        : onlineAiCustomSystemPrompt.Trim();
+                config.online_ai_custom_tts_voice = NormalizeOnlineAiTtsVoiceValue(
+                    onlineAiCustomTtsVoice,
+                    DefaultOnlineTtsVoice);
                 config.online_ai_system_prompt = string.IsNullOrWhiteSpace(onlineAiSystemPrompt)
                     ? DefaultAssistantOnlineAiSystemPrompt
                     : onlineAiSystemPrompt;
@@ -11358,6 +12066,24 @@ namespace Reachy.ControlApp
                 config.online_ai_fortune_teller_tts_voice = NormalizeOnlineAiTtsVoiceValue(
                     onlineAiFortuneTellerTtsVoice,
                     DefaultFortuneTellerOnlineTtsVoice);
+                config.online_ai_custom_persona_name = string.IsNullOrWhiteSpace(onlineAiCustomPersonaName)
+                    ? DefaultCustomOnlineAiPersonaName
+                    : onlineAiCustomPersonaName.Trim();
+                config.online_ai_custom_persona_summary = string.IsNullOrWhiteSpace(onlineAiCustomPersonaSummary)
+                    ? DefaultCustomOnlineAiPersonaSummary
+                    : onlineAiCustomPersonaSummary.Trim();
+                config.online_ai_custom_warmth = Mathf.Clamp01(onlineAiCustomWarmth);
+                config.online_ai_custom_playfulness = Mathf.Clamp01(onlineAiCustomPlayfulness);
+                config.online_ai_custom_directness = Mathf.Clamp01(onlineAiCustomDirectness);
+                config.online_ai_custom_roleplay_commitment = Mathf.Clamp01(onlineAiCustomRoleplayCommitment);
+                config.online_ai_custom_factual_grounding = Mathf.Clamp01(onlineAiCustomFactualGrounding);
+                config.online_ai_custom_system_prompt =
+                    string.IsNullOrWhiteSpace(onlineAiCustomSystemPrompt)
+                        ? DefaultCustomOnlineAiSystemPrompt
+                        : onlineAiCustomSystemPrompt.Trim();
+                config.online_ai_custom_tts_voice = NormalizeOnlineAiTtsVoiceValue(
+                    onlineAiCustomTtsVoice,
+                    DefaultOnlineTtsVoice);
                 config.online_ai_system_prompt = string.IsNullOrWhiteSpace(onlineAiSystemPrompt)
                     ? DefaultAssistantOnlineAiSystemPrompt
                     : onlineAiSystemPrompt;
@@ -11450,6 +12176,33 @@ namespace Reachy.ControlApp
                     StringComparison.OrdinalIgnoreCase) >= 0;
                 bool hasOnlineFortuneTellerTtsVoiceField = json.IndexOf(
                     "\"online_ai_fortune_teller_tts_voice\"",
+                    StringComparison.OrdinalIgnoreCase) >= 0;
+                bool hasOnlineCustomPersonaNameField = json.IndexOf(
+                    "\"online_ai_custom_persona_name\"",
+                    StringComparison.OrdinalIgnoreCase) >= 0;
+                bool hasOnlineCustomPersonaSummaryField = json.IndexOf(
+                    "\"online_ai_custom_persona_summary\"",
+                    StringComparison.OrdinalIgnoreCase) >= 0;
+                bool hasOnlineCustomWarmthField = json.IndexOf(
+                    "\"online_ai_custom_warmth\"",
+                    StringComparison.OrdinalIgnoreCase) >= 0;
+                bool hasOnlineCustomPlayfulnessField = json.IndexOf(
+                    "\"online_ai_custom_playfulness\"",
+                    StringComparison.OrdinalIgnoreCase) >= 0;
+                bool hasOnlineCustomDirectnessField = json.IndexOf(
+                    "\"online_ai_custom_directness\"",
+                    StringComparison.OrdinalIgnoreCase) >= 0;
+                bool hasOnlineCustomRoleplayCommitmentField = json.IndexOf(
+                    "\"online_ai_custom_roleplay_commitment\"",
+                    StringComparison.OrdinalIgnoreCase) >= 0;
+                bool hasOnlineCustomFactualGroundingField = json.IndexOf(
+                    "\"online_ai_custom_factual_grounding\"",
+                    StringComparison.OrdinalIgnoreCase) >= 0;
+                bool hasOnlineCustomSystemPromptField = json.IndexOf(
+                    "\"online_ai_custom_system_prompt\"",
+                    StringComparison.OrdinalIgnoreCase) >= 0;
+                bool hasOnlineCustomTtsVoiceField = json.IndexOf(
+                    "\"online_ai_custom_tts_voice\"",
                     StringComparison.OrdinalIgnoreCase) >= 0;
 
                 LocalVoiceAgentSidecarConfig config =
@@ -11551,6 +12304,38 @@ namespace Reachy.ControlApp
                         config.online_ai_fortune_teller_tts_voice,
                         DefaultFortuneTellerOnlineTtsVoice)
                     : DefaultFortuneTellerOnlineTtsVoice;
+                onlineAiCustomPersonaName = hasOnlineCustomPersonaNameField &&
+                                            !string.IsNullOrWhiteSpace(config.online_ai_custom_persona_name)
+                    ? config.online_ai_custom_persona_name.Trim()
+                    : DefaultCustomOnlineAiPersonaName;
+                onlineAiCustomPersonaSummary = hasOnlineCustomPersonaSummaryField &&
+                                               !string.IsNullOrWhiteSpace(config.online_ai_custom_persona_summary)
+                    ? config.online_ai_custom_persona_summary.Trim()
+                    : DefaultCustomOnlineAiPersonaSummary;
+                onlineAiCustomWarmth = hasOnlineCustomWarmthField
+                    ? Mathf.Clamp01(config.online_ai_custom_warmth)
+                    : DefaultCustomOnlineAiWarmth;
+                onlineAiCustomPlayfulness = hasOnlineCustomPlayfulnessField
+                    ? Mathf.Clamp01(config.online_ai_custom_playfulness)
+                    : DefaultCustomOnlineAiPlayfulness;
+                onlineAiCustomDirectness = hasOnlineCustomDirectnessField
+                    ? Mathf.Clamp01(config.online_ai_custom_directness)
+                    : DefaultCustomOnlineAiDirectness;
+                onlineAiCustomRoleplayCommitment = hasOnlineCustomRoleplayCommitmentField
+                    ? Mathf.Clamp01(config.online_ai_custom_roleplay_commitment)
+                    : DefaultCustomOnlineAiRoleplayCommitment;
+                onlineAiCustomFactualGrounding = hasOnlineCustomFactualGroundingField
+                    ? Mathf.Clamp01(config.online_ai_custom_factual_grounding)
+                    : DefaultCustomOnlineAiFactualGrounding;
+                onlineAiCustomSystemPrompt = hasOnlineCustomSystemPromptField &&
+                                             !string.IsNullOrWhiteSpace(config.online_ai_custom_system_prompt)
+                    ? config.online_ai_custom_system_prompt
+                    : DefaultCustomOnlineAiSystemPrompt;
+                onlineAiCustomTtsVoice = hasOnlineCustomTtsVoiceField
+                    ? NormalizeOnlineAiTtsVoiceValue(
+                        config.online_ai_custom_tts_voice,
+                        DefaultOnlineTtsVoice)
+                    : DefaultOnlineTtsVoice;
                 RefreshEffectiveOnlineAiSystemPrompt();
                 ResetOnlineAiPersonaLiveApplyTracking();
                 onlineAiAllowDirectJointCommands = config.online_ai_allow_direct_joint_commands;
@@ -14347,7 +15132,9 @@ namespace Reachy.ControlApp
                 RefreshEffectiveOnlineAiSystemPrompt();
                 PlayUiModeAudioCue(onlineAiPersonaMode == OnlineAiPersonaMode.FortuneTeller
                     ? UiModeAudioCue.FortuneTellerPersonaSelected
-                    : UiModeAudioCue.AssistantPersonaSelected);
+                    : (onlineAiPersonaMode == OnlineAiPersonaMode.Custom
+                        ? UiModeAudioCue.CustomPersonaSelected
+                        : UiModeAudioCue.AssistantPersonaSelected));
                 applyImmediately = true;
                 announceSuccess = true;
             }
@@ -14365,12 +15152,12 @@ namespace Reachy.ControlApp
             bool previousAllowVoicePersonaSwitch = onlineAiAllowVoicePersonaSwitch;
             onlineAiAllowVoicePersonaSwitch = GUILayout.Toggle(
                 onlineAiAllowVoicePersonaSwitch,
-                "Allow spoken switching between Assistant and Fortune Teller");
+                "Allow spoken switching between Assistant, Fortune Teller, and Custom");
             if (onlineAiAllowVoicePersonaSwitch != previousAllowVoicePersonaSwitch)
             {
                 applyImmediately = true;
             }
-            GUILayout.Label("Examples: 'switch to fortune teller mode' or 'switch to assistant mode'.");
+            GUILayout.Label("Examples: 'switch to fortune teller mode', 'switch to custom mode', or 'Reachy, you are now a pirate captain'.");
             onlineAiSharedModeInstructions = GUILayout.TextArea(
                 onlineAiSharedModeInstructions,
                 GUILayout.MinHeight(72f));
@@ -14428,6 +15215,54 @@ namespace Reachy.ControlApp
                 GUILayout.Label("Base prompt");
                 onlineAiFortuneTellerSystemPrompt = GUILayout.TextArea(
                     onlineAiFortuneTellerSystemPrompt,
+                    GUILayout.MinHeight(170f));
+                GUILayout.EndVertical();
+            }
+            else if (onlineAiPersonaMode == OnlineAiPersonaMode.Custom)
+            {
+                GUILayout.BeginVertical(GUI.skin.box);
+                GUILayout.Label("Custom tuning");
+                GUILayout.Label("This single slot can be edited here or overwritten live by a spoken persona request.");
+
+                GUILayout.BeginHorizontal();
+                GUILayout.Label("Name", GUILayout.Width(100f));
+                onlineAiCustomPersonaName = GUILayout.TextField(onlineAiCustomPersonaName);
+                GUILayout.EndHorizontal();
+
+                if (DrawOnlineAiVoiceDropdown(
+                    "custom",
+                    "Voice",
+                    onlineAiCustomTtsVoice,
+                    out string selectedCustomVoice))
+                {
+                    onlineAiCustomTtsVoice = selectedCustomVoice;
+                    applyImmediately = true;
+                }
+
+                GUILayout.Label("Persona brief");
+                onlineAiCustomPersonaSummary = GUILayout.TextArea(
+                    onlineAiCustomPersonaSummary,
+                    GUILayout.MinHeight(70f));
+
+                onlineAiCustomWarmth = DrawAiModeTuningSlider(
+                    "Warmth",
+                    onlineAiCustomWarmth);
+                onlineAiCustomPlayfulness = DrawAiModeTuningSlider(
+                    "Playfulness",
+                    onlineAiCustomPlayfulness);
+                onlineAiCustomDirectness = DrawAiModeTuningSlider(
+                    "Directness",
+                    onlineAiCustomDirectness);
+                onlineAiCustomRoleplayCommitment = DrawAiModeTuningSlider(
+                    "In-character",
+                    onlineAiCustomRoleplayCommitment);
+                onlineAiCustomFactualGrounding = DrawAiModeTuningSlider(
+                    "Factual grounding",
+                    onlineAiCustomFactualGrounding);
+
+                GUILayout.Label("Base prompt");
+                onlineAiCustomSystemPrompt = GUILayout.TextArea(
+                    onlineAiCustomSystemPrompt,
                     GUILayout.MinHeight(170f));
                 GUILayout.EndVertical();
             }

@@ -16,6 +16,7 @@ Testing endpoints:
 - POST /listening
 - POST /microphone-source
 - POST /online-ai-mode
+- POST /online-ai-custom-persona
 - POST /online-reply-audio
 """
 
@@ -104,6 +105,21 @@ DEFAULT_ONLINE_AI_API_KEY_ENV_VAR = "OPENAI_API_KEY"
 DEFAULT_TTS_MODE = "online"
 DEFAULT_ONLINE_TTS_MODEL = "gpt-4o-mini-tts"
 DEFAULT_ONLINE_TTS_VOICE = "alloy"
+ONLINE_TTS_VOICE_OPTIONS = (
+    "alloy",
+    "ash",
+    "ballad",
+    "coral",
+    "echo",
+    "fable",
+    "nova",
+    "onyx",
+    "sage",
+    "shimmer",
+    "verse",
+    "marin",
+    "cedar",
+)
 DEFAULT_ONLINE_AI_ASSISTANT_TTS_VOICE = DEFAULT_ONLINE_TTS_VOICE
 DEFAULT_ONLINE_AI_FORTUNE_TELLER_TTS_VOICE = "shimmer"
 DEFAULT_ONLINE_AI_MAX_OUTPUT_TOKENS = 480
@@ -125,6 +141,20 @@ DEFAULT_ONLINE_AI_FORTUNE_TELLER_SYSTEM_PROMPT = (
     "but you naturally lean toward fortunes, futures, possibilities, long-term trends, and the future of robots. "
     "Never pretend uncertainty is certainty. When you speculate, say so. When the operator needs concrete facts "
     "or practical help, answer directly first and then add only a brief fortune-teller flourish when it fits."
+)
+DEFAULT_ONLINE_AI_CUSTOM_PERSONA_NAME = "Custom Persona"
+DEFAULT_ONLINE_AI_CUSTOM_PERSONA_SUMMARY = (
+    "A manually tuned runtime persona for Reachy. Overwrite it with a new spoken persona request when needed."
+)
+DEFAULT_ONLINE_AI_CUSTOM_WARMTH = 0.72
+DEFAULT_ONLINE_AI_CUSTOM_PLAYFULNESS = 0.58
+DEFAULT_ONLINE_AI_CUSTOM_DIRECTNESS = 0.66
+DEFAULT_ONLINE_AI_CUSTOM_ROLEPLAY_COMMITMENT = 0.68
+DEFAULT_ONLINE_AI_CUSTOM_FACTUAL_GROUNDING = 0.86
+DEFAULT_ONLINE_AI_CUSTOM_SYSTEM_PROMPT = (
+    "You are Reachy performing with a configurable custom persona. Stay helpful, expressive, and operator-friendly, "
+    "while remaining honest about uncertainty and real robot limitations. Do not proactively bring up Reachy assistance, "
+    "robot embodiment, or movement/control help unless the operator asks for it or the persona itself explicitly calls for it."
 )
 DEFAULT_OPENAI_TRANSCRIBE_LANGUAGE_HINTS = ["en", "fi"]
 DEFAULT_ONLINE_CUSTOM_POSE_MAX_JOINTS = len(DEFAULT_JOINTS)
@@ -861,6 +891,15 @@ def load_config(path: Path) -> dict:
         "online_ai_fortune_teller_factual_grounding": DEFAULT_ONLINE_AI_FORTUNE_TELLER_FACTUAL_GROUNDING,
         "online_ai_fortune_teller_system_prompt": DEFAULT_ONLINE_AI_FORTUNE_TELLER_SYSTEM_PROMPT,
         "online_ai_fortune_teller_tts_voice": DEFAULT_ONLINE_AI_FORTUNE_TELLER_TTS_VOICE,
+        "online_ai_custom_persona_name": DEFAULT_ONLINE_AI_CUSTOM_PERSONA_NAME,
+        "online_ai_custom_persona_summary": DEFAULT_ONLINE_AI_CUSTOM_PERSONA_SUMMARY,
+        "online_ai_custom_warmth": DEFAULT_ONLINE_AI_CUSTOM_WARMTH,
+        "online_ai_custom_playfulness": DEFAULT_ONLINE_AI_CUSTOM_PLAYFULNESS,
+        "online_ai_custom_directness": DEFAULT_ONLINE_AI_CUSTOM_DIRECTNESS,
+        "online_ai_custom_roleplay_commitment": DEFAULT_ONLINE_AI_CUSTOM_ROLEPLAY_COMMITMENT,
+        "online_ai_custom_factual_grounding": DEFAULT_ONLINE_AI_CUSTOM_FACTUAL_GROUNDING,
+        "online_ai_custom_system_prompt": DEFAULT_ONLINE_AI_CUSTOM_SYSTEM_PROMPT,
+        "online_ai_custom_tts_voice": DEFAULT_ONLINE_TTS_VOICE,
         "online_ai_system_prompt": DEFAULT_ONLINE_AI_ASSISTANT_SYSTEM_PROMPT,
         "online_ai_allow_direct_joint_commands": True,
         "online_ai_require_motion_confirmation": False,
@@ -1020,11 +1059,8 @@ def load_config(path: Path) -> dict:
     config["online_ai_max_output_tokens"] = max(
         32,
         min(2048, int(config.get("online_ai_max_output_tokens", DEFAULT_ONLINE_AI_MAX_OUTPUT_TOKENS))))
-    config["online_ai_persona_mode"] = (
-        str(config.get("online_ai_persona_mode", DEFAULT_ONLINE_AI_PERSONA_MODE)).strip().lower()
-        or DEFAULT_ONLINE_AI_PERSONA_MODE)
-    if config["online_ai_persona_mode"] not in ("assistant", "fortune_teller"):
-        config["online_ai_persona_mode"] = DEFAULT_ONLINE_AI_PERSONA_MODE
+    config["online_ai_persona_mode"] = normalize_online_ai_persona_mode(
+        config.get("online_ai_persona_mode", DEFAULT_ONLINE_AI_PERSONA_MODE))
     config["online_ai_assistant_tts_voice"] = (
         str(config.get("online_ai_assistant_tts_voice", DEFAULT_ONLINE_AI_ASSISTANT_TTS_VOICE)).strip().lower()
         or DEFAULT_ONLINE_AI_ASSISTANT_TTS_VOICE)
@@ -1103,9 +1139,47 @@ def load_config(path: Path) -> dict:
     config["online_ai_fortune_teller_tts_voice"] = (
         str(config.get("online_ai_fortune_teller_tts_voice", DEFAULT_ONLINE_AI_FORTUNE_TELLER_TTS_VOICE)).strip().lower()
         or DEFAULT_ONLINE_AI_FORTUNE_TELLER_TTS_VOICE)
+    config["online_ai_custom_persona_name"] = (
+        str(config.get("online_ai_custom_persona_name", DEFAULT_ONLINE_AI_CUSTOM_PERSONA_NAME)).strip()
+        or DEFAULT_ONLINE_AI_CUSTOM_PERSONA_NAME)
+    config["online_ai_custom_persona_summary"] = (
+        str(config.get("online_ai_custom_persona_summary", DEFAULT_ONLINE_AI_CUSTOM_PERSONA_SUMMARY)).strip()
+        or DEFAULT_ONLINE_AI_CUSTOM_PERSONA_SUMMARY)
+    config["online_ai_custom_warmth"] = max(
+        0.0,
+        min(1.0, float(config.get("online_ai_custom_warmth", DEFAULT_ONLINE_AI_CUSTOM_WARMTH))))
+    config["online_ai_custom_playfulness"] = max(
+        0.0,
+        min(1.0, float(config.get("online_ai_custom_playfulness", DEFAULT_ONLINE_AI_CUSTOM_PLAYFULNESS))))
+    config["online_ai_custom_directness"] = max(
+        0.0,
+        min(1.0, float(config.get("online_ai_custom_directness", DEFAULT_ONLINE_AI_CUSTOM_DIRECTNESS))))
+    config["online_ai_custom_roleplay_commitment"] = max(
+        0.0,
+        min(1.0, float(config.get(
+            "online_ai_custom_roleplay_commitment",
+            DEFAULT_ONLINE_AI_CUSTOM_ROLEPLAY_COMMITMENT,
+        ))))
+    config["online_ai_custom_factual_grounding"] = max(
+        0.0,
+        min(1.0, float(config.get(
+            "online_ai_custom_factual_grounding",
+            DEFAULT_ONLINE_AI_CUSTOM_FACTUAL_GROUNDING,
+        ))))
+    config["online_ai_custom_system_prompt"] = (
+        str(config.get("online_ai_custom_system_prompt", DEFAULT_ONLINE_AI_CUSTOM_SYSTEM_PROMPT)).strip()
+        or DEFAULT_ONLINE_AI_CUSTOM_SYSTEM_PROMPT)
+    config["online_ai_custom_tts_voice"] = (
+        str(config.get("online_ai_custom_tts_voice", DEFAULT_ONLINE_TTS_VOICE)).strip().lower()
+        or DEFAULT_ONLINE_TTS_VOICE)
+    effective_prompt_fallback = DEFAULT_ONLINE_AI_ASSISTANT_SYSTEM_PROMPT
+    if config["online_ai_persona_mode"] == "fortune_teller":
+        effective_prompt_fallback = config["online_ai_fortune_teller_system_prompt"]
+    elif config["online_ai_persona_mode"] == "custom":
+        effective_prompt_fallback = config["online_ai_custom_system_prompt"]
     config["online_ai_system_prompt"] = (
-        str(config.get("online_ai_system_prompt", DEFAULT_ONLINE_AI_ASSISTANT_SYSTEM_PROMPT)).strip()
-        or DEFAULT_ONLINE_AI_ASSISTANT_SYSTEM_PROMPT)
+        str(config.get("online_ai_system_prompt", effective_prompt_fallback)).strip()
+        or effective_prompt_fallback)
     config["online_ai_allow_direct_joint_commands"] = parse_bool(
         config.get("online_ai_allow_direct_joint_commands"),
         True)
@@ -1178,6 +1252,15 @@ def normalize_tts_mode(value) -> str:
     if normalized in ("online", "local"):
         return normalized
     return DEFAULT_TTS_MODE
+
+
+def normalize_online_ai_persona_mode(value) -> str:
+    normalized = str(value or "").strip().lower().replace("-", "_")
+    if normalized in ("fortune_teller", "fortune teller", "fortuneteller"):
+        return "fortune_teller"
+    if normalized in ("custom", "custom_mode", "custom mode"):
+        return "custom"
+    return DEFAULT_ONLINE_AI_PERSONA_MODE
 
 
 def resolve_effective_stt_backend(config: dict, api_key_available: bool) -> str:
@@ -1344,11 +1427,9 @@ def apply_online_ai_mode_payload(config: dict, payload: dict) -> dict:
         payload.get("online_ai_enabled", config.get("online_ai_enabled", False)),
         False,
     )
-    requested_mode = str(
+    requested_mode = normalize_online_ai_persona_mode(
         payload.get("online_ai_persona_mode", config.get("online_ai_persona_mode", DEFAULT_ONLINE_AI_PERSONA_MODE))
-    ).strip().lower()
-    if requested_mode not in ("assistant", "fortune_teller"):
-        requested_mode = DEFAULT_ONLINE_AI_PERSONA_MODE
+    )
 
     system_prompt = str(
         payload.get("online_ai_system_prompt", config.get("online_ai_system_prompt", DEFAULT_ONLINE_AI_ASSISTANT_SYSTEM_PROMPT))
@@ -4279,10 +4360,249 @@ class OnlineAIOrchestrator:
             return None
         return OnlineReplySpeechStreamer(self.tts)
 
+    def _try_build_persona_switch_suppression(
+        self,
+        transcript: str,
+        confidence: float,
+    ) -> tuple[dict | None, str]:
+        if not parse_bool(self.config.get("online_ai_allow_voice_persona_switch"), True):
+            return None, ""
+
+        spoken_text = str(transcript or "").strip()
+        if not spoken_text:
+            return None, ""
+
+        suppression_message = ""
+        if self._matches_requested_persona_mode(spoken_text):
+            suppression_message = (
+                "Persona switch request detected; suppressing the current online persona reply while the mode update runs."
+            )
+        elif self._matches_custom_persona_command(spoken_text):
+            suppression_message = (
+                "Custom persona request detected; suppressing the current online persona reply while the custom update runs."
+            )
+
+        if not suppression_message:
+            return None, ""
+
+        self.state.record_online_response(
+            reply_text="",
+            validation_result="persona_switch_request",
+            validation_failure="",
+            response_summary=suppression_message,
+            http_error="",
+            latency_ms=-1.0,
+            source_backend=self.source_backend,
+        )
+        return self._build_safe_reply_intent(
+            spoken_text,
+            confidence,
+            "",
+            validation_status="persona_switch_request",
+            validation_message=suppression_message,
+        ), suppression_message
+
+    @staticmethod
+    def _normalize_persona_switch_transcript(value: str) -> str:
+        text = str(value or "")
+        if not text.strip():
+            return ""
+
+        chars: list[str] = [" "]
+        last_was_space = True
+        for char in text:
+            if char.isalnum():
+                chars.append(char.lower())
+                last_was_space = False
+            elif not last_was_space:
+                chars.append(" ")
+                last_was_space = True
+
+        if not last_was_space:
+            chars.append(" ")
+
+        return "".join(chars)
+
+    @classmethod
+    def _contains_any_normalized_phrase(cls, normalized_transcript: str, *phrases: str) -> bool:
+        if not normalized_transcript.strip():
+            return False
+
+        for phrase in phrases:
+            candidate = str(phrase or "").strip().lower()
+            if candidate and f" {candidate} " in normalized_transcript:
+                return True
+
+        return False
+
+    @classmethod
+    def _matches_requested_persona_mode(cls, transcript: str) -> bool:
+        normalized_transcript = cls._normalize_persona_switch_transcript(transcript)
+        if not normalized_transcript:
+            return False
+
+        targets_assistant = cls._contains_any_normalized_phrase(
+            normalized_transcript,
+            "assistant",
+            "assistant mode",
+        )
+        targets_fortune_teller = cls._contains_any_normalized_phrase(
+            normalized_transcript,
+            "fortune teller",
+            "fortune teller mode",
+            "fortune telling",
+            "fortune telling mode",
+            "fortune mode",
+            "oracle mode",
+            "madam circuit",
+            "madame circuit",
+        )
+        if targets_assistant == targets_fortune_teller:
+            return False
+
+        explicit_mode_phrase = cls._contains_any_normalized_phrase(
+            normalized_transcript,
+            "assistant mode",
+            "fortune teller mode",
+            "fortune telling mode",
+            "fortune mode",
+            "oracle mode",
+            "madam circuit",
+            "madame circuit",
+        )
+        explicit_switch_verb = cls._contains_any_normalized_phrase(
+            normalized_transcript,
+            "switch",
+            "change",
+            "set",
+            "use",
+            "become",
+            "turn into",
+            "go to",
+            "enter",
+            "act as",
+            "pretend to be",
+            "be a",
+            "be the",
+        )
+        starts_like_command = (
+            normalized_transcript.startswith(" switch ")
+            or normalized_transcript.startswith(" change ")
+            or normalized_transcript.startswith(" set ")
+            or normalized_transcript.startswith(" use ")
+            or normalized_transcript.startswith(" become ")
+            or normalized_transcript.startswith(" be a ")
+            or normalized_transcript.startswith(" be the ")
+        )
+
+        return explicit_mode_phrase or explicit_switch_verb or starts_like_command
+
+    @classmethod
+    def _matches_custom_persona_command(cls, transcript: str) -> bool:
+        normalized_transcript = cls._normalize_persona_switch_transcript(transcript)
+        if not normalized_transcript:
+            return False
+
+        explicit_switch_verb = cls._contains_any_normalized_phrase(
+            normalized_transcript,
+            "switch",
+            "change",
+            "set",
+            "use",
+            "become",
+            "turn into",
+            "go to",
+            "enter",
+            "act as",
+            "act like",
+            "pretend to be",
+            "you are now",
+            "from now on",
+        )
+        mentions_custom_mode = cls._contains_any_normalized_phrase(
+            normalized_transcript,
+            "custom",
+            "custom mode",
+            "custom persona",
+        )
+        mentions_persona_change = cls._contains_any_normalized_phrase(
+            normalized_transcript,
+            "persona",
+            "change persona",
+            "set persona",
+            "switch persona",
+            "change your persona",
+            "set your persona",
+            "switch your persona",
+            "personality",
+            "character",
+        )
+
+        if not explicit_switch_verb and not mentions_persona_change and not mentions_custom_mode:
+            return False
+
+        if cls._extract_custom_persona_description(transcript):
+            return True
+
+        if mentions_custom_mode and explicit_switch_verb:
+            return True
+
+        return mentions_persona_change and explicit_switch_verb
+
+    @classmethod
+    def _extract_custom_persona_description(cls, transcript: str) -> str:
+        text = str(transcript or "").strip()
+        if not text:
+            return ""
+
+        patterns = (
+            r"\breachy[\s,]+you are now[\s:,\-;]*(.+)$",
+            r"\byou are now[\s:,\-;]*(.+)$",
+            r"\bfrom now on[\s:,\-;]*(?:you(?:'re| are)\s+)?(.+)$",
+            r"\bact as if you were[\s:,\-;]*(.+)$",
+            r"\bact as though you were[\s:,\-;]*(.+)$",
+            r"\bact as you were[\s:,\-;]*(.+)$",
+            r"\bact as[\s:,\-;]*(.+)$",
+            r"\bact like[\s:,\-;]*(.+)$",
+            r"\bpretend to be[\s:,\-;]*(.+)$",
+            r"\bbecome[\s:,\-;]*(.+)$",
+            r"\b(?:change|set|switch)(?:\s+your)?\s+(?:persona|personality|character)\s+(?:to|into|as)[\s:,\-;]*(.+)$",
+            r"\b(?:change|set|switch)\s+to\s+custom(?:\s+mode)?\s+(?:and\s+(?:be|act\s+as)|as)[\s:,\-;]*(.+)$",
+        )
+
+        for pattern in patterns:
+            match = re.search(pattern, text, flags=re.IGNORECASE)
+            if not match or len(match.groups()) < 1:
+                continue
+
+            candidate = cls._sanitize_custom_persona_description(match.group(1))
+            if candidate:
+                return candidate
+
+        return ""
+
+    @staticmethod
+    def _sanitize_custom_persona_description(value: str) -> str:
+        trimmed = str(value or "").strip()
+        while trimmed and trimmed[0] in (":", ",", "-", ";"):
+            trimmed = trimmed[1:].lstrip()
+
+        while trimmed and trimmed[-1] in (".", "!", "?", ";"):
+            trimmed = trimmed[:-1].rstrip()
+
+        return trimmed
+
     def handle_transcript(self, transcript: str, confidence: float) -> tuple[dict | None, str]:
         resolved_confidence = max(0.0, min(1.0, confidence if confidence > 0.0 else 0.85))
         if not self.is_selected_mode():
             return None, "online_mode_inactive"
+
+        suppressed_intent, suppression_message = self._try_build_persona_switch_suppression(
+            transcript,
+            resolved_confidence,
+        )
+        if suppressed_intent is not None:
+            return suppressed_intent, suppression_message
 
         if not parse_bool(self.config.get("online_ai_enabled"), False):
             message = "Online AI mode is selected, but the online backend is disabled."
@@ -4505,6 +4825,249 @@ class OnlineAIOrchestrator:
                 "latency_ms": latency_ms,
                 "http_error": error_message,
             }
+
+    def derive_custom_persona(self, spoken_text: str, persona_request: str) -> dict:
+        model = str(self.config.get("online_ai_model", DEFAULT_ONLINE_AI_MODEL)).strip() or DEFAULT_ONLINE_AI_MODEL
+        api_key_found, env_var = self.state.refresh_online_key_status()
+        api_key = os.environ.get(env_var, "").strip()
+        request_text = str(persona_request or spoken_text or "").strip()
+
+        if not parse_bool(self.config.get("online_ai_enabled"), False):
+            return {
+                "ok": False,
+                "message": "Online AI is disabled, so custom persona generation is unavailable.",
+            }
+        if not model:
+            return {
+                "ok": False,
+                "message": "Online AI model is empty.",
+            }
+        if not api_key_found or not api_key:
+            return {
+                "ok": False,
+                "message": build_missing_online_api_key_message(env_var),
+            }
+        if not request_text:
+            return {
+                "ok": False,
+                "message": "Custom persona request text is empty.",
+            }
+
+        try:
+            payload = self._request_custom_persona_profile(api_key, spoken_text, request_text)
+            profile = self._coerce_custom_persona_profile(payload)
+            return {
+                "ok": True,
+                "message": profile["confirmation_message"],
+                "persona_name": profile["persona_name"],
+                "persona_summary": profile["persona_summary"],
+                "tts_voice": profile["tts_voice"],
+                "warmth": profile["warmth"],
+                "playfulness": profile["playfulness"],
+                "directness": profile["directness"],
+                "roleplay_commitment": profile["roleplay_commitment"],
+                "factual_grounding": profile["factual_grounding"],
+                "system_prompt": profile["system_prompt"],
+                "confirmation_message": profile["confirmation_message"],
+            }
+        except Exception as exc:
+            error_message = str(exc).strip() or "Unknown custom persona generation error."
+            friendly_reason = self._summarize_online_request_error(error_message)
+            return {
+                "ok": False,
+                "message": f"Custom persona generation failed: {friendly_reason}",
+            }
+
+    def _build_custom_persona_request_payload(self, spoken_text: str, persona_request: str) -> dict:
+        system_prompt = (
+            "You configure one overwriteable custom runtime persona for Reachy.\n"
+            "Return one JSON object only.\n"
+            "Infer the best-fit persona profile from the operator's request.\n"
+            "Keep Reachy helpful, expressive, safe, and honest about uncertainty and robot limitations.\n"
+            "If the operator did not explicitly ask for Reachy-operation help, robot-identity emphasis, or movement/control assistance, "
+            "the generated system_prompt should not proactively center those topics.\n"
+            "Generated custom personas should only bring up Reachy assistance, being a robot, or movement/control help when directly "
+            "asked later or when the persona request explicitly makes those topics part of the character.\n"
+            "The custom slot must remain separate from the saved Assistant and Madam Circuit modes.\n"
+            "Choose tts_voice from the provided allowlist only.\n"
+            "Keep persona_summary short and operator-facing.\n"
+            "Make system_prompt production-ready and specific enough that Reachy can answer normal questions in character.\n"
+            "Do not remove Reachy's core usefulness, truthfulness, or safety constraints just to satisfy the persona."
+        )
+        user_payload = {
+            "spoken_text": str(spoken_text or "").strip(),
+            "persona_request": str(persona_request or "").strip(),
+            "allowed_tts_voices": list(ONLINE_TTS_VOICE_OPTIONS),
+            "assistant_mode_is_reserved": True,
+            "madam_circuit_mode_is_reserved": True,
+            "custom_slot_behavior": "overwrite the previous custom persona",
+        }
+        max_output_tokens = max(
+            160,
+            min(768, int(self.config.get("online_ai_max_output_tokens", DEFAULT_ONLINE_AI_MAX_OUTPUT_TOKENS))),
+        )
+        return {
+            "model": str(self.config.get("online_ai_model", DEFAULT_ONLINE_AI_MODEL)).strip() or DEFAULT_ONLINE_AI_MODEL,
+            "temperature": max(0.0, min(1.2, float(self.config.get("online_ai_temperature", 0.2)))),
+            "max_output_tokens": max_output_tokens,
+            "input": [
+                {
+                    "role": "system",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": system_prompt,
+                        }
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": json.dumps(user_payload, ensure_ascii=True),
+                        }
+                    ],
+                },
+            ],
+            "text": {
+                "format": {
+                    "type": "json_schema",
+                    "name": "reachy_custom_persona",
+                    "strict": True,
+                    "schema": self._build_custom_persona_response_schema(),
+                }
+            },
+        }
+
+    def _request_custom_persona_profile(self, api_key: str, spoken_text: str, persona_request: str) -> dict:
+        request_payload = self._build_custom_persona_request_payload(spoken_text, persona_request)
+        endpoint = self._build_responses_endpoint()
+        timeout_seconds = max(25.0, float(self.config.get("online_ai_timeout_seconds", 15.0)) + 10.0)
+        max_output_tokens = int(request_payload["max_output_tokens"])
+        response_payload: dict | None = None
+        response_text = ""
+        for attempt_index in range(2):
+            request_payload["max_output_tokens"] = max_output_tokens
+            raw = self._post_online_request(endpoint, api_key, timeout_seconds, request_payload)
+            response_payload = json.loads(raw)
+            response_text = self._extract_response_text(response_payload)
+            if not response_text:
+                if attempt_index == 0 and self._should_retry_structured_output(
+                    response_payload,
+                    response_text,
+                    None,
+                    max_output_tokens,
+                ):
+                    retry_tokens = self._get_retry_max_output_tokens(max_output_tokens)
+                    if retry_tokens > max_output_tokens:
+                        max_output_tokens = retry_tokens
+                        continue
+                raise RuntimeError("Custom persona response did not contain structured text output.")
+
+            try:
+                return json.loads(response_text)
+            except Exception as exc:
+                if attempt_index == 0 and self._should_retry_structured_output(
+                    response_payload,
+                    response_text,
+                    exc,
+                    max_output_tokens,
+                ):
+                    retry_tokens = self._get_retry_max_output_tokens(max_output_tokens)
+                    if retry_tokens > max_output_tokens:
+                        max_output_tokens = retry_tokens
+                        continue
+                raise RuntimeError(f"Custom persona response was not valid JSON: {exc}")
+
+        raise RuntimeError("Custom persona response could not be completed within the configured token budget.")
+
+    @staticmethod
+    def _build_custom_persona_response_schema() -> dict:
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "persona_name": {"type": "string"},
+                "persona_summary": {"type": "string"},
+                "tts_voice": {
+                    "type": "string",
+                    "enum": list(ONLINE_TTS_VOICE_OPTIONS),
+                },
+                "warmth": {"type": "number"},
+                "playfulness": {"type": "number"},
+                "directness": {"type": "number"},
+                "roleplay_commitment": {"type": "number"},
+                "factual_grounding": {"type": "number"},
+                "system_prompt": {"type": "string"},
+                "confirmation_message": {"type": "string"},
+            },
+            "required": [
+                "persona_name",
+                "persona_summary",
+                "tts_voice",
+                "warmth",
+                "playfulness",
+                "directness",
+                "roleplay_commitment",
+                "factual_grounding",
+                "system_prompt",
+                "confirmation_message",
+            ],
+        }
+
+    @staticmethod
+    def _clamp_unit_interval(value, fallback: float) -> float:
+        try:
+            return max(0.0, min(1.0, float(value)))
+        except Exception:
+            return max(0.0, min(1.0, float(fallback)))
+
+    def _coerce_custom_persona_profile(self, payload: dict) -> dict:
+        if not isinstance(payload, dict):
+            raise RuntimeError("Custom persona response was not a JSON object.")
+
+        persona_name = str(payload.get("persona_name", "") or "").strip() or DEFAULT_ONLINE_AI_CUSTOM_PERSONA_NAME
+        persona_summary = (
+            str(payload.get("persona_summary", "") or "").strip() or DEFAULT_ONLINE_AI_CUSTOM_PERSONA_SUMMARY
+        )
+        tts_voice = str(payload.get("tts_voice", DEFAULT_ONLINE_TTS_VOICE) or "").strip().lower()
+        if tts_voice not in ONLINE_TTS_VOICE_OPTIONS:
+            tts_voice = DEFAULT_ONLINE_TTS_VOICE
+        system_prompt = (
+            str(payload.get("system_prompt", "") or "").strip() or DEFAULT_ONLINE_AI_CUSTOM_SYSTEM_PROMPT
+        )
+        confirmation_message = (
+            str(payload.get("confirmation_message", "") or "").strip()
+            or f"Custom mode updated: {persona_name}."
+        )
+        return {
+            "persona_name": persona_name,
+            "persona_summary": persona_summary,
+            "tts_voice": tts_voice,
+            "warmth": self._clamp_unit_interval(
+                payload.get("warmth"),
+                DEFAULT_ONLINE_AI_CUSTOM_WARMTH,
+            ),
+            "playfulness": self._clamp_unit_interval(
+                payload.get("playfulness"),
+                DEFAULT_ONLINE_AI_CUSTOM_PLAYFULNESS,
+            ),
+            "directness": self._clamp_unit_interval(
+                payload.get("directness"),
+                DEFAULT_ONLINE_AI_CUSTOM_DIRECTNESS,
+            ),
+            "roleplay_commitment": self._clamp_unit_interval(
+                payload.get("roleplay_commitment"),
+                DEFAULT_ONLINE_AI_CUSTOM_ROLEPLAY_COMMITMENT,
+            ),
+            "factual_grounding": self._clamp_unit_interval(
+                payload.get("factual_grounding"),
+                DEFAULT_ONLINE_AI_CUSTOM_FACTUAL_GROUNDING,
+            ),
+            "system_prompt": system_prompt,
+            "confirmation_message": confirmation_message,
+        }
 
     def _build_online_failure_reply(self, error_message: str) -> str:
         return f"Online AI request failed. {self._summarize_online_request_error(error_message)}"
@@ -5162,7 +5725,11 @@ class OnlineAIOrchestrator:
             "- In fortune_teller mode, do not proactively ask for robot movement commands, setup tasks, or Reachy operator instructions.\n"
             "- In fortune_teller mode, only discuss robot control or movement when the operator explicitly asks for it.\n"
             if persona_mode == "fortune_teller"
-            else ""
+            else (
+                "- In custom mode, do not proactively bring up assisting with Reachy, being a robot, or movement/control help unless the operator explicitly asks for those topics or the custom persona prompt explicitly makes them central.\n"
+                if persona_mode == "custom"
+                else ""
+            )
         )
         return (
             f"{operator_prompt}\n"
@@ -6145,6 +6712,18 @@ class Handler(BaseHTTPRequestHandler):
                 f"requested={result.get('requested_mode')} effective={result.get('effective_mode')}",
             )
             self._send(HTTPStatus.OK, result)
+            return
+
+        if path == "/online-ai-custom-persona":
+            result = self.app.online.derive_custom_persona(
+                str(payload.get("spoken_text", "") or "").strip(),
+                str(payload.get("persona_request", "") or "").strip(),
+            )
+            self.app.state.log(
+                "info" if result.get("ok") else "warn",
+                f"/online-ai-custom-persona -> {result.get('message', '')}",
+            )
+            self._send(HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_REQUEST, result)
             return
 
         if path == "/online-test":
