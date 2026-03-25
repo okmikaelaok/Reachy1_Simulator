@@ -6350,6 +6350,52 @@ namespace Reachy.ControlApp
             pathEntries.Add(directory);
         }
 
+        private static string GetWindowsPowerShellExecutable()
+        {
+            try
+            {
+                string systemDirectory = Environment.GetFolderPath(Environment.SpecialFolder.System);
+                if (!string.IsNullOrWhiteSpace(systemDirectory))
+                {
+                    string candidate = Path.Combine(
+                        systemDirectory,
+                        "WindowsPowerShell",
+                        "v1.0",
+                        "powershell.exe");
+                    if (File.Exists(candidate))
+                    {
+                        return candidate;
+                    }
+                }
+
+                string systemRoot = Environment.GetEnvironmentVariable("SystemRoot");
+                if (string.IsNullOrWhiteSpace(systemRoot))
+                {
+                    systemRoot = Environment.GetEnvironmentVariable("WINDIR");
+                }
+
+                if (!string.IsNullOrWhiteSpace(systemRoot))
+                {
+                    string candidate = Path.Combine(
+                        systemRoot,
+                        "System32",
+                        "WindowsPowerShell",
+                        "v1.0",
+                        "powershell.exe");
+                    if (File.Exists(candidate))
+                    {
+                        return candidate;
+                    }
+                }
+            }
+            catch
+            {
+                // Fall through to the conventional command name.
+            }
+
+            return "powershell";
+        }
+
         private static bool DidProcessExitQuickly(
             System.Diagnostics.Process process,
             int timeoutMs,
@@ -7310,7 +7356,7 @@ namespace Reachy.ControlApp
 
                 var startInfo = new System.Diagnostics.ProcessStartInfo
                 {
-                    FileName = "powershell",
+                    FileName = GetWindowsPowerShellExecutable(),
                     Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"" + command + "\"",
                     UseShellExecute = false,
                     CreateNoWindow = true,
@@ -12332,7 +12378,7 @@ namespace Reachy.ControlApp
                 "\"";
             var startInfo = new System.Diagnostics.ProcessStartInfo
             {
-                FileName = "powershell",
+                FileName = GetWindowsPowerShellExecutable(),
                 Arguments = powershellArguments,
                 WorkingDirectory = Path.GetDirectoryName(scriptPath) ?? Application.dataPath,
                 UseShellExecute = true,

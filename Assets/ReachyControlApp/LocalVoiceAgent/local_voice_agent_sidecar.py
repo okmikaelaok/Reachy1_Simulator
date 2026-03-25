@@ -48,6 +48,67 @@ from urllib import request as urllib_request
 from urllib.parse import urlparse
 
 
+def resolve_windows_powershell_executable() -> str:
+    if not sys.platform.startswith("win"):
+        return shutil.which("pwsh") or shutil.which("powershell") or ""
+
+    seen: set[str] = set()
+    candidates: list[Path] = []
+
+    def add_candidate(path_like: str | Path) -> None:
+        raw_path = str(path_like or "").strip()
+        if not raw_path:
+            return
+        normalized = os.path.normcase(os.path.normpath(raw_path))
+        if normalized in seen:
+            return
+        seen.add(normalized)
+        candidates.append(Path(raw_path))
+
+    for env_name in ("SystemRoot", "WINDIR"):
+        root = str(os.environ.get(env_name, "") or "").strip()
+        if not root:
+            continue
+        add_candidate(Path(root) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe")
+        add_candidate(Path(root) / "Sysnative" / "WindowsPowerShell" / "v1.0" / "powershell.exe")
+
+    for env_name in ("ProgramW6432", "ProgramFiles"):
+        program_files_root = str(os.environ.get(env_name, "") or "").strip()
+        if not program_files_root:
+            continue
+        add_candidate(Path(program_files_root) / "PowerShell" / "7" / "pwsh.exe")
+
+    for command_name in ("powershell.exe", "powershell", "pwsh.exe", "pwsh"):
+        resolved = shutil.which(command_name)
+        if resolved:
+            add_candidate(resolved)
+
+    for candidate in candidates:
+        try:
+            if candidate.is_file():
+                return str(candidate)
+        except OSError:
+            continue
+
+    return ""
+
+
+def build_windows_powershell_command(script: str, executable: str) -> list[str]:
+    if not str(script or "").strip() or not str(executable or "").strip():
+        return []
+
+    encoded_script = base64.b64encode(script.encode("utf-16le")).decode("ascii")
+    return [
+        executable,
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-EncodedCommand",
+        encoded_script,
+    ]
+
+
 DEFAULT_POSES = [
     "Neutral Arms",
     "T-Pose",
@@ -2242,6 +2303,7 @@ class TTS:
         self._active_temp_audio_path_lock = threading.Lock()
         self.thread = None
         self._pyttsx3_module = None
+        self._powershell_executable = resolve_windows_powershell_executable()
 
     def start(self) -> None:
         if not self.enabled:
@@ -2428,18 +2490,12 @@ class TTS:
         return max(configured_timeout, min(600.0, estimated_timeout))
 
     def _speak_with_subprocess(self, text: str) -> tuple[bool, str]:
+        if not self._powershell_executable:
+            return False, "Windows PowerShell executable was not found."
+
         timeout_seconds = self._estimate_timeout_seconds(text)
         script = self._build_windows_sapi_script(text)
-        encoded_script = base64.b64encode(script.encode("utf-16le")).decode("ascii")
-        cmd = [
-            "powershell",
-            "-NoProfile",
-            "-NonInteractive",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-EncodedCommand",
-            encoded_script,
-        ]
+        cmd = build_windows_powershell_command(script, self._powershell_executable)
 
         creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         try:
@@ -2598,17 +2654,10 @@ class TTS:
 
     def _build_audio_player_command(self, audio_path: str) -> list[str]:
         if sys.platform.startswith("win"):
+            if not self._powershell_executable:
+                return []
             script = self._build_windows_wav_player_script(audio_path)
-            encoded_script = base64.b64encode(script.encode("utf-16le")).decode("ascii")
-            return [
-                "powershell",
-                "-NoProfile",
-                "-NonInteractive",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-EncodedCommand",
-                encoded_script,
-            ]
+            return build_windows_powershell_command(script, self._powershell_executable)
         if shutil.which("ffplay"):
             return ["ffplay", "-nodisp", "-autoexit", "-loglevel", "error", audio_path]
         if shutil.which("afplay"):

@@ -1,37 +1,99 @@
-using System.Threading.Tasks;
-using UnityEngine;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
 using UnityEditor;
-using System.Net;
-using System.IO.Compression;
+using UnityEngine;
 
 #if UNITY_EDITOR
-public class DownloadTask
+internal static class GrpcDependencyUtility
 {
-    private static string savePath;
-    private static string GRPC_VERSION = "https://packages.grpc.io/archive/2022/04/67538122780f8a081c774b66884289335c290cbe-f15a2c1c-582b-4c51-acf2-ab6d711d2c59/csharp/grpc_unity_package.2.47.0-dev202204190851.zip";
+    private const string MissingDependenciesWarningKey = "ReachySimulator.MissingGrpcDependenciesWarningShown";
 
-    public static async void RunTask()
+    private static readonly string[] RequiredDependencyPaths =
     {
-        Debug.Log("Downloading GRPC...");
-        savePath = string.Format("{0}/{1}.zip", Application.temporaryCachePath, "grpc");
-        Task task = _Download();
-        await task;
-        Debug.Log("Installing GRPC...");
-        task = _Unzip();
-        await task;
-        AssetDatabase.Refresh();
-        Debug.Log("GRPC installed.");
+        @"Assets/Plugins/Google.Protobuf/lib/net45/Google.Protobuf.dll",
+        @"Assets/Plugins/Grpc.Core.Api/lib/net45/Grpc.Core.Api.dll",
+        @"Assets/Plugins/Grpc.Core/lib/net45/Grpc.Core.dll",
+        @"Assets/Plugins/System.Buffers/lib/net45/System.Buffers.dll",
+        @"Assets/Plugins/System.Memory/lib/net45/System.Memory.dll",
+        @"Assets/Plugins/System.Runtime.CompilerServices.Unsafe/lib/net45/System.Runtime.CompilerServices.Unsafe.dll",
+        @"Assets/Plugins/Grpc.Core/runtimes/win/x64/grpc_csharp_ext.dll"
+    };
+
+    [InitializeOnLoadMethod]
+    private static void ValidateBundledGrpcDependenciesOnLoad()
+    {
+        EditorApplication.delayCall += () =>
+        {
+            if (Application.isBatchMode || EditorApplication.isCompiling || EditorApplication.isUpdating)
+            {
+                return;
+            }
+
+            ValidateBundledGrpcDependencies(interactive: false);
+        };
     }
 
-    private static async Task _Download()
+    public static bool ValidateBundledGrpcDependencies(bool interactive)
     {
-        WebClient Client = new WebClient ();
-        await Task.Run(() => Client.DownloadFile(GRPC_VERSION, savePath));
+        string[] missingPaths = GetMissingDependencyPaths();
+        if (missingPaths.Length == 0)
+        {
+            if (interactive)
+            {
+                Debug.Log("ReachySimulator GRPC dependency check passed. Bundled plugins are present under Assets/Plugins.");
+            }
+
+            return true;
+        }
+
+        string message = BuildMissingDependenciesMessage(missingPaths);
+
+        if (!SessionState.GetBool(MissingDependenciesWarningKey, false))
+        {
+            Debug.LogError(message);
+            SessionState.SetBool(MissingDependenciesWarningKey, true);
+        }
+
+        if (interactive)
+        {
+            EditorUtility.DisplayDialog("ReachySimulator GRPC dependencies missing", message, "OK");
+        }
+
+        return false;
     }
 
-    private static async Task _Unzip()
+    private static string[] GetMissingDependencyPaths()
     {
-        await Task.Run(() => ZipFile.ExtractToDirectory(savePath, @"Assets/"));
+        string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+        List<string> missingPaths = new List<string>();
+
+        foreach (string relativePath in RequiredDependencyPaths)
+        {
+            string fullPath = Path.Combine(projectRoot, relativePath);
+            if (!File.Exists(fullPath))
+            {
+                missingPaths.Add(relativePath.Replace('\\', '/'));
+            }
+        }
+
+        return missingPaths.ToArray();
+    }
+
+    private static string BuildMissingDependenciesMessage(string[] missingPaths)
+    {
+        StringBuilder builder = new StringBuilder();
+        builder.AppendLine("ReachySimulator is missing bundled GRPC/Protobuf plugin files.");
+        builder.AppendLine("A clean checkout of this repository should already include them under Assets/Plugins.");
+        builder.AppendLine("Missing files:");
+
+        foreach (string missingPath in missingPaths)
+        {
+            builder.AppendLine("- " + missingPath);
+        }
+
+        builder.AppendLine("If this came from GitHub, the checkout is incomplete or the plugin binaries were not committed.");
+        return builder.ToString();
     }
 }
 #endif

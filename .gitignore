@@ -26,7 +26,6 @@
 /[Aa]ssets/SteamVR*
 /[Aa]ssets/StreamingAssets/SteamVR*
 /[Aa]ssets/XR*
-/[Aa]ssets/Plugins
 
 # Visual Studio cache directory
 .vs/
@@ -74,10 +73,6 @@ crashlytics-build.properties
 # Temporary auto-generated Android Assets
 /[Aa]ssets/[Ss]treamingAssets/aa.meta
 /[Aa]ssets/[Ss]treamingAssets/aa/*
-
-Assets/Plugins/Google*
-Assets/Plugins/Grpc*
-Assets/Plugins/System*
 
 # Keep repository build output folder versioned.
 !/Build/

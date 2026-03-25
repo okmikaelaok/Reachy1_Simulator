@@ -10,6 +10,8 @@ Unity `2021.3.24f1` project for Reachy 1 that combines the simulator package, an
 - `Build/Reachy controller & simulator.exe`: current Windows build output
 
 The runtime control UI is auto-created in Play Mode by `ReachyControlBootstrap`, so no manual scene wiring is required.
+The `ReachySimulator` gRPC/Protobuf Unity plugins are bundled under `Assets/Plugins`, so a clean GitHub clone should not
+require running any separate `Install GRPC` step before the project compiles.
 
 ## Current features
 

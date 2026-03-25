@@ -1,18 +1,12 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
 using UnityEditor;
 
 #if UNITY_EDITOR
-public class MenuConfiguration : Editor
+public static class MenuConfiguration
 {
-
-    private static DownloadTask _taskManager = new DownloadTask();
-
-    [MenuItem("Pollen Robotics/Install GRPC")]
-    static void InstallGRPC()
+    [MenuItem("Pollen Robotics/Validate GRPC Dependencies")]
+    private static void ValidateGrpcDependencies()
     {
-        DownloadTask.RunTask();
+        GrpcDependencyUtility.ValidateBundledGrpcDependencies(interactive: true);
     }
 }
 #endif
