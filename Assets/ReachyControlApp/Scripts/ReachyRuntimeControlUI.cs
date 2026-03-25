@@ -6204,30 +6204,22 @@ namespace Reachy.ControlApp
                 startInfo.EnvironmentVariables["VIRTUAL_ENV"] = venvRoot;
             }
 
-            if (Directory.Exists(sitePackages))
+            List<string> pythonPathEntries = BuildPortablePythonModuleSearchPaths(sitePackages);
+            if (pythonPathEntries.Count > 0)
             {
-                startInfo.EnvironmentVariables["PYTHONPATH"] = sitePackages;
+                startInfo.EnvironmentVariables["PYTHONPATH"] =
+                    string.Join(Path.PathSeparator.ToString(), pythonPathEntries.ToArray());
             }
 
             var pathEntries = new List<string>();
             AddEnvironmentPathEntry(pathEntries, runtimeHome);
             AddEnvironmentPathEntry(pathEntries, Path.Combine(runtimeHome, "DLLs"));
-            AddEnvironmentPathEntry(pathEntries, sitePackages);
-            if (Directory.Exists(sitePackages))
+            for (int i = 0; i < pythonPathEntries.Count; i++)
             {
-                try
-                {
-                    string[] nativeLibraryDirectories = Directory.GetDirectories(sitePackages, "*.libs");
-                    for (int i = 0; i < nativeLibraryDirectories.Length; i++)
-                    {
-                        AddEnvironmentPathEntry(pathEntries, nativeLibraryDirectories[i]);
-                    }
-                }
-                catch
-                {
-                    // Ignore optional native-library discovery failures and fall back to base paths.
-                }
+                AddEnvironmentPathEntry(pathEntries, pythonPathEntries[i]);
             }
+
+            AddPortablePythonNativeLibraryDirectories(pathEntries, sitePackages);
 
             string existingPath = startInfo.EnvironmentVariables["PATH"] ?? string.Empty;
             if (!string.IsNullOrWhiteSpace(existingPath))
@@ -6237,6 +6229,95 @@ namespace Reachy.ControlApp
 
             startInfo.EnvironmentVariables["PATH"] =
                 string.Join(Path.PathSeparator.ToString(), pathEntries.ToArray());
+        }
+
+        private static List<string> BuildPortablePythonModuleSearchPaths(string sitePackages)
+        {
+            var entries = new List<string>();
+            AddEnvironmentPathEntry(entries, sitePackages);
+            if (!Directory.Exists(sitePackages))
+            {
+                return entries;
+            }
+
+            try
+            {
+                string[] pthFiles = Directory.GetFiles(sitePackages, "*.pth", SearchOption.TopDirectoryOnly);
+                for (int i = 0; i < pthFiles.Length; i++)
+                {
+                    string[] lines = File.ReadAllLines(pthFiles[i]);
+                    for (int j = 0; j < lines.Length; j++)
+                    {
+                        string line = lines[j];
+                        if (string.IsNullOrWhiteSpace(line))
+                        {
+                            continue;
+                        }
+
+                        string trimmed = line.Trim();
+                        if (trimmed.StartsWith("#", StringComparison.Ordinal) ||
+                            trimmed.StartsWith("import", StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+
+                        string candidate = Path.IsPathRooted(trimmed)
+                            ? trimmed
+                            : Path.Combine(sitePackages, trimmed.Replace('\\', Path.DirectorySeparatorChar));
+                        AddEnvironmentPathEntry(entries, candidate);
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore optional .pth parsing failures and keep the base site-packages path.
+            }
+
+            AddEnvironmentPathEntry(entries, Path.Combine(sitePackages, "pywin32_system32"));
+            return entries;
+        }
+
+        private static void AddPortablePythonNativeLibraryDirectories(
+            List<string> pathEntries,
+            string sitePackages)
+        {
+            if (pathEntries == null || !Directory.Exists(sitePackages))
+            {
+                return;
+            }
+
+            try
+            {
+                string[] nativeLibraryDirectories = Directory.GetDirectories(sitePackages, "*.libs");
+                for (int i = 0; i < nativeLibraryDirectories.Length; i++)
+                {
+                    AddEnvironmentPathEntry(pathEntries, nativeLibraryDirectories[i]);
+                }
+            }
+            catch
+            {
+                // Ignore best-effort native-library scanning failures.
+            }
+
+            try
+            {
+                string[] topLevelDirectories = Directory.GetDirectories(sitePackages);
+                for (int i = 0; i < topLevelDirectories.Length; i++)
+                {
+                    string directory = topLevelDirectories[i];
+                    bool hasNativeFiles =
+                        Directory.GetFiles(directory, "*.dll", SearchOption.TopDirectoryOnly).Length > 0 ||
+                        Directory.GetFiles(directory, "*.pyd", SearchOption.TopDirectoryOnly).Length > 0;
+                    if (hasNativeFiles)
+                    {
+                        AddEnvironmentPathEntry(pathEntries, directory);
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore best-effort native-library scanning failures.
+            }
         }
 
         private static bool IsBundledPortablePythonCandidate(string pythonCandidate)

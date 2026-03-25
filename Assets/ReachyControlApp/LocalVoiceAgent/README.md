@@ -201,6 +201,7 @@ Build/runtime path note:
 - In standalone builds, Unity now probes multiple locations (build data folder, build folder, parent folders, current directory, persistent data) and also checks project-root style `Assets/...` paths.
 - Windows standalone builds now copy `ReachyControlApp/LocalVoiceAgent`, `ReachyControlApp/voice_agent_config.json`, `.local_voice_models`, and a bundled `ReachyControlApp/LocalVoiceAgent/PythonRuntime` next to the executable automatically.
 - The bundled runtime is preferred over `.venv/Scripts/python.exe` in standalone builds because copied venv launchers are not reliably portable across machines.
+- The standalone bundle is intended to run without a separate machine-wide Python install; the sidecar uses the bundled `PythonRuntime` plus the copied `.venv` packages.
 - Unity sidecar auto-start now also writes `local_voice_agent_sidecar_last_run.log` beside the sidecar files, which is the first file to inspect if the sidecar process starts and then immediately disappears.
 - If Unity reports `STT backend is inactive`, check Local AI status text: it now appends sidecar `last_error` details when available.
 

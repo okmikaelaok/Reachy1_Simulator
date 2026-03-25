@@ -43,7 +43,7 @@ The `ReachyControlApp` now includes a local AI panel backed by `Assets/ReachyCon
 Default local model/config paths point outside `Assets/` under `.local_voice_models/` so Unity does not try to import model files.
 Windows standalone builds now also copy `ReachyControlApp/LocalVoiceAgent`, `ReachyControlApp/voice_agent_config.json`,
 `.local_voice_models`, and a bundled `ReachyControlApp/LocalVoiceAgent/PythonRuntime` next to the executable so the
-build folder is shareable as a bundle.
+build folder is shareable as a bundle without requiring a separate system-level Python install on the target machine.
 
 ## Quick start
 

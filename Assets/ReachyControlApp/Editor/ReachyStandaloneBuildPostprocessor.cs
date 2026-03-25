@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
@@ -96,6 +97,7 @@ internal sealed class ReachyStandaloneBuildPostprocessor : IPostprocessBuildWith
             ref copiedFileCount);
 
         CopyPortablePythonRuntimeIfPresent(projectRoot, buildRoot, ref copiedFileCount);
+        PatchBundledVoiceAgentConfigIfPresent(buildRoot);
 
         Debug.Log(
             $"[Reachy Build] Copied {copiedFileCount} local voice runtime file(s) into '{buildRoot}'.");
@@ -345,6 +347,33 @@ internal sealed class ReachyStandaloneBuildPostprocessor : IPostprocessBuildWith
         }
 
         return string.Empty;
+    }
+
+    private static void PatchBundledVoiceAgentConfigIfPresent(string buildRoot)
+    {
+        string configPath = Path.Combine(buildRoot, "ReachyControlApp", "voice_agent_config.json");
+        if (!File.Exists(configPath))
+        {
+            return;
+        }
+
+        try
+        {
+            string json = File.ReadAllText(configPath);
+            string updated = Regex.Replace(
+                json,
+                "(\"sidecar_python_command\"\\s*:\\s*\")([^\"]*)(\")",
+                "$1PythonRuntime\\\\python.exe$3",
+                RegexOptions.CultureInvariant);
+            if (!string.Equals(updated, json, StringComparison.Ordinal))
+            {
+                File.WriteAllText(configPath, updated);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[Reachy Build] Failed to patch bundled voice config '{configPath}': {ex.Message}");
+        }
     }
 
     private static bool ShouldSkipDirectory(string directoryName)
