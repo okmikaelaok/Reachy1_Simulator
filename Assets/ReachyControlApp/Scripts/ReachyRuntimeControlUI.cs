@@ -108,6 +108,12 @@ namespace Reachy.ControlApp
             "Local TTS"
         };
 
+        private enum MobileBaseServiceRecoveryAction
+        {
+            Probe = 0,
+            Restart = 1
+        }
+
         private enum UiModeAudioCue
         {
             LocalAiSelected = 0,
@@ -236,6 +242,10 @@ namespace Reachy.ControlApp
         private const int UiModeAudioSampleRate = 44100;
         private const float UiModeAudioClickVolume = 0.28f;
         private const string ManagedVoiceSttBackend = "auto";
+        private const string MobileBaseServiceRecoveryHelperRelativePath =
+            "ReachyControlApp/LocalVoiceAgent/manage_reachy_mobile_base_service.py";
+        private const string MobileBaseServiceName = "reachy_mobile_base.service";
+        private const float MobileBaseServiceRecoveryFailureRetrySeconds = 4f;
         private static readonly string[] SpeechDrivenLoopingAnimationNames =
         {
             SpeechLoopingAnimationName,
@@ -860,6 +870,13 @@ namespace Reachy.ControlApp
         [SerializeField] private string robotSshPassword = "reachy";
         [SerializeField] private string robotSshRemoteProjectRoot = "~/reachy1-unityproject";
         [SerializeField] private bool robotSshShowPassword;
+        [SerializeField] private bool autoRecoverMobileBaseService = true;
+        [SerializeField] private float mobileBaseServiceRecoveryProbeIntervalSeconds = 8f;
+        [SerializeField] private float mobileBaseServiceRecoveryRestartCooldownSeconds = 20f;
+        [SerializeField] private float mobileBaseServiceRecoveryRestartWaitSeconds = 12f;
+        [SerializeField] private float mobileBaseServiceRecoverySshTimeoutSeconds = 10f;
+        [SerializeField] private string mobileBaseServiceRecoveryHelperRelativePath =
+            MobileBaseServiceRecoveryHelperRelativePath;
         [SerializeField] private bool localAiAgentEnablePushToTalk;
         [SerializeField] private string localAiAgentPushToTalkKey = "V";
         [SerializeField] private bool localAiAgentListeningEnabled = true;
@@ -1094,6 +1111,7 @@ namespace Reachy.ControlApp
         private float _localAiAgentSidecarNextStartAttemptAt;
         private float _localAiAgentSidecarNextProbeAt;
         private string _localAiAgentSidecarStatus = "Sidecar auto-start idle.";
+        private string _localAiAgentSidecarLogPath = string.Empty;
         private System.Diagnostics.Process _localAiAgentSidecarProcess;
         private Task<SidecarProbeResult> _localAiAgentSidecarProbeTask;
         private Task<RobotSpeakerProbeResult> _robotSpeakerProbeTask;
@@ -1110,6 +1128,16 @@ namespace Reachy.ControlApp
         private string _robotSpeakerLastProbeLogKey = string.Empty;
         private string _robotSpeakerHelperStatus = "Robot speaker helper idle.";
         private string _robotSpeakerHelperLogPath = string.Empty;
+        private Task<MobileBaseServiceRecoveryResult> _mobileBaseServiceRecoveryTask;
+        private float _nextMobileBaseServiceRecoveryActionAt;
+        private float _nextMobileBaseServiceRestartAllowedAt;
+        private string _mobileBaseServiceRecoveryHost = string.Empty;
+        private string _mobileBaseServiceRecoveryStatus = "Mobile base recovery idle.";
+        private string _mobileBaseServiceRecoveryDetail = string.Empty;
+        private string _mobileBaseServiceRecoveryLastLogKey = string.Empty;
+        private MobileBaseServiceRecoveryAction _mobileBaseServiceRecoveryPendingAction =
+            MobileBaseServiceRecoveryAction.Probe;
+        private bool? _mobileBaseServiceRecoveryLastKnownPresence;
         private int _voiceLastHandledTtsSuccessCount;
         private int _voiceLastHandledTtsFailureCount;
         private string _onlineAiLastReplyText = "No online replies yet.";
@@ -1185,6 +1213,26 @@ namespace Reachy.ControlApp
             public string OnlineSourceBackend;
             public string Message;
             public string Error;
+        }
+
+        private struct MobileBaseServiceRecoveryResult
+        {
+            public MobileBaseServiceRecoveryAction Action;
+            public bool Success;
+            public bool Reachable;
+            public bool ServiceActive;
+            public bool HalProcessRunning;
+            public bool SdkServerProcessRunning;
+            public bool Healthy;
+            public bool RestartAttempted;
+            public bool RestartSucceeded;
+            public string Host;
+            public string ServiceName;
+            public string Message;
+            public string Detail;
+            public string Error;
+            public string PythonCommand;
+            public int ExitCode;
         }
 
         private struct OnlineAiTestResult
@@ -1317,6 +1365,25 @@ namespace Reachy.ControlApp
             public string stt_backend = string.Empty;
             public string last_message = string.Empty;
             public string last_error = string.Empty;
+        }
+
+        [Serializable]
+        private sealed class MobileBaseServiceRecoveryEnvelope
+        {
+            public string action = "probe";
+            public bool ok;
+            public bool reachable;
+            public bool service_active;
+            public bool hal_process_running;
+            public bool sdk_server_process_running;
+            public bool healthy;
+            public bool restart_attempted;
+            public bool restart_succeeded;
+            public string host = string.Empty;
+            public string service_name = MobileBaseServiceName;
+            public string message = string.Empty;
+            public string detail = string.Empty;
+            public string error = string.Empty;
         }
 
         [Serializable]
@@ -1674,6 +1741,18 @@ namespace Reachy.ControlApp
             {
                 robotSshRemoteProjectRoot = "~/reachy1-unityproject";
             }
+            mobileBaseServiceRecoveryProbeIntervalSeconds =
+                Mathf.Max(2f, mobileBaseServiceRecoveryProbeIntervalSeconds);
+            mobileBaseServiceRecoveryRestartCooldownSeconds =
+                Mathf.Max(5f, mobileBaseServiceRecoveryRestartCooldownSeconds);
+            mobileBaseServiceRecoveryRestartWaitSeconds =
+                Mathf.Max(0f, mobileBaseServiceRecoveryRestartWaitSeconds);
+            mobileBaseServiceRecoverySshTimeoutSeconds =
+                Mathf.Max(3f, mobileBaseServiceRecoverySshTimeoutSeconds);
+            if (string.IsNullOrWhiteSpace(mobileBaseServiceRecoveryHelperRelativePath))
+            {
+                mobileBaseServiceRecoveryHelperRelativePath = MobileBaseServiceRecoveryHelperRelativePath;
+            }
             localAiAgentHeartbeatTimeoutSeconds = Mathf.Max(0.5f, localAiAgentHeartbeatTimeoutSeconds);
             localAiAgentRetryBackoffMinSeconds = Mathf.Max(0.05f, localAiAgentRetryBackoffMinSeconds);
             localAiAgentRetryBackoffMaxSeconds = Mathf.Max(
@@ -1805,6 +1884,7 @@ namespace Reachy.ControlApp
             UpdateRobotSpeakerMirrorDiagnostics();
             UpdateLocalAiAgent();
             UpdateManualController();
+            UpdateMobileBaseServiceRecovery();
 
             if (_isConnectAttemptInProgress)
             {
@@ -5696,6 +5776,7 @@ namespace Reachy.ControlApp
                 _localAiAgentSidecarStartupActive = false;
                 _localAiAgentSidecarInitialProbeCompleted = false;
                 _localAiAgentSidecarLastStartError = string.Empty;
+                _localAiAgentSidecarLogPath = string.Empty;
                 _localAiAgentSidecarProbeTask = null;
                 _localAiAgentSidecarNextProbeAt = 0f;
                 _localAiAgentSidecarStatus = "Sidecar auto-start idle.";
@@ -5889,6 +5970,8 @@ namespace Reachy.ControlApp
                 configPath = ResolveLocalAssetRelativePath(localAiAgentSidecarConfigRelativePath);
             }
             string workingDirectory = Path.GetDirectoryName(scriptPath) ?? Application.dataPath;
+            string sidecarLogPath = Path.Combine(workingDirectory, "local_voice_agent_sidecar_last_run.log");
+            _localAiAgentSidecarLogPath = sidecarLogPath;
             string logLevel = string.IsNullOrWhiteSpace(localAiAgentSidecarLogLevel)
                 ? "warning"
                 : localAiAgentSidecarLogLevel.Trim().ToLowerInvariant();
@@ -5907,11 +5990,12 @@ namespace Reachy.ControlApp
             string arguments;
             if (!string.IsNullOrWhiteSpace(configPath) && File.Exists(configPath))
             {
-                arguments = $"\"{scriptPath}\" --config \"{configPath}\" --log-level {logLevel}";
+                arguments =
+                    $"\"{scriptPath}\" --config \"{configPath}\" --log-level {logLevel} --log-file \"{sidecarLogPath}\"";
             }
             else
             {
-                arguments = $"\"{scriptPath}\" --log-level {logLevel}";
+                arguments = $"\"{scriptPath}\" --log-level {logLevel} --log-file \"{sidecarLogPath}\"";
             }
 
             string lastError = string.Empty;
@@ -5920,6 +6004,7 @@ namespace Reachy.ControlApp
                 string candidate = pythonCandidates[i];
                 try
                 {
+                    TryDeleteFileSilently(sidecarLogPath);
                     var startInfo = new System.Diagnostics.ProcessStartInfo
                     {
                         FileName = candidate,
@@ -5930,28 +6015,57 @@ namespace Reachy.ControlApp
                         RedirectStandardOutput = false,
                         RedirectStandardError = false
                     };
+                    ConfigureBundledPortablePythonEnvironment(startInfo, candidate, workingDirectory);
                     _localAiAgentSidecarProcess = System.Diagnostics.Process.Start(startInfo);
                     _localAiAgentSidecarStartedByUi = _localAiAgentSidecarProcess != null;
                     if (_localAiAgentSidecarProcess == null)
                     {
                         lastError = $"No process handle returned for '{candidate}'.";
+                        LogRuntimeEvent("voice", "sidecar-start-failed", lastError, "WARN");
+                        continue;
+                    }
+
+                    if (DidProcessExitQuickly(_localAiAgentSidecarProcess, 1200, out string exitMessage))
+                    {
+                        string logHint = BuildSidecarLogHint(sidecarLogPath);
+                        lastError = $"{candidate}: {exitMessage}{logHint}";
+                        LogRuntimeEvent("voice", "sidecar-start-failed", lastError, "WARN");
+                        try
+                        {
+                            _localAiAgentSidecarProcess.Dispose();
+                        }
+                        catch
+                        {
+                            // Ignore cleanup failures while failing over to the next candidate.
+                        }
+
+                        _localAiAgentSidecarProcess = null;
+                        _localAiAgentSidecarStartedByUi = false;
                         continue;
                     }
 
                     message = string.IsNullOrWhiteSpace(prestartMessage)
-                        ? $"Started sidecar process (PID {_localAiAgentSidecarProcess.Id}) with '{candidate}'."
-                        : $"{prestartMessage} Started sidecar process (PID {_localAiAgentSidecarProcess.Id}) with '{candidate}'.";
+                        ? $"Started sidecar process (PID {_localAiAgentSidecarProcess.Id}) with '{candidate}'. Log: {sidecarLogPath}"
+                        : $"{prestartMessage} Started sidecar process (PID {_localAiAgentSidecarProcess.Id}) with '{candidate}'. Log: {sidecarLogPath}";
+                    LogRuntimeEvent(
+                        "voice",
+                        "sidecar-started",
+                        $"python={NormalizeLogText(candidate)}; log={NormalizeLogText(sidecarLogPath)}",
+                        "INFO");
                     return true;
                 }
                 catch (Exception ex)
                 {
                     lastError = $"{candidate}: {ex.Message}";
+                    LogRuntimeEvent("voice", "sidecar-start-failed", lastError, "WARN");
                 }
             }
 
+            string candidateSummary = SummarizeCandidatePaths(pythonCandidates, 5);
+            string finalLogHint = BuildSidecarLogHint(sidecarLogPath);
             message = string.IsNullOrWhiteSpace(prestartMessage)
-                ? $"Failed to start sidecar. Last error: {lastError}"
-                : $"{prestartMessage} Failed to start sidecar. Last error: {lastError}";
+                ? $"Failed to start sidecar. Last error: {lastError}. Python candidates: {candidateSummary}{finalLogHint}"
+                : $"{prestartMessage} Failed to start sidecar. Last error: {lastError}. Python candidates: {candidateSummary}{finalLogHint}";
             return false;
         }
 
@@ -5967,6 +6081,23 @@ namespace Reachy.ControlApp
                 : configuredPythonCommand.Trim();
             bool configuredLooksDefault =
                 string.Equals(configured, "python", StringComparison.OrdinalIgnoreCase);
+
+            var portablePythonCandidates = new List<string>();
+            TryAddBundledPortablePythonCandidate(portablePythonCandidates, workingDirectory);
+            if (additionalScriptCandidates != null)
+            {
+                for (int i = 0; i < additionalScriptCandidates.Count; i++)
+                {
+                    string scriptPath = additionalScriptCandidates[i];
+                    if (string.IsNullOrWhiteSpace(scriptPath))
+                    {
+                        continue;
+                    }
+
+                    string scriptDirectory = Path.GetDirectoryName(scriptPath);
+                    TryAddBundledPortablePythonCandidate(portablePythonCandidates, scriptDirectory);
+                }
+            }
 
             var bundledPythonCandidates = new List<string>();
             TryAddBundledVenvPythonCandidate(bundledPythonCandidates, workingDirectory);
@@ -5985,9 +6116,19 @@ namespace Reachy.ControlApp
                 }
             }
 
+            portablePythonCandidates = DeduplicateCandidates(portablePythonCandidates);
             bundledPythonCandidates = DeduplicateCandidates(bundledPythonCandidates);
+            bool shouldUsePortableFirst =
+                portablePythonCandidates.Count > 0 && configuredLooksDefault;
             bool shouldUseBundledFirst =
-                bundledPythonCandidates.Count > 0 && (preferBundledVenvFirst || configuredLooksDefault);
+                bundledPythonCandidates.Count > 0 &&
+                portablePythonCandidates.Count == 0 &&
+                (preferBundledVenvFirst || configuredLooksDefault);
+            if (shouldUsePortableFirst)
+            {
+                candidates.AddRange(portablePythonCandidates);
+            }
+
             if (shouldUseBundledFirst)
             {
                 candidates.AddRange(bundledPythonCandidates);
@@ -5995,12 +6136,31 @@ namespace Reachy.ControlApp
 
             candidates.Add(configured);
 
+            if (portablePythonCandidates.Count > 0 && !shouldUsePortableFirst)
+            {
+                candidates.AddRange(portablePythonCandidates);
+            }
+
             if (bundledPythonCandidates.Count > 0 && !shouldUseBundledFirst)
             {
                 candidates.AddRange(bundledPythonCandidates);
             }
 
             return DeduplicateCandidates(candidates);
+        }
+
+        private static void TryAddBundledPortablePythonCandidate(List<string> candidates, string directory)
+        {
+            if (candidates == null || string.IsNullOrWhiteSpace(directory))
+            {
+                return;
+            }
+
+            string bundledPortablePython = Path.Combine(directory, "PythonRuntime", "python.exe");
+            if (File.Exists(bundledPortablePython))
+            {
+                candidates.Add(bundledPortablePython);
+            }
         }
 
         private static void TryAddBundledVenvPythonCandidate(List<string> candidates, string directory)
@@ -6015,6 +6175,152 @@ namespace Reachy.ControlApp
             {
                 candidates.Add(bundledVenvPython);
             }
+        }
+
+        private static void ConfigureBundledPortablePythonEnvironment(
+            System.Diagnostics.ProcessStartInfo startInfo,
+            string pythonCandidate,
+            string workingDirectory)
+        {
+            if (startInfo == null || !IsBundledPortablePythonCandidate(pythonCandidate))
+            {
+                return;
+            }
+
+            string runtimeHome = Path.GetDirectoryName(pythonCandidate) ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(runtimeHome) || !Directory.Exists(runtimeHome))
+            {
+                return;
+            }
+
+            string venvRoot = Path.Combine(workingDirectory ?? string.Empty, ".venv");
+            string sitePackages = Path.Combine(venvRoot, "Lib", "site-packages");
+            startInfo.EnvironmentVariables["PYTHONHOME"] = runtimeHome;
+            startInfo.EnvironmentVariables["PYTHONUTF8"] = "1";
+            startInfo.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
+
+            if (Directory.Exists(venvRoot))
+            {
+                startInfo.EnvironmentVariables["VIRTUAL_ENV"] = venvRoot;
+            }
+
+            if (Directory.Exists(sitePackages))
+            {
+                startInfo.EnvironmentVariables["PYTHONPATH"] = sitePackages;
+            }
+
+            var pathEntries = new List<string>();
+            AddEnvironmentPathEntry(pathEntries, runtimeHome);
+            AddEnvironmentPathEntry(pathEntries, Path.Combine(runtimeHome, "DLLs"));
+            AddEnvironmentPathEntry(pathEntries, sitePackages);
+            if (Directory.Exists(sitePackages))
+            {
+                try
+                {
+                    string[] nativeLibraryDirectories = Directory.GetDirectories(sitePackages, "*.libs");
+                    for (int i = 0; i < nativeLibraryDirectories.Length; i++)
+                    {
+                        AddEnvironmentPathEntry(pathEntries, nativeLibraryDirectories[i]);
+                    }
+                }
+                catch
+                {
+                    // Ignore optional native-library discovery failures and fall back to base paths.
+                }
+            }
+
+            string existingPath = startInfo.EnvironmentVariables["PATH"] ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(existingPath))
+            {
+                pathEntries.Add(existingPath);
+            }
+
+            startInfo.EnvironmentVariables["PATH"] =
+                string.Join(Path.PathSeparator.ToString(), pathEntries.ToArray());
+        }
+
+        private static bool IsBundledPortablePythonCandidate(string pythonCandidate)
+        {
+            if (string.IsNullOrWhiteSpace(pythonCandidate))
+            {
+                return false;
+            }
+
+            string normalized = pythonCandidate.Trim().Replace('/', Path.DirectorySeparatorChar);
+            string expectedSuffix = $"{Path.DirectorySeparatorChar}PythonRuntime{Path.DirectorySeparatorChar}python.exe";
+            return normalized.EndsWith(expectedSuffix, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static void AddEnvironmentPathEntry(List<string> pathEntries, string directory)
+        {
+            if (pathEntries == null || string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+            {
+                return;
+            }
+
+            for (int i = 0; i < pathEntries.Count; i++)
+            {
+                if (string.Equals(pathEntries[i], directory, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+            }
+
+            pathEntries.Add(directory);
+        }
+
+        private static bool DidProcessExitQuickly(
+            System.Diagnostics.Process process,
+            int timeoutMs,
+            out string message)
+        {
+            message = string.Empty;
+            if (process == null)
+            {
+                message = "No process handle returned.";
+                return true;
+            }
+
+            try
+            {
+                if (!process.WaitForExit(Math.Max(0, timeoutMs)))
+                {
+                    return false;
+                }
+
+                message =
+                    $"process exited before the sidecar became reachable (exit code {process.ExitCode}).";
+                return true;
+            }
+            catch (Exception ex)
+            {
+                message = $"process exited before the sidecar became reachable ({ex.Message}).";
+                return true;
+            }
+        }
+
+        private static void TryDeleteFileSilently(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            {
+                return;
+            }
+
+            try
+            {
+                File.Delete(path);
+            }
+            catch
+            {
+                // Ignore best-effort log cleanup failures.
+            }
+        }
+
+        private static string BuildSidecarLogHint(string sidecarLogPath)
+        {
+            return !string.IsNullOrWhiteSpace(sidecarLogPath) && File.Exists(sidecarLogPath)
+                ? $" See log: {sidecarLogPath}"
+                : string.Empty;
         }
 
         private static string SelectPreferredSidecarScriptPath(
@@ -10741,6 +11047,664 @@ namespace Reachy.ControlApp
                     logDetail,
                     result.Reachable ? "INFO" : "WARN");
             }
+        }
+
+        private void UpdateMobileBaseServiceRecovery()
+        {
+            if (_mobileBaseServiceRecoveryTask != null && _mobileBaseServiceRecoveryTask.IsCompleted)
+            {
+                ConsumeMobileBaseServiceRecoveryResult(_mobileBaseServiceRecoveryTask);
+                _mobileBaseServiceRecoveryTask = null;
+            }
+
+            if (!IsRealRobotSessionActive())
+            {
+                if (_mobileBaseServiceRecoveryTask == null)
+                {
+                    ResetMobileBaseServiceRecoveryState(
+                        "Mobile base recovery activates only during an active Real Robot session.");
+                }
+
+                return;
+            }
+
+            string host = GetRobotSpeakerMirrorHost();
+            if (string.IsNullOrWhiteSpace(host))
+            {
+                if (_mobileBaseServiceRecoveryTask == null)
+                {
+                    ResetMobileBaseServiceRecoveryState(
+                        "Mobile base recovery is waiting for a robot host.");
+                }
+
+                return;
+            }
+
+            if (!string.Equals(_mobileBaseServiceRecoveryHost, host, StringComparison.OrdinalIgnoreCase))
+            {
+                _mobileBaseServiceRecoveryHost = host;
+                _mobileBaseServiceRecoveryPendingAction = MobileBaseServiceRecoveryAction.Probe;
+                _nextMobileBaseServiceRecoveryActionAt = 0f;
+                _nextMobileBaseServiceRestartAllowedAt = 0f;
+                _mobileBaseServiceRecoveryStatus = $"Mobile base recovery target set to {host}.";
+                _mobileBaseServiceRecoveryDetail = $"service={MobileBaseServiceName}";
+            }
+
+            if (_mobileBaseServiceRecoveryTask != null)
+            {
+                return;
+            }
+
+            if (!autoRecoverMobileBaseService)
+            {
+                if (string.IsNullOrWhiteSpace(_mobileBaseServiceRecoveryStatus) ||
+                    string.Equals(_mobileBaseServiceRecoveryStatus, "Mobile base recovery idle.", StringComparison.Ordinal))
+                {
+                    _mobileBaseServiceRecoveryStatus = "Mobile base auto-recovery is disabled.";
+                    _mobileBaseServiceRecoveryDetail = $"host={host}; service={MobileBaseServiceName}";
+                }
+
+                return;
+            }
+
+            if (Time.unscaledTime < _nextMobileBaseServiceRecoveryActionAt)
+            {
+                return;
+            }
+
+            bool mobileBasePresent = true;
+            string presenceMessage = string.Empty;
+            bool presenceProbeOk = _client != null &&
+                _client.TryGetMobileBasePresence(out mobileBasePresent, out presenceMessage);
+            if (presenceProbeOk)
+            {
+                _mobileBaseServiceRecoveryLastKnownPresence = mobileBasePresent;
+                if (!mobileBasePresent)
+                {
+                    _mobileBaseServiceRecoveryStatus =
+                        "Mobile base recovery is disabled because this robot reports no mobile base.";
+                    _mobileBaseServiceRecoveryDetail = NormalizeLogText(presenceMessage);
+                    _nextMobileBaseServiceRecoveryActionAt =
+                        Time.unscaledTime + Mathf.Max(2f, mobileBaseServiceRecoveryProbeIntervalSeconds);
+                    return;
+                }
+            }
+            else if (_mobileBaseServiceRecoveryLastKnownPresence.HasValue &&
+                !_mobileBaseServiceRecoveryLastKnownPresence.Value)
+            {
+                _mobileBaseServiceRecoveryStatus =
+                    "Mobile base recovery remains disabled because the last presence probe reported no mobile base.";
+                _mobileBaseServiceRecoveryDetail = NormalizeLogText(presenceMessage);
+                _nextMobileBaseServiceRecoveryActionAt =
+                    Time.unscaledTime + Mathf.Max(2f, mobileBaseServiceRecoveryProbeIntervalSeconds);
+                return;
+            }
+
+            if (TryStartMobileBaseServiceRecoveryAction(
+                _mobileBaseServiceRecoveryPendingAction,
+                out string startMessage))
+            {
+                return;
+            }
+
+            _mobileBaseServiceRecoveryStatus = "Mobile base recovery helper could not start.";
+            _mobileBaseServiceRecoveryDetail = NormalizeLogText(startMessage);
+            _nextMobileBaseServiceRecoveryActionAt =
+                Time.unscaledTime + MobileBaseServiceRecoveryFailureRetrySeconds;
+        }
+
+        private void ResetMobileBaseServiceRecoveryState(string message)
+        {
+            _mobileBaseServiceRecoveryTask = null;
+            _mobileBaseServiceRecoveryHost = string.Empty;
+            _nextMobileBaseServiceRecoveryActionAt = 0f;
+            _nextMobileBaseServiceRestartAllowedAt = 0f;
+            _mobileBaseServiceRecoveryPendingAction = MobileBaseServiceRecoveryAction.Probe;
+            _mobileBaseServiceRecoveryLastKnownPresence = null;
+            _mobileBaseServiceRecoveryStatus = string.IsNullOrWhiteSpace(message)
+                ? "Mobile base recovery idle."
+                : message;
+            _mobileBaseServiceRecoveryDetail = string.Empty;
+        }
+
+        private bool TryStartMobileBaseServiceRecoveryAction(
+            MobileBaseServiceRecoveryAction action,
+            out string message)
+        {
+            message = string.Empty;
+            if (_mobileBaseServiceRecoveryTask != null)
+            {
+                message = "Mobile base recovery helper is already running.";
+                return false;
+            }
+
+            string host = GetRobotSpeakerMirrorHost();
+            if (string.IsNullOrWhiteSpace(host))
+            {
+                message = "Mobile base recovery needs a real robot host first.";
+                return false;
+            }
+
+            string scriptPath = ResolveLocalAssetRelativePath(mobileBaseServiceRecoveryHelperRelativePath);
+            if (string.IsNullOrWhiteSpace(scriptPath) || !File.Exists(scriptPath))
+            {
+                message = $"Mobile base recovery helper script not found: {scriptPath}";
+                return false;
+            }
+
+            string workingDirectory = Path.GetDirectoryName(scriptPath) ?? Application.dataPath;
+            string configuredPython = string.IsNullOrWhiteSpace(localAiAgentSidecarPythonCommand)
+                ? "python"
+                : localAiAgentSidecarPythonCommand.Trim();
+            List<string> pythonCandidates = BuildPythonCommandCandidates(
+                workingDirectory,
+                configuredPython,
+                preferBundledVenvFirst: true,
+                new[] { scriptPath });
+            if (pythonCandidates == null || pythonCandidates.Count == 0)
+            {
+                message = "No Python command candidates are available for mobile base recovery.";
+                return false;
+            }
+
+            string user = string.IsNullOrWhiteSpace(robotSshUser) ? "reachy" : robotSshUser.Trim();
+            string password = (robotSshPassword ?? string.Empty).Trim();
+            float sshTimeoutSeconds = Mathf.Max(3f, mobileBaseServiceRecoverySshTimeoutSeconds);
+            float restartWaitSeconds = Mathf.Max(0f, mobileBaseServiceRecoveryRestartWaitSeconds);
+            _mobileBaseServiceRecoveryHost = host;
+            _mobileBaseServiceRecoveryPendingAction = action;
+            _mobileBaseServiceRecoveryStatus = action == MobileBaseServiceRecoveryAction.Restart
+                ? "Restarting mobile base service..."
+                : "Probing mobile base service...";
+            _mobileBaseServiceRecoveryDetail =
+                $"host={host}; service={MobileBaseServiceName}; sshTimeout={sshTimeoutSeconds.ToString("F1", CultureInfo.InvariantCulture)}s";
+            _mobileBaseServiceRecoveryTask = Task.Run(() =>
+                RunMobileBaseServiceRecoveryHelper(
+                    action,
+                    host,
+                    user,
+                    password,
+                    MobileBaseServiceName,
+                    scriptPath,
+                    pythonCandidates,
+                    sshTimeoutSeconds,
+                    restartWaitSeconds));
+            message = _mobileBaseServiceRecoveryStatus;
+            return true;
+        }
+
+        private void ConsumeMobileBaseServiceRecoveryResult(
+            Task<MobileBaseServiceRecoveryResult> completedTask)
+        {
+            MobileBaseServiceRecoveryResult result;
+            try
+            {
+                result = completedTask.Result;
+            }
+            catch (Exception ex)
+            {
+                _mobileBaseServiceRecoveryStatus = "Mobile base recovery helper crashed.";
+                _mobileBaseServiceRecoveryDetail = NormalizeLogText(ex.Message);
+                _mobileBaseServiceRecoveryPendingAction = MobileBaseServiceRecoveryAction.Probe;
+                _nextMobileBaseServiceRecoveryActionAt =
+                    Time.unscaledTime + MobileBaseServiceRecoveryFailureRetrySeconds;
+                LogRuntimeEvent(
+                    "mobility-recovery",
+                    "helper-crashed",
+                    _mobileBaseServiceRecoveryDetail,
+                    "ERROR");
+                return;
+            }
+
+            float probeInterval = Mathf.Max(2f, mobileBaseServiceRecoveryProbeIntervalSeconds);
+            float restartCooldown = Mathf.Max(5f, mobileBaseServiceRecoveryRestartCooldownSeconds);
+            bool healthy = result.Success && result.Reachable && result.Healthy;
+            bool unhealthy = result.Success && result.Reachable && !result.Healthy;
+            bool autoRestartEligible =
+                autoRecoverMobileBaseService &&
+                result.Action == MobileBaseServiceRecoveryAction.Probe &&
+                unhealthy &&
+                Time.unscaledTime >= _nextMobileBaseServiceRestartAllowedAt;
+
+            string title;
+            string severity;
+            if (healthy)
+            {
+                _mobileBaseServiceRecoveryPendingAction = MobileBaseServiceRecoveryAction.Probe;
+                _nextMobileBaseServiceRecoveryActionAt = Time.unscaledTime + probeInterval;
+                _mobileBaseServiceRecoveryStatus = result.Action == MobileBaseServiceRecoveryAction.Restart
+                    ? "Mobile base service restarted and recovered."
+                    : "Mobile base service healthy.";
+                if (result.Action == MobileBaseServiceRecoveryAction.Restart)
+                {
+                    _nextMobileBaseServiceRestartAllowedAt = Time.unscaledTime + restartCooldown;
+                }
+                _mobileBaseServiceRecoveryDetail = BuildMobileBaseServiceRecoverySummary(result);
+                title = result.Action == MobileBaseServiceRecoveryAction.Restart ? "restart-ok" : "probe-ok";
+                severity = "INFO";
+            }
+            else if (autoRestartEligible)
+            {
+                _mobileBaseServiceRecoveryPendingAction = MobileBaseServiceRecoveryAction.Restart;
+                _nextMobileBaseServiceRestartAllowedAt = Time.unscaledTime + restartCooldown;
+                _nextMobileBaseServiceRecoveryActionAt = Time.unscaledTime;
+                _mobileBaseServiceRecoveryStatus = "Mobile base service unhealthy. Auto-restart queued.";
+                _mobileBaseServiceRecoveryDetail = BuildMobileBaseServiceRecoverySummary(result);
+                title = "probe-unhealthy-restart-queued";
+                severity = "WARN";
+            }
+            else
+            {
+                _mobileBaseServiceRecoveryPendingAction = MobileBaseServiceRecoveryAction.Probe;
+                float retryDelay = !result.Success || !result.Reachable
+                    ? MobileBaseServiceRecoveryFailureRetrySeconds
+                    : (result.Action == MobileBaseServiceRecoveryAction.Restart
+                        ? restartCooldown
+                        : probeInterval);
+                _nextMobileBaseServiceRecoveryActionAt = Time.unscaledTime + Mathf.Max(1f, retryDelay);
+                if (result.Action == MobileBaseServiceRecoveryAction.Restart)
+                {
+                    _nextMobileBaseServiceRestartAllowedAt = Time.unscaledTime + restartCooldown;
+                }
+
+                if (!result.Success)
+                {
+                    _mobileBaseServiceRecoveryStatus = result.Action == MobileBaseServiceRecoveryAction.Restart
+                        ? "Mobile base service restart helper failed."
+                        : "Mobile base service probe failed.";
+                }
+                else if (!result.Reachable)
+                {
+                    _mobileBaseServiceRecoveryStatus = "Mobile base recovery could not reach the robot over SSH.";
+                }
+                else if (result.Action == MobileBaseServiceRecoveryAction.Restart)
+                {
+                    _mobileBaseServiceRecoveryStatus = "Mobile base service is still unhealthy after restart.";
+                }
+                else if (autoRecoverMobileBaseService &&
+                    Time.unscaledTime < _nextMobileBaseServiceRestartAllowedAt)
+                {
+                    float cooldownRemaining = Mathf.Max(
+                        0f,
+                        _nextMobileBaseServiceRestartAllowedAt - Time.unscaledTime);
+                    _mobileBaseServiceRecoveryStatus =
+                        $"Mobile base service unhealthy. Restart cooldown {cooldownRemaining:F1}s.";
+                }
+                else
+                {
+                    _mobileBaseServiceRecoveryStatus = "Mobile base service unhealthy.";
+                }
+
+                _mobileBaseServiceRecoveryDetail = BuildMobileBaseServiceRecoverySummary(result);
+                title = result.Action == MobileBaseServiceRecoveryAction.Restart
+                    ? "restart-failed"
+                    : (!result.Success || !result.Reachable ? "probe-failed" : "probe-unhealthy");
+                severity = (!result.Success || !result.Reachable) ? "ERROR" : "WARN";
+            }
+
+            string logDetail = BuildMobileBaseServiceRecoverySummary(result);
+            string logKey =
+                $"{title}|{severity}|{logDetail}|{_mobileBaseServiceRecoveryStatus}";
+            if (!string.Equals(logKey, _mobileBaseServiceRecoveryLastLogKey, StringComparison.Ordinal))
+            {
+                _mobileBaseServiceRecoveryLastLogKey = logKey;
+                LogRuntimeEvent("mobility-recovery", title, logDetail, severity);
+            }
+        }
+
+        private string GetMobileBaseServiceRecoveryStatusForUi()
+        {
+            return string.IsNullOrWhiteSpace(_mobileBaseServiceRecoveryStatus)
+                ? "Mobile base recovery idle."
+                : _mobileBaseServiceRecoveryStatus;
+        }
+
+        private string GetMobileBaseServiceRecoveryDetailForUi()
+        {
+            return string.IsNullOrWhiteSpace(_mobileBaseServiceRecoveryDetail)
+                ? string.Empty
+                : _mobileBaseServiceRecoveryDetail;
+        }
+
+        private static string BuildMobileBaseServiceRecoverySummary(
+            MobileBaseServiceRecoveryResult result)
+        {
+            var parts = new List<string>
+            {
+                $"host={NormalizeLogText(result.Host)}",
+                $"action={result.Action}",
+                $"reachable={result.Reachable}",
+                $"serviceActive={result.ServiceActive}",
+                $"halRunning={result.HalProcessRunning}",
+                $"sdkRunning={result.SdkServerProcessRunning}",
+                $"healthy={result.Healthy}",
+                $"restartAttempted={result.RestartAttempted}",
+                $"restartSucceeded={result.RestartSucceeded}",
+                $"exitCode={result.ExitCode.ToString(CultureInfo.InvariantCulture)}"
+            };
+
+            if (!string.IsNullOrWhiteSpace(result.PythonCommand))
+            {
+                parts.Add($"python={NormalizeLogText(result.PythonCommand)}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(result.Message))
+            {
+                parts.Add($"message={NormalizeLogText(result.Message)}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(result.Detail))
+            {
+                parts.Add($"detail={NormalizeLogText(result.Detail)}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(result.Error))
+            {
+                parts.Add($"error={NormalizeLogText(result.Error)}");
+            }
+
+            return string.Join("; ", parts);
+        }
+
+        private static MobileBaseServiceRecoveryResult RunMobileBaseServiceRecoveryHelper(
+            MobileBaseServiceRecoveryAction action,
+            string host,
+            string user,
+            string password,
+            string serviceName,
+            string scriptPath,
+            IReadOnlyList<string> pythonCandidates,
+            float sshTimeoutSeconds,
+            float restartWaitSeconds)
+        {
+            var result = new MobileBaseServiceRecoveryResult
+            {
+                Action = action,
+                Host = host ?? string.Empty,
+                ServiceName = serviceName ?? MobileBaseServiceName,
+                ExitCode = -1
+            };
+
+            string arguments = BuildMobileBaseServiceRecoveryHelperArguments(
+                action,
+                host,
+                user,
+                password,
+                serviceName,
+                scriptPath,
+                sshTimeoutSeconds,
+                restartWaitSeconds);
+            int timeoutMs = (int)Math.Ceiling(
+                (Math.Max(3f, sshTimeoutSeconds) * 2000f) +
+                (Math.Max(0f, restartWaitSeconds) * 1000f) +
+                8000f);
+            timeoutMs = Math.Max(12000, timeoutMs);
+            string lastError = string.Empty;
+
+            for (int i = 0; i < pythonCandidates.Count; i++)
+            {
+                string candidate = pythonCandidates[i];
+                result.PythonCommand = candidate ?? string.Empty;
+
+                try
+                {
+                    using (var process = new System.Diagnostics.Process())
+                    {
+                        process.StartInfo = new System.Diagnostics.ProcessStartInfo
+                        {
+                            FileName = candidate,
+                            Arguments = arguments,
+                            WorkingDirectory = Path.GetDirectoryName(scriptPath) ?? Application.dataPath,
+                            UseShellExecute = false,
+                            CreateNoWindow = true,
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true
+                        };
+
+                        if (!process.Start())
+                        {
+                            lastError = $"No process handle returned for '{candidate}'.";
+                            continue;
+                        }
+
+                        if (!process.WaitForExit(timeoutMs))
+                        {
+                            try
+                            {
+                                process.Kill();
+                            }
+                            catch
+                            {
+                                // Ignore best-effort kill failures after timeout.
+                            }
+
+                            result.ExitCode = -1;
+                            result.Error = $"Helper timed out after {timeoutMs} ms.";
+                            result.Detail = string.Empty;
+                            result.Success = false;
+                            return result;
+                        }
+
+                        string stdout = process.StandardOutput.ReadToEnd();
+                        string stderr = process.StandardError.ReadToEnd();
+                        result.ExitCode = process.ExitCode;
+                        if (TryParseMobileBaseServiceRecoveryEnvelope(
+                            action,
+                            stdout,
+                            stderr,
+                            candidate,
+                            process.ExitCode,
+                            out MobileBaseServiceRecoveryResult parsed,
+                            out string parseError))
+                        {
+                            return parsed;
+                        }
+
+                        lastError = parseError;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = $"{candidate}: {ex.Message}";
+                }
+            }
+
+            result.Success = false;
+            result.Error = string.IsNullOrWhiteSpace(lastError)
+                ? "Failed to launch the mobile base recovery helper."
+                : lastError;
+            return result;
+        }
+
+        private static bool TryParseMobileBaseServiceRecoveryEnvelope(
+            MobileBaseServiceRecoveryAction action,
+            string stdout,
+            string stderr,
+            string pythonCommand,
+            int exitCode,
+            out MobileBaseServiceRecoveryResult result,
+            out string error)
+        {
+            result = new MobileBaseServiceRecoveryResult
+            {
+                Action = action,
+                PythonCommand = pythonCommand ?? string.Empty,
+                ExitCode = exitCode
+            };
+            error = string.Empty;
+
+            string trimmedOutput = (stdout ?? string.Empty).Trim();
+            if (!TryExtractJsonObject(trimmedOutput, out string json))
+            {
+                error = string.IsNullOrWhiteSpace(trimmedOutput)
+                    ? $"Helper returned no JSON. stderr={NormalizeLogText(stderr)}"
+                    : $"Helper returned non-JSON output: {NormalizeLogText(trimmedOutput)}";
+                result.Error = error;
+                return false;
+            }
+
+            try
+            {
+                MobileBaseServiceRecoveryEnvelope envelope =
+                    JsonUtility.FromJson<MobileBaseServiceRecoveryEnvelope>(json);
+                if (envelope == null)
+                {
+                    error = "Helper JSON parsed to null.";
+                    result.Error = error;
+                    return false;
+                }
+
+                result.Action = action;
+                result.Success = envelope.ok;
+                result.Reachable = envelope.reachable;
+                result.ServiceActive = envelope.service_active;
+                result.HalProcessRunning = envelope.hal_process_running;
+                result.SdkServerProcessRunning = envelope.sdk_server_process_running;
+                result.Healthy = envelope.healthy;
+                result.RestartAttempted = envelope.restart_attempted;
+                result.RestartSucceeded = envelope.restart_succeeded;
+                result.Host = envelope.host ?? string.Empty;
+                result.ServiceName = envelope.service_name ?? MobileBaseServiceName;
+                result.Message = envelope.message ?? string.Empty;
+                result.Detail = envelope.detail ?? string.Empty;
+                result.Error = string.IsNullOrWhiteSpace(envelope.error)
+                    ? NormalizeLogText(stderr)
+                    : envelope.error;
+                result.PythonCommand = pythonCommand ?? string.Empty;
+                result.ExitCode = exitCode;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = $"Failed to parse helper JSON: {ex.Message}";
+                result.Error = error;
+                return false;
+            }
+        }
+
+        private static bool TryExtractJsonObject(string text, out string json)
+        {
+            json = string.Empty;
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return false;
+            }
+
+            int start = text.IndexOf('{');
+            int end = text.LastIndexOf('}');
+            if (start < 0 || end <= start)
+            {
+                return false;
+            }
+
+            json = text.Substring(start, end - start + 1).Trim();
+            return !string.IsNullOrWhiteSpace(json);
+        }
+
+        private static string BuildMobileBaseServiceRecoveryHelperArguments(
+            MobileBaseServiceRecoveryAction action,
+            string host,
+            string user,
+            string password,
+            string serviceName,
+            string scriptPath,
+            float sshTimeoutSeconds,
+            float restartWaitSeconds)
+        {
+            var builder = new StringBuilder();
+            AppendCommandLineArgument(builder, scriptPath);
+            AppendCommandLineArgument(builder, "--action");
+            AppendCommandLineArgument(
+                builder,
+                action == MobileBaseServiceRecoveryAction.Restart ? "restart" : "probe");
+            AppendCommandLineArgument(builder, "--reachy-host");
+            AppendCommandLineArgument(builder, host ?? string.Empty);
+            AppendCommandLineArgument(builder, "--reachy-user");
+            AppendCommandLineArgument(builder, user ?? "reachy");
+            AppendCommandLineArgument(builder, "--reachy-password");
+            AppendCommandLineArgument(builder, password ?? string.Empty);
+            AppendCommandLineArgument(builder, "--service-name");
+            AppendCommandLineArgument(builder, serviceName ?? MobileBaseServiceName);
+            AppendCommandLineArgument(builder, "--ssh-timeout-seconds");
+            AppendCommandLineArgument(
+                builder,
+                Math.Max(3f, sshTimeoutSeconds).ToString("F1", CultureInfo.InvariantCulture));
+            AppendCommandLineArgument(builder, "--restart-wait-seconds");
+            AppendCommandLineArgument(
+                builder,
+                Math.Max(0f, restartWaitSeconds).ToString("F1", CultureInfo.InvariantCulture));
+            return builder.ToString();
+        }
+
+        private static void AppendCommandLineArgument(StringBuilder builder, string argument)
+        {
+            if (builder == null)
+            {
+                return;
+            }
+
+            if (builder.Length > 0)
+            {
+                builder.Append(' ');
+            }
+
+            if (string.IsNullOrEmpty(argument))
+            {
+                builder.Append("\"\"");
+                return;
+            }
+
+            bool requiresQuotes = false;
+            for (int i = 0; i < argument.Length; i++)
+            {
+                char c = argument[i];
+                if (char.IsWhiteSpace(c) || c == '"')
+                {
+                    requiresQuotes = true;
+                    break;
+                }
+            }
+
+            if (!requiresQuotes)
+            {
+                builder.Append(argument);
+                return;
+            }
+
+            builder.Append('"');
+            int slashCount = 0;
+            for (int i = 0; i < argument.Length; i++)
+            {
+                char c = argument[i];
+                if (c == '\\')
+                {
+                    slashCount++;
+                    continue;
+                }
+
+                if (c == '"')
+                {
+                    builder.Append('\\', slashCount * 2 + 1);
+                    builder.Append('"');
+                    slashCount = 0;
+                    continue;
+                }
+
+                if (slashCount > 0)
+                {
+                    builder.Append('\\', slashCount);
+                    slashCount = 0;
+                }
+
+                builder.Append(c);
+            }
+
+            if (slashCount > 0)
+            {
+                builder.Append('\\', slashCount * 2);
+            }
+
+            builder.Append('"');
         }
 
         private string BuildRobotSpeakerTtsMirrorEndpoint()
@@ -17838,6 +18802,108 @@ namespace Reachy.ControlApp
                     precheckTimeoutSeconds = Mathf.Max(0.2f, parsedProbeTimeout);
                 }
                 GUILayout.EndHorizontal();
+
+                autoRecoverMobileBaseService = GUILayout.Toggle(
+                    autoRecoverMobileBaseService,
+                    "Auto-restart mobile base service when the base HAL disappears");
+
+                GUILayout.BeginHorizontal();
+                GUILayout.Label("Base probe", GUILayout.Width(100f));
+                string baseProbeText = GUILayout.TextField(
+                    mobileBaseServiceRecoveryProbeIntervalSeconds.ToString(CultureInfo.InvariantCulture),
+                    GUILayout.Width(70f));
+                if (float.TryParse(
+                    baseProbeText,
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out float parsedBaseProbe))
+                {
+                    mobileBaseServiceRecoveryProbeIntervalSeconds = Mathf.Max(2f, parsedBaseProbe);
+                }
+
+                GUILayout.Label("Restart cool-down", GUILayout.Width(110f));
+                string baseCooldownText = GUILayout.TextField(
+                    mobileBaseServiceRecoveryRestartCooldownSeconds.ToString(CultureInfo.InvariantCulture),
+                    GUILayout.Width(70f));
+                if (float.TryParse(
+                    baseCooldownText,
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out float parsedBaseCooldown))
+                {
+                    mobileBaseServiceRecoveryRestartCooldownSeconds =
+                        Mathf.Max(5f, parsedBaseCooldown);
+                }
+                GUILayout.EndHorizontal();
+
+                GUILayout.BeginHorizontal();
+                GUILayout.Label("SSH timeout", GUILayout.Width(100f));
+                string baseSshTimeoutText = GUILayout.TextField(
+                    mobileBaseServiceRecoverySshTimeoutSeconds.ToString(CultureInfo.InvariantCulture),
+                    GUILayout.Width(70f));
+                if (float.TryParse(
+                    baseSshTimeoutText,
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out float parsedBaseSshTimeout))
+                {
+                    mobileBaseServiceRecoverySshTimeoutSeconds =
+                        Mathf.Max(3f, parsedBaseSshTimeout);
+                }
+
+                GUILayout.Label("Restart wait", GUILayout.Width(110f));
+                string baseRestartWaitText = GUILayout.TextField(
+                    mobileBaseServiceRecoveryRestartWaitSeconds.ToString(CultureInfo.InvariantCulture),
+                    GUILayout.Width(70f));
+                if (float.TryParse(
+                    baseRestartWaitText,
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out float parsedBaseRestartWait))
+                {
+                    mobileBaseServiceRecoveryRestartWaitSeconds =
+                        Mathf.Max(0f, parsedBaseRestartWait);
+                }
+                GUILayout.EndHorizontal();
+
+                bool previousBaseRecoveryEnabled = GUI.enabled;
+                GUI.enabled = previousBaseRecoveryEnabled &&
+                              _mobileBaseServiceRecoveryTask == null &&
+                              IsRealRobotSessionActive() &&
+                              !string.IsNullOrWhiteSpace(GetRobotSpeakerMirrorHost());
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button("Probe base svc", GUILayout.Width(110f), GUILayout.Height(22f)))
+                {
+                    bool started = TryStartMobileBaseServiceRecoveryAction(
+                        MobileBaseServiceRecoveryAction.Probe,
+                        out string helperMessage);
+                    _mobileBaseServiceRecoveryStatus = helperMessage;
+                    if (!started)
+                    {
+                        SetStatus("Mobile base probe failed", helperMessage);
+                    }
+                }
+
+                if (GUILayout.Button("Restart base svc", GUILayout.Width(116f), GUILayout.Height(22f)))
+                {
+                    bool started = TryStartMobileBaseServiceRecoveryAction(
+                        MobileBaseServiceRecoveryAction.Restart,
+                        out string helperMessage);
+                    _mobileBaseServiceRecoveryStatus = helperMessage;
+                    if (!started)
+                    {
+                        SetStatus("Mobile base restart failed", helperMessage);
+                    }
+                }
+                GUILayout.EndHorizontal();
+                GUI.enabled = previousBaseRecoveryEnabled;
+
+                GUILayout.Label(GetMobileBaseServiceRecoveryStatusForUi());
+                string mobileBaseRecoveryDetail = GetMobileBaseServiceRecoveryDetailForUi();
+                if (!string.IsNullOrWhiteSpace(mobileBaseRecoveryDetail))
+                {
+                    GUILayout.Label(mobileBaseRecoveryDetail);
+                }
             }
             else
             {

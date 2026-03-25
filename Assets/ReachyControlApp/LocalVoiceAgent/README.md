@@ -199,7 +199,9 @@ If `Auto-start sidecar` is enabled in Unity, pressing `Enable local AI agent` st
 Build/runtime path note:
 - In Editor, sidecar files are resolved from `Assets/ReachyControlApp/LocalVoiceAgent/...`.
 - In standalone builds, Unity now probes multiple locations (build data folder, build folder, parent folders, current directory, persistent data) and also checks project-root style `Assets/...` paths.
-- For portable build usage outside the Unity project tree, keep `ReachyControlApp/LocalVoiceAgent/local_voice_agent_sidecar.py` available next to the executable folder (or provide absolute sidecar paths in config).
+- Windows standalone builds now copy `ReachyControlApp/LocalVoiceAgent`, `ReachyControlApp/voice_agent_config.json`, `.local_voice_models`, and a bundled `ReachyControlApp/LocalVoiceAgent/PythonRuntime` next to the executable automatically.
+- The bundled runtime is preferred over `.venv/Scripts/python.exe` in standalone builds because copied venv launchers are not reliably portable across machines.
+- Unity sidecar auto-start now also writes `local_voice_agent_sidecar_last_run.log` beside the sidecar files, which is the first file to inspect if the sidecar process starts and then immediately disappears.
 - If Unity reports `STT backend is inactive`, check Local AI status text: it now appends sidecar `last_error` details when available.
 
 Current sidecar parser intents include:

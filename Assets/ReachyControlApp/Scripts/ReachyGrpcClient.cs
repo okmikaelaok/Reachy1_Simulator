@@ -49,6 +49,13 @@ namespace Reachy.ControlApp
         private const float Deg2Rad = (float)(Math.PI / 180.0);
         private const float Rad2Deg = (float)(180.0 / Math.PI);
 
+        private enum MobileBaseVelocityTransport
+        {
+            Unknown = 0,
+            CmdVelDirection = 1,
+            SpeedSetSpeed = 2
+        }
+
         private Channel _jointChannel;
         private JointService.JointServiceClient _jointClient;
         private Channel _mobilityChannel;
@@ -61,7 +68,7 @@ namespace Reachy.ControlApp
         private int _cameraPort;
         private int _mobilityPort;
         private bool? _cachedMobileBasePresence;
-        private bool _mobilityConfiguredForSpeedMode;
+        private MobileBaseVelocityTransport _mobilityVelocityTransport = MobileBaseVelocityTransport.Unknown;
         private bool _mobilityServiceUnavailable;
         private float _poseTransitionSpeedScale = DefaultPoseTransitionSpeedScale;
         private bool _useKeyframePoseSpeedLimiter = true;
@@ -652,60 +659,146 @@ namespace Reachy.ControlApp
             }
 
             float normalizedDuration = NormalizeBaseVelocityDuration(durationSeconds);
+            switch (_mobilityVelocityTransport)
+            {
+                case MobileBaseVelocityTransport.CmdVelDirection:
+                {
+                    if (TrySendBaseVelocityViaCmdVelDirection(
+                        xVel,
+                        yVel,
+                        rotVel,
+                        normalizedDuration,
+                        out message))
+                    {
+                        return true;
+                    }
+
+                    string cachedFailure = message;
+                    if (TrySendBaseVelocityViaSpeedSetSpeed(
+                        xVel,
+                        yVel,
+                        rotVel,
+                        normalizedDuration,
+                        out message))
+                    {
+                        return true;
+                    }
+
+                    message = $"{cachedFailure} Fallback: {message}";
+                    return false;
+                }
+
+                case MobileBaseVelocityTransport.SpeedSetSpeed:
+                {
+                    if (TrySendBaseVelocityViaSpeedSetSpeed(
+                        xVel,
+                        yVel,
+                        rotVel,
+                        normalizedDuration,
+                        out message))
+                    {
+                        return true;
+                    }
+
+                    string cachedFailure = message;
+                    if (TrySendBaseVelocityViaCmdVelDirection(
+                        xVel,
+                        yVel,
+                        rotVel,
+                        normalizedDuration,
+                        out message))
+                    {
+                        return true;
+                    }
+
+                    message = $"{cachedFailure} Fallback: {message}";
+                    return false;
+                }
+
+                default:
+                {
+                    if (TrySendBaseVelocityViaCmdVelDirection(
+                        xVel,
+                        yVel,
+                        rotVel,
+                        normalizedDuration,
+                        out message))
+                    {
+                        return true;
+                    }
+
+                    string cmdVelFailure = message;
+                    if (TrySendBaseVelocityViaSpeedSetSpeed(
+                        xVel,
+                        yVel,
+                        rotVel,
+                        normalizedDuration,
+                        out message))
+                    {
+                        return true;
+                    }
+
+                    message = $"{cmdVelFailure} Fallback: {message}";
+                    return false;
+                }
+            }
+        }
+
+        private bool TrySendBaseVelocityViaCmdVelDirection(
+            float xVel,
+            float yVel,
+            float rotVel,
+            float durationSeconds,
+            out string message)
+        {
             string endpointSummary = DescribeMobilityEndpoint();
-            bool configuredSpeedModeThisCall = false;
+            bool configuredModeThisCall = _mobilityVelocityTransport != MobileBaseVelocityTransport.CmdVelDirection;
 
             try
             {
-                if (!_mobilityConfiguredForSpeedMode)
+                if (configuredModeThisCall)
                 {
-                    ControlModeCommandAck controlAck = _mobilityClient.SetControlMode(
-                        new ControlModeCommand { Mode = ControlModePossiblities.Pid },
-                        deadline: DateTime.UtcNow.AddSeconds(MobilityRpcTimeoutSeconds));
-                    if (controlAck == null || controlAck.Success != true)
-                    {
-                        message = $"Mobile base rejected PID control mode (endpoint={endpointSummary}).";
-                        return false;
-                    }
-
                     ZuuuModeCommandAck modeAck = _mobilityClient.SetZuuuMode(
-                        new ZuuuModeCommand { Mode = ZuuuModePossiblities.Speed },
+                        new ZuuuModeCommand { Mode = ZuuuModePossiblities.CmdVel },
                         deadline: DateTime.UtcNow.AddSeconds(MobilityRpcTimeoutSeconds));
                     if (modeAck == null || modeAck.Success != true)
                     {
-                        message = $"Mobile base rejected SPEED mode (endpoint={endpointSummary}).";
+                        _mobilityVelocityTransport = MobileBaseVelocityTransport.Unknown;
+                        message = $"Mobile base rejected CMD_VEL mode (endpoint={endpointSummary}).";
                         return false;
                     }
-
-                    _mobilityConfiguredForSpeedMode = true;
-                    configuredSpeedModeThisCall = true;
                 }
 
-                SetSpeedAck ack = _mobilityClient.SendSetSpeed(
-                    new SetSpeedVector
+                TargetDirectionCommandAck ack = _mobilityClient.SendDirection(
+                    new TargetDirectionCommand
                     {
-                        XVel = xVel,
-                        YVel = yVel,
-                        RotVel = rotVel,
-                        Duration = normalizedDuration
+                        Direction = new DirectionVector
+                        {
+                            X = xVel,
+                            Y = yVel,
+                            Theta = rotVel
+                        }
                     },
                     deadline: DateTime.UtcNow.AddSeconds(MobilityRpcTimeoutSeconds));
 
                 if (ack != null && ack.Success == true)
                 {
+                    _mobilityVelocityTransport = MobileBaseVelocityTransport.CmdVelDirection;
                     message =
-                        $"Base velocity sent (x={xVel:F2} m/s, y={yVel:F2} m/s, rot={rotVel:F2} rad/s, duration={normalizedDuration:F2}s, " +
-                        $"endpoint={endpointSummary}, speedModeConfigured={(configuredSpeedModeThisCall ? "this-call" : "cached")}).";
+                        $"Base velocity sent via CMD_VEL/SendDirection (x={xVel:F2} m/s, y={yVel:F2} m/s, rot={rotVel:F2} rad/s, " +
+                        $"duration~{durationSeconds:F2}s, endpoint={endpointSummary}, modeConfigured={(configuredModeThisCall ? "this-call" : "cached")}).";
                     return true;
                 }
 
+                _mobilityVelocityTransport = MobileBaseVelocityTransport.Unknown;
                 message =
-                    $"Base velocity command sent but was not acknowledged as successful (endpoint={endpointSummary}, " +
-                    $"speedModeConfigured={(configuredSpeedModeThisCall ? "this-call" : "cached")}).";
+                    $"Base velocity command via CMD_VEL/SendDirection was not acknowledged as successful " +
+                    $"(endpoint={endpointSummary}, modeConfigured={(configuredModeThisCall ? "this-call" : "cached")}).";
                 return false;
             }
             catch (RpcException rpcEx)
             {
+                _mobilityVelocityTransport = MobileBaseVelocityTransport.Unknown;
                 if (!HasDedicatedMobilityChannel &&
                     ShouldTryDedicatedMobilityEndpoint(rpcEx.StatusCode) &&
                     TryBindDedicatedMobilityEndpoint(out bool dedicatedPresent, out string dedicatedMessage))
@@ -716,33 +809,111 @@ namespace Reachy.ControlApp
                         return false;
                     }
 
-                    _mobilityConfiguredForSpeedMode = false;
-                    return SendBaseVelocity(xVel, yVel, rotVel, durationSeconds, out message);
-                }
-
-                if (rpcEx.StatusCode == StatusCode.Unimplemented)
-                {
-                    _mobilityServiceUnavailable = true;
-                }
-
-                if (rpcEx.StatusCode == StatusCode.Unavailable ||
-                    rpcEx.StatusCode == StatusCode.Cancelled ||
-                    rpcEx.StatusCode == StatusCode.DeadlineExceeded)
-                {
-                    _mobilityConfiguredForSpeedMode = false;
+                    return TrySendBaseVelocityViaCmdVelDirection(xVel, yVel, rotVel, durationSeconds, out message);
                 }
 
                 message =
                     $"Base command RPC {rpcEx.StatusCode}: {rpcEx.Status.Detail} " +
-                    $"(endpoint={endpointSummary}, speedModeConfigured={(configuredSpeedModeThisCall ? "this-call" : "cached")}).";
+                    $"(endpoint={endpointSummary}, transport=CMD_VEL/SendDirection, modeConfigured={(configuredModeThisCall ? "this-call" : "cached")}).";
                 return false;
             }
             catch (Exception ex)
             {
-                _mobilityConfiguredForSpeedMode = false;
+                _mobilityVelocityTransport = MobileBaseVelocityTransport.Unknown;
                 message =
                     $"Base command failed: {ex.Message} " +
-                    $"(endpoint={endpointSummary}, speedModeConfigured={(configuredSpeedModeThisCall ? "this-call" : "cached")}).";
+                    $"(endpoint={endpointSummary}, transport=CMD_VEL/SendDirection, modeConfigured={(configuredModeThisCall ? "this-call" : "cached")}).";
+                return false;
+            }
+        }
+
+        private bool TrySendBaseVelocityViaSpeedSetSpeed(
+            float xVel,
+            float yVel,
+            float rotVel,
+            float durationSeconds,
+            out string message)
+        {
+            string endpointSummary = DescribeMobilityEndpoint();
+            bool configuredModeThisCall = _mobilityVelocityTransport != MobileBaseVelocityTransport.SpeedSetSpeed;
+
+            try
+            {
+                if (configuredModeThisCall)
+                {
+                    ControlModeCommandAck controlAck = _mobilityClient.SetControlMode(
+                        new ControlModeCommand { Mode = ControlModePossiblities.Pid },
+                        deadline: DateTime.UtcNow.AddSeconds(MobilityRpcTimeoutSeconds));
+                    if (controlAck == null || controlAck.Success != true)
+                    {
+                        _mobilityVelocityTransport = MobileBaseVelocityTransport.Unknown;
+                        message = $"Mobile base rejected PID control mode (endpoint={endpointSummary}).";
+                        return false;
+                    }
+
+                    ZuuuModeCommandAck modeAck = _mobilityClient.SetZuuuMode(
+                        new ZuuuModeCommand { Mode = ZuuuModePossiblities.Speed },
+                        deadline: DateTime.UtcNow.AddSeconds(MobilityRpcTimeoutSeconds));
+                    if (modeAck == null || modeAck.Success != true)
+                    {
+                        _mobilityVelocityTransport = MobileBaseVelocityTransport.Unknown;
+                        message = $"Mobile base rejected SPEED mode (endpoint={endpointSummary}).";
+                        return false;
+                    }
+                }
+
+                SetSpeedAck ack = _mobilityClient.SendSetSpeed(
+                    new SetSpeedVector
+                    {
+                        XVel = xVel,
+                        YVel = yVel,
+                        RotVel = rotVel,
+                        Duration = durationSeconds
+                    },
+                    deadline: DateTime.UtcNow.AddSeconds(MobilityRpcTimeoutSeconds));
+
+                if (ack != null && ack.Success == true)
+                {
+                    _mobilityVelocityTransport = MobileBaseVelocityTransport.SpeedSetSpeed;
+                    message =
+                        $"Base velocity sent via SPEED/SendSetSpeed (x={xVel:F2} m/s, y={yVel:F2} m/s, rot={rotVel:F2} rad/s, " +
+                        $"duration={durationSeconds:F2}s, endpoint={endpointSummary}, modeConfigured={(configuredModeThisCall ? "this-call" : "cached")}).";
+                    return true;
+                }
+
+                _mobilityVelocityTransport = MobileBaseVelocityTransport.Unknown;
+                message =
+                    $"Base velocity command via SPEED/SendSetSpeed was not acknowledged as successful " +
+                    $"(endpoint={endpointSummary}, modeConfigured={(configuredModeThisCall ? "this-call" : "cached")}).";
+                return false;
+            }
+            catch (RpcException rpcEx)
+            {
+                _mobilityVelocityTransport = MobileBaseVelocityTransport.Unknown;
+                if (!HasDedicatedMobilityChannel &&
+                    ShouldTryDedicatedMobilityEndpoint(rpcEx.StatusCode) &&
+                    TryBindDedicatedMobilityEndpoint(out bool dedicatedPresent, out string dedicatedMessage))
+                {
+                    if (!dedicatedPresent)
+                    {
+                        message = dedicatedMessage;
+                        return false;
+                    }
+
+                    return TrySendBaseVelocityViaSpeedSetSpeed(xVel, yVel, rotVel, durationSeconds, out message);
+                }
+
+                message =
+                    $"Base command RPC {rpcEx.StatusCode}: {rpcEx.Status.Detail} " +
+                    $"(endpoint={endpointSummary}, transport=SPEED/SendSetSpeed, modeConfigured={(configuredModeThisCall ? "this-call" : "cached")}).";
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _mobilityVelocityTransport = MobileBaseVelocityTransport.Unknown;
+                message =
+                    $"Base command failed: {ex.Message} " +
+                    $"(endpoint={endpointSummary}, transport=SPEED/SendSetSpeed, modeConfigured={(configuredModeThisCall ? "this-call" : "cached")}).";
                 return false;
             }
         }
@@ -1818,7 +1989,7 @@ namespace Reachy.ControlApp
                     _mobileBasePresenceClient = presenceClient;
                     _mobilityClient = new MobilityService.MobilityServiceClient(_mobilityChannel);
                     _cachedMobileBasePresence = present;
-                    _mobilityConfiguredForSpeedMode = false;
+                    _mobilityVelocityTransport = MobileBaseVelocityTransport.Unknown;
                     _mobilityServiceUnavailable = false;
                     message = BuildMobileBasePresenceMessage(present);
                     return true;
@@ -1849,7 +2020,7 @@ namespace Reachy.ControlApp
         private void ResetMobilityClients()
         {
             _cachedMobileBasePresence = null;
-            _mobilityConfiguredForSpeedMode = false;
+            _mobilityVelocityTransport = MobileBaseVelocityTransport.Unknown;
             _mobilityServiceUnavailable = false;
             _mobilityClient = null;
             _mobileBasePresenceClient = null;

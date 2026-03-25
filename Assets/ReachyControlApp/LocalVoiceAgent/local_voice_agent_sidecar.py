@@ -6787,12 +6787,34 @@ def parse_args() -> argparse.Namespace:
         choices=["debug", "info", "warning", "error"],
         help="Python logging verbosity.",
     )
+    parser.add_argument(
+        "--log-file",
+        type=str,
+        default="",
+        help="Optional log file path for sidecar startup/runtime diagnostics.",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    logging.basicConfig(level=getattr(logging, str(args.log_level).upper()), format="%(asctime)s %(levelname)s %(message)s")
+    handlers: list[logging.Handler] = [logging.StreamHandler()]
+    log_file = str(args.log_file or "").strip()
+    if log_file:
+        try:
+            log_path = Path(log_file).expanduser().resolve()
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            handlers.append(logging.FileHandler(log_path, mode="w", encoding="utf-8"))
+        except Exception as exc:
+            print(f"Failed to open sidecar log file '{log_file}': {exc}", file=sys.stderr)
+
+    logging.basicConfig(
+        level=getattr(logging, str(args.log_level).upper()),
+        format="%(asctime)s %(levelname)s %(message)s",
+        handlers=handlers,
+    )
+    if log_file:
+        logging.info("Writing sidecar diagnostics to %s", log_file)
 
     config_path = Path(args.config).expanduser().resolve()
     try:
