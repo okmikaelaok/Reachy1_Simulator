@@ -34,12 +34,13 @@ jobs:
           }
 
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-          "asset_name=reachy-standalone-$tag-windows-x64.zip" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "asset_name=reachy-$tag-windows-x64.zip" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - name: Check out repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          lfs: true
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref }}
 
       - name: Package current standalone build
