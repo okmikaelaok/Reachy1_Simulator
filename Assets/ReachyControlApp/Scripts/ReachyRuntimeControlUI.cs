@@ -230,6 +230,7 @@ namespace Reachy.ControlApp
             "You are Reachy performing with a configurable custom persona. Stay helpful, expressive, and operator-friendly, " +
             "while remaining honest about uncertainty and real robot limitations. Do not proactively bring up Reachy assistance, " +
             "robot embodiment, or movement/control help unless the operator asks for it or the persona itself explicitly calls for it.";
+        private const int SavedOnlineAiCustomPersonalitySchemaVersion = 1;
         private const float OnlineAiModesLiveApplyDebounceSeconds = 0.45f;
         private const string DefaultOnlineAiModel = "gpt-5.4";
         private const int DefaultOnlineAiMaxOutputTokens = 480;
@@ -990,6 +991,11 @@ namespace Reachy.ControlApp
         private Vector2 _aiModesPrimaryScroll;
         private Vector2 _aiModesPreviewScroll;
         private string _aiModesOpenVoicePicker = string.Empty;
+        private readonly List<SavedOnlineAiCustomPersonalityEntry> _savedOnlineAiCustomPersonalityEntries =
+            new List<SavedOnlineAiCustomPersonalityEntry>();
+        private Vector2 _savedOnlineAiCustomPersonalityDropdownScroll;
+        private bool _savedOnlineAiCustomPersonalityDropdownOpen;
+        private string _selectedSavedOnlineAiCustomPersonalityPath = string.Empty;
         private string _onlineAiPersonaPendingApplyFingerprint = string.Empty;
         private string _onlineAiPersonaLastAppliedFingerprint = string.Empty;
         private float _onlineAiPersonaPendingApplyAt = -1f;
@@ -1701,6 +1707,29 @@ namespace Reachy.ControlApp
             public string saved_utc = string.Empty;
         }
 
+        [Serializable]
+        private sealed class SavedOnlineAiCustomPersonalityFile
+        {
+            public int schema_version = SavedOnlineAiCustomPersonalitySchemaVersion;
+            public string name = DefaultCustomOnlineAiPersonaName;
+            public string summary = DefaultCustomOnlineAiPersonaSummary;
+            public string tts_voice = DefaultOnlineTtsVoice;
+            public float warmth = DefaultCustomOnlineAiWarmth;
+            public float playfulness = DefaultCustomOnlineAiPlayfulness;
+            public float directness = DefaultCustomOnlineAiDirectness;
+            public float roleplay_commitment = DefaultCustomOnlineAiRoleplayCommitment;
+            public float factual_grounding = DefaultCustomOnlineAiFactualGrounding;
+            public string system_prompt = DefaultCustomOnlineAiSystemPrompt;
+            public string saved_utc = string.Empty;
+        }
+
+        private sealed class SavedOnlineAiCustomPersonalityEntry
+        {
+            public string FilePath = string.Empty;
+            public string FileName = string.Empty;
+            public SavedOnlineAiCustomPersonalityFile Payload = new SavedOnlineAiCustomPersonalityFile();
+        }
+
         private void Awake()
         {
             _client = new ReachyGrpcClient();
@@ -1811,6 +1840,7 @@ namespace Reachy.ControlApp
                 _voiceLastParserMessage = startupVoiceConfigMessage;
             }
             ResetOnlineAiPersonaLiveApplyTracking();
+            TryRefreshSavedOnlineAiCustomPersonalityLibrary(out _);
             if (TryApplyStoredOnlineAiApiKeyToProcessEnvironment(out string storedApiKeyMessage))
             {
                 _onlineAiApiKeyStatus = $"available from local secret store ({GetSanitizedOnlineAiApiKeyEnvVarName()})";
@@ -8083,6 +8113,97 @@ namespace Reachy.ControlApp
                 "online_ai_api_key.json");
         }
 
+        private string GetProjectOnlineAiCustomPersonalityLibraryDirectory()
+        {
+            string projectRoot = GetProjectRootPath();
+            if (!IsReachyProjectRootPath(projectRoot))
+            {
+                return string.Empty;
+            }
+
+            return Path.Combine(
+                projectRoot,
+                "UserSettings",
+                "ReachyControlApp",
+                "OnlineAiCustomPersonalities");
+        }
+
+        private static string GetRuntimeReachyControlAppDirectory()
+        {
+            var candidates = new List<string>(2);
+            string dataPath = Application.dataPath ?? string.Empty;
+            string dataParent = Path.GetDirectoryName(dataPath) ?? string.Empty;
+            AddRuntimeCandidate(candidates, Path.Combine(dataParent, "ReachyControlApp"));
+            AddRuntimeCandidate(candidates, Path.Combine(Environment.CurrentDirectory ?? string.Empty, "ReachyControlApp"));
+
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                string candidate = candidates[i];
+                if (string.IsNullOrWhiteSpace(candidate) || !Directory.Exists(candidate))
+                {
+                    continue;
+                }
+
+                bool looksLikeRuntimeBundle =
+                    File.Exists(Path.Combine(candidate, "voice_agent_config.json")) ||
+                    Directory.Exists(Path.Combine(candidate, "LocalVoiceAgent"));
+                if (looksLikeRuntimeBundle)
+                {
+                    return candidate;
+                }
+            }
+
+            return string.Empty;
+        }
+
+        private static string GetPersistentOnlineAiCustomPersonalityLibraryDirectory()
+        {
+            return Path.Combine(
+                Application.persistentDataPath,
+                "ReachyControlApp",
+                "OnlineAiCustomPersonalities");
+        }
+
+        private static string GetStandaloneBuildOnlineAiCustomPersonalityLibraryDirectory()
+        {
+            string runtimeDirectory = GetRuntimeReachyControlAppDirectory();
+            if (string.IsNullOrWhiteSpace(runtimeDirectory))
+            {
+                return string.Empty;
+            }
+
+            return Path.Combine(runtimeDirectory, "OnlineAiCustomPersonalities");
+        }
+
+        private string GetPreferredOnlineAiCustomPersonalityLibraryDirectory()
+        {
+            string projectDirectory = GetProjectOnlineAiCustomPersonalityLibraryDirectory();
+            if (!string.IsNullOrWhiteSpace(projectDirectory))
+            {
+                return projectDirectory;
+            }
+
+            string standaloneBuildDirectory = GetStandaloneBuildOnlineAiCustomPersonalityLibraryDirectory();
+            if (!string.IsNullOrWhiteSpace(standaloneBuildDirectory))
+            {
+                return standaloneBuildDirectory;
+            }
+
+            return GetPersistentOnlineAiCustomPersonalityLibraryDirectory();
+        }
+
+        private List<string> GetOnlineAiCustomPersonalityLibraryCandidateDirectories()
+        {
+            var candidates = new List<string>();
+            AddRuntimeCandidate(candidates, GetPreferredOnlineAiCustomPersonalityLibraryDirectory());
+            AddRuntimeCandidate(candidates, GetProjectOnlineAiCustomPersonalityLibraryDirectory());
+            AddRuntimeCandidate(candidates, GetStandaloneBuildOnlineAiCustomPersonalityLibraryDirectory());
+            AddRuntimeCandidate(
+                candidates,
+                GetPersistentOnlineAiCustomPersonalityLibraryDirectory());
+            return candidates;
+        }
+
         private List<string> GetOnlineAiApiKeySecretStoreCandidatePaths()
         {
             var candidates = new List<string>();
@@ -8384,6 +8505,411 @@ namespace Reachy.ControlApp
             return char.ToUpperInvariant(normalized[0]) + normalized.Substring(1);
         }
 
+        private static string SanitizeOnlineAiCustomPersonalityFileStem(string value)
+        {
+            string trimmed = (value ?? string.Empty).Trim().ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(trimmed))
+            {
+                return "custom-personality";
+            }
+
+            var builder = new StringBuilder(trimmed.Length);
+            bool lastWasSeparator = false;
+            for (int i = 0; i < trimmed.Length; i++)
+            {
+                char c = trimmed[i];
+                bool asciiLetterOrDigit =
+                    c <= sbyte.MaxValue &&
+                    ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'));
+                if (asciiLetterOrDigit)
+                {
+                    builder.Append(c);
+                    lastWasSeparator = false;
+                    continue;
+                }
+
+                if (!lastWasSeparator)
+                {
+                    builder.Append('-');
+                    lastWasSeparator = true;
+                }
+            }
+
+            string sanitized = builder.ToString().Trim('-');
+            return string.IsNullOrWhiteSpace(sanitized)
+                ? "custom-personality"
+                : sanitized;
+        }
+
+        private static string BuildOnlineAiCustomPersonalityFileName(string personaName)
+        {
+            return SanitizeOnlineAiCustomPersonalityFileStem(personaName) + ".json";
+        }
+
+        private static SavedOnlineAiCustomPersonalityFile NormalizeSavedOnlineAiCustomPersonalityPayload(
+            SavedOnlineAiCustomPersonalityFile payload)
+        {
+            if (payload == null)
+            {
+                payload = new SavedOnlineAiCustomPersonalityFile();
+            }
+
+            payload.schema_version = Math.Max(1, payload.schema_version);
+            payload.name = string.IsNullOrWhiteSpace(payload.name)
+                ? DefaultCustomOnlineAiPersonaName
+                : payload.name.Trim();
+            payload.summary = string.IsNullOrWhiteSpace(payload.summary)
+                ? DefaultCustomOnlineAiPersonaSummary
+                : payload.summary.Trim();
+            payload.tts_voice = NormalizeOnlineAiTtsVoiceValue(payload.tts_voice, DefaultOnlineTtsVoice);
+            payload.warmth = Mathf.Clamp01(payload.warmth);
+            payload.playfulness = Mathf.Clamp01(payload.playfulness);
+            payload.directness = Mathf.Clamp01(payload.directness);
+            payload.roleplay_commitment = Mathf.Clamp01(payload.roleplay_commitment);
+            payload.factual_grounding = Mathf.Clamp01(payload.factual_grounding);
+            payload.system_prompt = string.IsNullOrWhiteSpace(payload.system_prompt)
+                ? DefaultCustomOnlineAiSystemPrompt
+                : payload.system_prompt.Trim();
+            payload.saved_utc = (payload.saved_utc ?? string.Empty).Trim();
+            return payload;
+        }
+
+        private SavedOnlineAiCustomPersonalityFile BuildCurrentSavedOnlineAiCustomPersonalityPayload()
+        {
+            NormalizeOnlineAiPersonaSettings();
+
+            return NormalizeSavedOnlineAiCustomPersonalityPayload(new SavedOnlineAiCustomPersonalityFile
+            {
+                schema_version = SavedOnlineAiCustomPersonalitySchemaVersion,
+                name = GetOnlineAiCustomPersonaName(),
+                summary = GetOnlineAiCustomPersonaSummary(),
+                tts_voice = NormalizeOnlineAiTtsVoiceValue(onlineAiCustomTtsVoice, DefaultOnlineTtsVoice),
+                warmth = Mathf.Clamp01(onlineAiCustomWarmth),
+                playfulness = Mathf.Clamp01(onlineAiCustomPlayfulness),
+                directness = Mathf.Clamp01(onlineAiCustomDirectness),
+                roleplay_commitment = Mathf.Clamp01(onlineAiCustomRoleplayCommitment),
+                factual_grounding = Mathf.Clamp01(onlineAiCustomFactualGrounding),
+                system_prompt = string.IsNullOrWhiteSpace(onlineAiCustomSystemPrompt)
+                    ? DefaultCustomOnlineAiSystemPrompt
+                    : onlineAiCustomSystemPrompt.Trim(),
+                saved_utc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture)
+            });
+        }
+
+        private static string BuildSavedOnlineAiCustomPersonalityFingerprint(SavedOnlineAiCustomPersonalityFile payload)
+        {
+            SavedOnlineAiCustomPersonalityFile normalized =
+                NormalizeSavedOnlineAiCustomPersonalityPayload(payload);
+            var builder = new StringBuilder(384);
+            builder.Append(normalized.name).Append('\n');
+            builder.Append(normalized.summary).Append('\n');
+            builder.Append(normalized.tts_voice).Append('\n');
+            builder.Append(normalized.warmth.ToString("F3", CultureInfo.InvariantCulture)).Append('\n');
+            builder.Append(normalized.playfulness.ToString("F3", CultureInfo.InvariantCulture)).Append('\n');
+            builder.Append(normalized.directness.ToString("F3", CultureInfo.InvariantCulture)).Append('\n');
+            builder.Append(normalized.roleplay_commitment.ToString("F3", CultureInfo.InvariantCulture)).Append('\n');
+            builder.Append(normalized.factual_grounding.ToString("F3", CultureInfo.InvariantCulture)).Append('\n');
+            builder.Append(normalized.system_prompt ?? string.Empty);
+            return builder.ToString();
+        }
+
+        private SavedOnlineAiCustomPersonalityEntry GetSelectedSavedOnlineAiCustomPersonalityEntry()
+        {
+            if (string.IsNullOrWhiteSpace(_selectedSavedOnlineAiCustomPersonalityPath))
+            {
+                return null;
+            }
+
+            for (int i = 0; i < _savedOnlineAiCustomPersonalityEntries.Count; i++)
+            {
+                SavedOnlineAiCustomPersonalityEntry entry = _savedOnlineAiCustomPersonalityEntries[i];
+                if (string.Equals(
+                        entry.FilePath,
+                        _selectedSavedOnlineAiCustomPersonalityPath,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    return entry;
+                }
+            }
+
+            return null;
+        }
+
+        private bool DoesCurrentCustomPersonalityMatchSavedEntry(SavedOnlineAiCustomPersonalityEntry entry)
+        {
+            if (entry == null)
+            {
+                return false;
+            }
+
+            string currentFingerprint =
+                BuildSavedOnlineAiCustomPersonalityFingerprint(BuildCurrentSavedOnlineAiCustomPersonalityPayload());
+            string savedFingerprint = BuildSavedOnlineAiCustomPersonalityFingerprint(entry.Payload);
+            return string.Equals(currentFingerprint, savedFingerprint, StringComparison.Ordinal);
+        }
+
+        private void ResolveSavedOnlineAiCustomPersonalitySelection()
+        {
+            if (_savedOnlineAiCustomPersonalityEntries.Count == 0)
+            {
+                _selectedSavedOnlineAiCustomPersonalityPath = string.Empty;
+                return;
+            }
+
+            SavedOnlineAiCustomPersonalityEntry selectedEntry = GetSelectedSavedOnlineAiCustomPersonalityEntry();
+            if (selectedEntry != null)
+            {
+                return;
+            }
+
+            string currentFingerprint =
+                BuildSavedOnlineAiCustomPersonalityFingerprint(BuildCurrentSavedOnlineAiCustomPersonalityPayload());
+            for (int i = 0; i < _savedOnlineAiCustomPersonalityEntries.Count; i++)
+            {
+                SavedOnlineAiCustomPersonalityEntry candidate = _savedOnlineAiCustomPersonalityEntries[i];
+                string candidateFingerprint = BuildSavedOnlineAiCustomPersonalityFingerprint(candidate.Payload);
+                if (!string.Equals(candidateFingerprint, currentFingerprint, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                _selectedSavedOnlineAiCustomPersonalityPath = candidate.FilePath;
+                return;
+            }
+
+            _selectedSavedOnlineAiCustomPersonalityPath = string.Empty;
+        }
+
+        private static int CompareSavedOnlineAiCustomPersonalityEntries(
+            SavedOnlineAiCustomPersonalityEntry left,
+            SavedOnlineAiCustomPersonalityEntry right)
+        {
+            string leftName = left?.Payload?.name ?? string.Empty;
+            string rightName = right?.Payload?.name ?? string.Empty;
+            int nameComparison = string.Compare(leftName, rightName, StringComparison.OrdinalIgnoreCase);
+            if (nameComparison != 0)
+            {
+                return nameComparison;
+            }
+
+            string leftFileName = left?.FileName ?? string.Empty;
+            string rightFileName = right?.FileName ?? string.Empty;
+            return string.Compare(leftFileName, rightFileName, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private bool TryRefreshSavedOnlineAiCustomPersonalityLibrary(out string message)
+        {
+            message = string.Empty;
+            string previousSelectionPath = _selectedSavedOnlineAiCustomPersonalityPath;
+            List<string> candidateDirectories = GetOnlineAiCustomPersonalityLibraryCandidateDirectories();
+            var loadedEntries = new List<SavedOnlineAiCustomPersonalityEntry>();
+            var seenFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            int invalidFileCount = 0;
+            int duplicateFileCount = 0;
+
+            for (int i = 0; i < candidateDirectories.Count; i++)
+            {
+                string directory = candidateDirectories[i];
+                if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+                {
+                    continue;
+                }
+
+                string[] filePaths;
+                try
+                {
+                    filePaths = Directory.GetFiles(directory, "*.json", SearchOption.TopDirectoryOnly);
+                }
+                catch (Exception ex)
+                {
+                    message = $"Failed to read saved custom personalities from '{directory}': {ex.Message}";
+                    return false;
+                }
+
+                for (int fileIndex = 0; fileIndex < filePaths.Length; fileIndex++)
+                {
+                    string filePath = filePaths[fileIndex];
+                    string fileName = Path.GetFileName(filePath) ?? string.Empty;
+                    if (!string.IsNullOrWhiteSpace(fileName) && seenFileNames.Contains(fileName))
+                    {
+                        duplicateFileCount++;
+                        continue;
+                    }
+
+                    try
+                    {
+                        string json = File.ReadAllText(filePath, Encoding.UTF8);
+                        if (string.IsNullOrWhiteSpace(json))
+                        {
+                            invalidFileCount++;
+                            continue;
+                        }
+
+                        SavedOnlineAiCustomPersonalityFile payload =
+                            JsonUtility.FromJson<SavedOnlineAiCustomPersonalityFile>(json);
+                        if (payload == null)
+                        {
+                            invalidFileCount++;
+                            continue;
+                        }
+
+                        loadedEntries.Add(new SavedOnlineAiCustomPersonalityEntry
+                        {
+                            FilePath = filePath,
+                            FileName = fileName,
+                            Payload = NormalizeSavedOnlineAiCustomPersonalityPayload(payload)
+                        });
+                        if (!string.IsNullOrWhiteSpace(fileName))
+                        {
+                            seenFileNames.Add(fileName);
+                        }
+                    }
+                    catch
+                    {
+                        invalidFileCount++;
+                    }
+                }
+            }
+
+            loadedEntries.Sort(CompareSavedOnlineAiCustomPersonalityEntries);
+            _savedOnlineAiCustomPersonalityEntries.Clear();
+            _savedOnlineAiCustomPersonalityEntries.AddRange(loadedEntries);
+            _selectedSavedOnlineAiCustomPersonalityPath = previousSelectionPath;
+            ResolveSavedOnlineAiCustomPersonalitySelection();
+            _savedOnlineAiCustomPersonalityDropdownOpen &=
+                _savedOnlineAiCustomPersonalityEntries.Count > 0;
+
+            string preferredDirectory = GetPreferredOnlineAiCustomPersonalityLibraryDirectory();
+            if (_savedOnlineAiCustomPersonalityEntries.Count == 0)
+            {
+                string probedDirectories = SummarizeCandidatePaths(candidateDirectories, 3);
+                message = invalidFileCount > 0
+                    ? $"No saved custom personalities loaded. Skipped {invalidFileCount} invalid JSON file(s). Probed: {probedDirectories}"
+                    : $"No saved custom personalities found yet. Folder: {preferredDirectory}";
+                if (duplicateFileCount > 0)
+                {
+                    message += $" Hidden duplicate file name(s): {duplicateFileCount}.";
+                }
+
+                return true;
+            }
+
+            message = $"Loaded {_savedOnlineAiCustomPersonalityEntries.Count} saved custom personality file(s).";
+            if (invalidFileCount > 0)
+            {
+                message += $" Skipped {invalidFileCount} invalid JSON file(s).";
+            }
+            if (duplicateFileCount > 0)
+            {
+                message += $" Hidden duplicate file name(s): {duplicateFileCount}.";
+            }
+
+            if (!string.IsNullOrWhiteSpace(preferredDirectory))
+            {
+                message += $" Folder: {preferredDirectory}";
+            }
+
+            return true;
+        }
+
+        private bool TrySaveCurrentOnlineAiCustomPersonalityToLibrary(out string message)
+        {
+            message = string.Empty;
+            SavedOnlineAiCustomPersonalityFile payload = BuildCurrentSavedOnlineAiCustomPersonalityPayload();
+            List<string> candidateDirectories = GetOnlineAiCustomPersonalityLibraryCandidateDirectories();
+            string fileName = BuildOnlineAiCustomPersonalityFileName(payload.name);
+            string json = JsonUtility.ToJson(payload, true);
+            string lastFailure = string.Empty;
+
+            for (int i = 0; i < candidateDirectories.Count; i++)
+            {
+                string directory = candidateDirectories[i];
+                if (string.IsNullOrWhiteSpace(directory))
+                {
+                    continue;
+                }
+
+                string filePath = Path.Combine(directory, fileName);
+                try
+                {
+                    Directory.CreateDirectory(directory);
+                    File.WriteAllText(filePath, json + Environment.NewLine, Encoding.UTF8);
+                    _selectedSavedOnlineAiCustomPersonalityPath = filePath;
+                    bool reloaded = TryRefreshSavedOnlineAiCustomPersonalityLibrary(out string refreshMessage);
+                    message = $"Saved custom personality '{payload.name}' to '{filePath}'.";
+                    if (!string.IsNullOrWhiteSpace(refreshMessage))
+                    {
+                        message += reloaded
+                            ? $" {refreshMessage}"
+                            : $" Library reload failed: {refreshMessage}";
+                    }
+
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    lastFailure = $"Failed to save custom personality to '{filePath}': {ex.Message}";
+                }
+            }
+
+            string probedDirectories = SummarizeCandidatePaths(candidateDirectories, 3);
+            message = string.IsNullOrWhiteSpace(lastFailure)
+                ? $"Saved custom personality folder is unavailable. Probed: {probedDirectories}"
+                : $"{lastFailure} Probed: {probedDirectories}";
+            return false;
+        }
+
+        private void ApplySavedOnlineAiCustomPersonalityToUi(SavedOnlineAiCustomPersonalityFile payload)
+        {
+            SavedOnlineAiCustomPersonalityFile normalized =
+                NormalizeSavedOnlineAiCustomPersonalityPayload(payload);
+            onlineAiPersonaMode = OnlineAiPersonaMode.Custom;
+            onlineAiCustomPersonaName = normalized.name;
+            onlineAiCustomPersonaSummary = normalized.summary;
+            onlineAiCustomTtsVoice = normalized.tts_voice;
+            onlineAiCustomWarmth = normalized.warmth;
+            onlineAiCustomPlayfulness = normalized.playfulness;
+            onlineAiCustomDirectness = normalized.directness;
+            onlineAiCustomRoleplayCommitment = normalized.roleplay_commitment;
+            onlineAiCustomFactualGrounding = normalized.factual_grounding;
+            onlineAiCustomSystemPrompt = normalized.system_prompt;
+            RefreshEffectiveOnlineAiSystemPrompt();
+        }
+
+        private bool TryLoadSavedOnlineAiCustomPersonalityIntoUi(string filePath, out string message)
+        {
+            message = string.Empty;
+            if (string.IsNullOrWhiteSpace(filePath))
+            {
+                message = "Choose a saved personality first.";
+                return false;
+            }
+
+            SavedOnlineAiCustomPersonalityEntry entry = null;
+            for (int i = 0; i < _savedOnlineAiCustomPersonalityEntries.Count; i++)
+            {
+                SavedOnlineAiCustomPersonalityEntry candidate = _savedOnlineAiCustomPersonalityEntries[i];
+                if (!string.Equals(candidate.FilePath, filePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                entry = candidate;
+                break;
+            }
+
+            if (entry == null)
+            {
+                message = $"Saved custom personality was not found in the current library view: '{filePath}'.";
+                return false;
+            }
+
+            ApplySavedOnlineAiCustomPersonalityToUi(entry.Payload);
+            _selectedSavedOnlineAiCustomPersonalityPath = entry.FilePath;
+            message = $"Loaded saved custom personality '{entry.Payload.name}' from '{entry.FilePath}'.";
+            return true;
+        }
+
         private void NormalizeOnlineAiPersonaSettings()
         {
             onlineAiFortuneTellerFortuneBias = Mathf.Clamp01(onlineAiFortuneTellerFortuneBias);
@@ -8430,9 +8956,9 @@ namespace Reachy.ControlApp
             onlineAiFortuneTellerTtsVoice =
                 NormalizeOnlineAiTtsVoiceValue(onlineAiFortuneTellerTtsVoice, DefaultFortuneTellerOnlineTtsVoice);
             onlineAiCustomTtsVoice = NormalizeOnlineAiTtsVoiceValue(onlineAiCustomTtsVoice, DefaultOnlineTtsVoice);
-            onlineAiCustomPersonaName = onlineAiCustomPersonaName.Trim();
-            onlineAiCustomPersonaSummary = (onlineAiCustomPersonaSummary ?? string.Empty).Trim();
-            onlineAiSharedModeInstructions = (onlineAiSharedModeInstructions ?? string.Empty).Trim();
+            onlineAiCustomPersonaName = onlineAiCustomPersonaName ?? string.Empty;
+            onlineAiCustomPersonaSummary = onlineAiCustomPersonaSummary ?? string.Empty;
+            onlineAiSharedModeInstructions = onlineAiSharedModeInstructions ?? string.Empty;
         }
 
         private void RefreshEffectiveOnlineAiSystemPrompt()
@@ -12777,6 +13303,7 @@ namespace Reachy.ControlApp
                     : DefaultOnlineTtsVoice;
                 RefreshEffectiveOnlineAiSystemPrompt();
                 ResetOnlineAiPersonaLiveApplyTracking();
+                ResolveSavedOnlineAiCustomPersonalitySelection();
                 onlineAiAllowDirectJointCommands = hasOnlineAllowDirectJointCommandsField
                     ? config.online_ai_allow_direct_joint_commands
                     : true;
@@ -13429,6 +13956,7 @@ namespace Reachy.ControlApp
                     : DefaultOnlineTtsVoice;
                 RefreshEffectiveOnlineAiSystemPrompt();
                 ResetOnlineAiPersonaLiveApplyTracking();
+                ResolveSavedOnlineAiCustomPersonalitySelection();
                 onlineAiAllowDirectJointCommands = config.online_ai_allow_direct_joint_commands;
                 onlineAiRequireMotionConfirmation = config.online_ai_require_motion_confirmation;
                 EnsurePreferredMicrophoneDevice();
@@ -16249,7 +16777,8 @@ namespace Reachy.ControlApp
                 applyImmediately = true;
             }
             GUILayout.Label("Examples: 'switch to fortune teller mode', 'switch to custom mode', or 'Reachy, you are now a pirate captain'.");
-            onlineAiSharedModeInstructions = GUILayout.TextArea(
+            onlineAiSharedModeInstructions = DrawTextAreaWithSpaceFallback(
+                "ai_modes_shared_instructions",
                 onlineAiSharedModeInstructions,
                 GUILayout.MinHeight(72f));
             GUILayout.BeginHorizontal();
@@ -16304,7 +16833,8 @@ namespace Reachy.ControlApp
                     onlineAiFortuneTellerFactualGrounding);
 
                 GUILayout.Label("Base prompt");
-                onlineAiFortuneTellerSystemPrompt = GUILayout.TextArea(
+                onlineAiFortuneTellerSystemPrompt = DrawTextAreaWithSpaceFallback(
+                    "ai_modes_fortune_prompt",
                     onlineAiFortuneTellerSystemPrompt,
                     GUILayout.MinHeight(170f));
                 GUILayout.EndVertical();
@@ -16314,6 +16844,8 @@ namespace Reachy.ControlApp
                 GUILayout.BeginVertical(GUI.skin.box);
                 GUILayout.Label("Custom tuning");
                 GUILayout.Label("This single slot can be edited here or overwritten live by a spoken persona request.");
+                DrawSavedOnlineAiCustomPersonalityLibrarySection(ref applyImmediately, ref announceSuccess);
+                GUILayout.Space(8f);
 
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("Name", GUILayout.Width(100f));
@@ -16331,7 +16863,8 @@ namespace Reachy.ControlApp
                 }
 
                 GUILayout.Label("Persona brief");
-                onlineAiCustomPersonaSummary = GUILayout.TextArea(
+                onlineAiCustomPersonaSummary = DrawTextAreaWithSpaceFallback(
+                    "ai_modes_custom_summary",
                     onlineAiCustomPersonaSummary,
                     GUILayout.MinHeight(70f));
 
@@ -16352,7 +16885,8 @@ namespace Reachy.ControlApp
                     onlineAiCustomFactualGrounding);
 
                 GUILayout.Label("Base prompt");
-                onlineAiCustomSystemPrompt = GUILayout.TextArea(
+                onlineAiCustomSystemPrompt = DrawTextAreaWithSpaceFallback(
+                    "ai_modes_custom_prompt",
                     onlineAiCustomSystemPrompt,
                     GUILayout.MinHeight(170f));
                 GUILayout.EndVertical();
@@ -16372,7 +16906,8 @@ namespace Reachy.ControlApp
                     applyImmediately = true;
                 }
                 GUILayout.Label("Base prompt");
-                onlineAiAssistantSystemPrompt = GUILayout.TextArea(
+                onlineAiAssistantSystemPrompt = DrawTextAreaWithSpaceFallback(
+                    "ai_modes_assistant_prompt",
                     onlineAiAssistantSystemPrompt,
                     GUILayout.MinHeight(170f));
                 GUILayout.EndVertical();
@@ -16386,6 +16921,177 @@ namespace Reachy.ControlApp
 
             GUILayout.EndScrollView();
             GUILayout.EndArea();
+        }
+
+        private static string DrawTextAreaWithSpaceFallback(
+            string controlName,
+            string value,
+            params GUILayoutOption[] options)
+        {
+            string safeValue = value ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(controlName))
+            {
+                GUI.SetNextControlName(controlName);
+            }
+
+            string nextValue = GUILayout.TextArea(safeValue, options);
+            Event currentEvent = Event.current;
+            if (currentEvent == null ||
+                currentEvent.type != EventType.KeyDown ||
+                currentEvent.keyCode != KeyCode.Space ||
+                !string.Equals(GUI.GetNameOfFocusedControl(), controlName, StringComparison.Ordinal) ||
+                !string.Equals(nextValue, safeValue, StringComparison.Ordinal))
+            {
+                return nextValue;
+            }
+
+            TextEditor editor = GUIUtility.keyboardControl != 0
+                ? GUIUtility.GetStateObject(typeof(TextEditor), GUIUtility.keyboardControl) as TextEditor
+                : null;
+            if (editor == null)
+            {
+                currentEvent.Use();
+                return safeValue + " ";
+            }
+
+            int startIndex = Mathf.Clamp(Math.Min(editor.cursorIndex, editor.selectIndex), 0, safeValue.Length);
+            int endIndex = Mathf.Clamp(Math.Max(editor.cursorIndex, editor.selectIndex), 0, safeValue.Length);
+            string updatedValue = safeValue.Substring(0, startIndex) + " " + safeValue.Substring(endIndex);
+            editor.cursorIndex = startIndex + 1;
+            editor.selectIndex = startIndex + 1;
+            currentEvent.Use();
+            return updatedValue;
+        }
+
+        private void DrawSavedOnlineAiCustomPersonalityLibrarySection(
+            ref bool applyImmediately,
+            ref bool announceSuccess)
+        {
+            GUILayout.BeginVertical(GUI.skin.box);
+            GUILayout.Label("Saved personalities");
+            GUILayout.Label("Save reusable custom personalities as plain JSON files that can also be edited outside the app.");
+            GUILayout.Label($"Library folder: {GetPreferredOnlineAiCustomPersonalityLibraryDirectory()}");
+
+            SavedOnlineAiCustomPersonalityEntry selectedEntry = GetSelectedSavedOnlineAiCustomPersonalityEntry();
+            string selectionLabel = selectedEntry == null
+                ? "Browse saved personalities"
+                : $"Browse saved personalities: {selectedEntry.Payload.name}";
+            if (GUILayout.Button(selectionLabel, GUILayout.Height(22f), GUILayout.ExpandWidth(true)))
+            {
+                _savedOnlineAiCustomPersonalityDropdownOpen = !_savedOnlineAiCustomPersonalityDropdownOpen;
+                if (_savedOnlineAiCustomPersonalityDropdownOpen)
+                {
+                    TryRefreshSavedOnlineAiCustomPersonalityLibrary(out _);
+                    selectedEntry = GetSelectedSavedOnlineAiCustomPersonalityEntry();
+                }
+            }
+
+            if (_savedOnlineAiCustomPersonalityDropdownOpen)
+            {
+                GUILayout.Space(4f);
+                if (_savedOnlineAiCustomPersonalityEntries.Count == 0)
+                {
+                    GUILayout.Label("No saved personalities found yet.");
+                }
+                else
+                {
+                    _savedOnlineAiCustomPersonalityDropdownScroll = GUILayout.BeginScrollView(
+                        _savedOnlineAiCustomPersonalityDropdownScroll,
+                        false,
+                        true,
+                        GUILayout.Height(140f));
+
+                    for (int i = 0; i < _savedOnlineAiCustomPersonalityEntries.Count; i++)
+                    {
+                        SavedOnlineAiCustomPersonalityEntry entry = _savedOnlineAiCustomPersonalityEntries[i];
+                        bool isSelected = string.Equals(
+                            entry.FilePath,
+                            _selectedSavedOnlineAiCustomPersonalityPath,
+                            StringComparison.OrdinalIgnoreCase);
+                        string buttonLabel = isSelected
+                            ? $"> {entry.Payload.name}"
+                            : entry.Payload.name;
+                        if (GUILayout.Button(buttonLabel, GUILayout.Height(22f), GUILayout.ExpandWidth(true)))
+                        {
+                            _selectedSavedOnlineAiCustomPersonalityPath = entry.FilePath;
+                            selectedEntry = entry;
+                        }
+                    }
+
+                    GUILayout.EndScrollView();
+                }
+            }
+
+            selectedEntry = GetSelectedSavedOnlineAiCustomPersonalityEntry();
+            if (selectedEntry == null)
+            {
+                GUILayout.Label("No saved personality selected.");
+            }
+            else
+            {
+                GUILayout.Label($"Selected: {selectedEntry.Payload.name}");
+                GUILayout.Label(selectedEntry.Payload.summary);
+                GUILayout.Label(
+                    $"Voice: {GetOnlineAiTtsVoiceDisplayLabel(selectedEntry.Payload.tts_voice)} | File: {selectedEntry.FileName}");
+                if (!string.IsNullOrWhiteSpace(selectedEntry.Payload.saved_utc))
+                {
+                    GUILayout.Label($"Saved UTC: {selectedEntry.Payload.saved_utc}");
+                }
+
+                if (DoesCurrentCustomPersonalityMatchSavedEntry(selectedEntry))
+                {
+                    GUILayout.Label("Current custom slot matches the selected saved personality.");
+                }
+                else
+                {
+                    GUILayout.Label("Current custom slot has changes that are not in the selected saved personality.");
+                }
+            }
+
+            bool previousEnabled = GUI.enabled;
+            GUI.enabled = selectedEntry != null;
+            if (GUILayout.Button("Load selected into custom slot", GUILayout.Height(22f), GUILayout.ExpandWidth(true)))
+            {
+                bool loaded = TryLoadSavedOnlineAiCustomPersonalityIntoUi(
+                    _selectedSavedOnlineAiCustomPersonalityPath,
+                    out string loadMessage);
+                _voiceLastActionResult = loadMessage;
+                if (!loaded)
+                {
+                    _voiceLastParserMessage = loadMessage;
+                }
+                else
+                {
+                    _savedOnlineAiCustomPersonalityDropdownOpen = false;
+                    applyImmediately = true;
+                    announceSuccess = true;
+                }
+            }
+
+            GUI.enabled = previousEnabled;
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Save current", GUILayout.Height(22f), GUILayout.ExpandWidth(true)))
+            {
+                bool saved = TrySaveCurrentOnlineAiCustomPersonalityToLibrary(out string saveMessage);
+                _voiceLastActionResult = saveMessage;
+                if (!saved)
+                {
+                    _voiceLastParserMessage = saveMessage;
+                }
+            }
+
+            if (GUILayout.Button("Refresh list", GUILayout.Height(22f), GUILayout.ExpandWidth(true)))
+            {
+                bool refreshed = TryRefreshSavedOnlineAiCustomPersonalityLibrary(out string refreshMessage);
+                _voiceLastActionResult = refreshMessage;
+                if (!refreshed)
+                {
+                    _voiceLastParserMessage = refreshMessage;
+                }
+            }
+
+            GUILayout.EndHorizontal();
+            GUILayout.EndVertical();
         }
 
         private void DrawAiModesPreviewPanel(Rect area)

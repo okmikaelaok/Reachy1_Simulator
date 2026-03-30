@@ -86,6 +86,17 @@ internal sealed class ReachyStandaloneBuildPostprocessor : IPostprocessBuildWith
             Path.Combine(buildRoot, "ReachyControlApp", "voice_agent_config.json"),
             ref copiedFileCount);
 
+        string buildCustomPersonalityDirectory = Path.Combine(
+            buildRoot,
+            "ReachyControlApp",
+            "OnlineAiCustomPersonalities");
+        Directory.CreateDirectory(buildCustomPersonalityDirectory);
+
+        CopyDirectoryIfPresent(
+            Path.Combine(projectRoot, "UserSettings", "ReachyControlApp", "OnlineAiCustomPersonalities"),
+            buildCustomPersonalityDirectory,
+            ref copiedFileCount);
+
         CopyDirectoryIfPresent(
             Path.Combine(projectRoot, "Assets", "ReachyControlApp", "LocalVoiceAgent"),
             Path.Combine(buildRoot, "ReachyControlApp", "LocalVoiceAgent"),
