@@ -313,6 +313,58 @@ namespace Reachy.ControlApp
             "do random motion",
             "surprise me"
         };
+        private static readonly string[] DefaultTtsBargeInPhrases =
+        {
+            "ei kun",
+            "eikun",
+            "eiku",
+            "ei ku",
+            "ei vaan",
+            "ei tarkoitin",
+            "tarkoitin",
+            "siis tarkoitin",
+            "tai siis",
+            "anteeksi tarkoitin",
+            "korjaus",
+            "korjaan",
+            "korjaan sen",
+            "anna kun korjaan",
+            "ymmarsit vaarin",
+            "vaarin ymmarretty",
+            "odota",
+            "odotas",
+            "odotas nyt",
+            "hetkinen",
+            "hetkinen nyt",
+            "seis",
+            "pysahdy",
+            "keskeyta",
+            "no i meant",
+            "i meant",
+            "i mean",
+            "what i meant",
+            "sorry i meant",
+            "actually i meant",
+            "actually no",
+            "sorry no",
+            "no sorry",
+            "you misunderstood",
+            "misunderstood",
+            "that is not what i meant",
+            "that is not what i said",
+            "let me rephrase",
+            "let me correct that",
+            "to rephrase",
+            "wait",
+            "wait wait",
+            "hold on",
+            "hold up",
+            "hang on",
+            "stop",
+            "scratch that",
+            "not that",
+            "interrupt that"
+        };
         private static readonly string[] DefaultSidecarHelpSynonyms =
         {
             "help",
@@ -1609,6 +1661,23 @@ namespace Reachy.ControlApp
             public bool online_ai_require_motion_confirmation = false;
             public bool online_ai_show_api_key_help_on_first_open = true;
             public bool online_ai_last_api_key_check_ok = false;
+            public bool tts_barge_in_enabled = true;
+            public string[] tts_barge_in_phrases = DefaultTtsBargeInPhrases;
+            public bool tts_barge_in_loudness_enabled = true;
+            public float tts_barge_in_loudness_window_seconds = 60f;
+            public float tts_barge_in_loudness_min_history_seconds = 10f;
+            public float tts_barge_in_loudness_min_reference_rms = 340f;
+            public float tts_barge_in_loudness_absolute_min_rms = 650f;
+            public float tts_barge_in_loudness_multiplier = 1.18f;
+            public float tts_barge_in_loudness_min_delta_rms = 100f;
+            public float tts_barge_in_loudness_sustain_seconds = 0.28f;
+            public bool tts_barge_in_transcribe_enabled = true;
+            public float tts_barge_in_transcribe_min_clip_seconds = 0.22f;
+            public float tts_barge_in_transcribe_max_clip_seconds = 1.6f;
+            public float tts_barge_in_transcribe_silence_seconds = 0.22f;
+            public float tts_barge_in_transcribe_pre_roll_seconds = 0.12f;
+            public float tts_barge_in_transcribe_rms_threshold = 400f;
+            public float tts_barge_in_transcribe_timeout_seconds = 4f;
             public string ipc_endpoint = VoiceAgentBridge.DefaultEndpoint;
         }
 
@@ -1698,6 +1767,23 @@ namespace Reachy.ControlApp
             public string online_ai_system_prompt = DefaultAssistantOnlineAiSystemPrompt;
             public bool online_ai_allow_direct_joint_commands = true;
             public bool online_ai_require_motion_confirmation = false;
+            public bool tts_barge_in_enabled = true;
+            public string[] tts_barge_in_phrases = DefaultTtsBargeInPhrases;
+            public bool tts_barge_in_loudness_enabled = true;
+            public float tts_barge_in_loudness_window_seconds = 60f;
+            public float tts_barge_in_loudness_min_history_seconds = 10f;
+            public float tts_barge_in_loudness_min_reference_rms = 340f;
+            public float tts_barge_in_loudness_absolute_min_rms = 650f;
+            public float tts_barge_in_loudness_multiplier = 1.18f;
+            public float tts_barge_in_loudness_min_delta_rms = 100f;
+            public float tts_barge_in_loudness_sustain_seconds = 0.28f;
+            public bool tts_barge_in_transcribe_enabled = true;
+            public float tts_barge_in_transcribe_min_clip_seconds = 0.22f;
+            public float tts_barge_in_transcribe_max_clip_seconds = 1.6f;
+            public float tts_barge_in_transcribe_silence_seconds = 0.22f;
+            public float tts_barge_in_transcribe_pre_roll_seconds = 0.12f;
+            public float tts_barge_in_transcribe_rms_threshold = 400f;
+            public float tts_barge_in_transcribe_timeout_seconds = 4f;
         }
 
         [Serializable]
@@ -13477,6 +13563,11 @@ namespace Reachy.ControlApp
                     }
                 }
 
+                if (config.tts_barge_in_phrases == null || config.tts_barge_in_phrases.Length == 0)
+                {
+                    config.tts_barge_in_phrases = DefaultTtsBargeInPhrases;
+                }
+
                 float normalizedJointMin = Mathf.Min(localAiAgentJointMinDegrees, localAiAgentJointMaxDegrees);
                 float normalizedJointMax = Mathf.Max(localAiAgentJointMinDegrees, localAiAgentJointMaxDegrees);
                 localAiAgentJointMinDegrees = normalizedJointMin;
@@ -13677,6 +13768,11 @@ namespace Reachy.ControlApp
                 if (config.known_joints == null || config.known_joints.Length == 0)
                 {
                     config.known_joints = DefaultSidecarKnownJoints;
+                }
+
+                if (config.tts_barge_in_phrases == null || config.tts_barge_in_phrases.Length == 0)
+                {
+                    config.tts_barge_in_phrases = DefaultTtsBargeInPhrases;
                 }
                 if (config.show_movement_synonyms == null || config.show_movement_synonyms.Length == 0)
                 {

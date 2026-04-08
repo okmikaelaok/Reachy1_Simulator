@@ -223,6 +223,71 @@ DEFAULT_ONLINE_MOTION_SEQUENCE_MAX_STEPS = 8
 DEFAULT_ONLINE_MOTION_SEQUENCE_MAX_JOINTS_PER_STEP = len(DEFAULT_JOINTS)
 DEFAULT_ONLINE_MOTION_SEQUENCE_MIN_HOLD_SECONDS = 0.15
 DEFAULT_ONLINE_MOTION_SEQUENCE_MAX_HOLD_SECONDS = 4.0
+DEFAULT_TTS_BARGE_IN_PHRASES = [
+    "ei kun",
+    "eikun",
+    "eiku",
+    "ei ku",
+    "ei vaan",
+    "ei tarkoitin",
+    "tarkoitin",
+    "siis tarkoitin",
+    "tai siis",
+    "anteeksi tarkoitin",
+    "korjaus",
+    "korjaan",
+    "korjaan sen",
+    "anna kun korjaan",
+    "ymmarsit vaarin",
+    "vaarin ymmarretty",
+    "odota",
+    "odotas",
+    "odotas nyt",
+    "hetkinen",
+    "hetkinen nyt",
+    "seis",
+    "pysahdy",
+    "keskeyta",
+    "no i meant",
+    "i meant",
+    "i mean",
+    "what i meant",
+    "sorry i meant",
+    "actually i meant",
+    "actually no",
+    "sorry no",
+    "no sorry",
+    "you misunderstood",
+    "misunderstood",
+    "that is not what i meant",
+    "that is not what i said",
+    "let me rephrase",
+    "let me correct that",
+    "to rephrase",
+    "wait",
+    "wait wait",
+    "hold on",
+    "hold up",
+    "hang on",
+    "stop",
+    "scratch that",
+    "not that",
+    "interrupt that",
+]
+DEFAULT_TTS_BARGE_IN_LOUDNESS_WINDOW_SECONDS = 60.0
+DEFAULT_TTS_BARGE_IN_LOUDNESS_MIN_HISTORY_SECONDS = 10.0
+DEFAULT_TTS_BARGE_IN_LOUDNESS_MIN_REFERENCE_RMS = 340.0
+DEFAULT_TTS_BARGE_IN_LOUDNESS_ABSOLUTE_MIN_RMS = 650.0
+DEFAULT_TTS_BARGE_IN_LOUDNESS_MULTIPLIER = 1.18
+DEFAULT_TTS_BARGE_IN_LOUDNESS_MIN_DELTA_RMS = 100.0
+DEFAULT_TTS_BARGE_IN_LOUDNESS_SUSTAIN_SECONDS = 0.28
+DEFAULT_TTS_BARGE_IN_TRANSCRIBE_ENABLED = True
+DEFAULT_TTS_BARGE_IN_TRANSCRIBE_MIN_CLIP_SECONDS = 0.22
+DEFAULT_TTS_BARGE_IN_TRANSCRIBE_MAX_CLIP_SECONDS = 1.6
+DEFAULT_TTS_BARGE_IN_TRANSCRIBE_SILENCE_SECONDS = 0.22
+DEFAULT_TTS_BARGE_IN_TRANSCRIBE_PRE_ROLL_SECONDS = 0.12
+DEFAULT_TTS_BARGE_IN_TRANSCRIBE_RMS_THRESHOLD = 400.0
+DEFAULT_TTS_BARGE_IN_TRANSCRIBE_TIMEOUT_SECONDS = 4.0
 DEFAULT_AUDIO_SOURCE_MODE = "blend"
 DEFAULT_REACHY_MIC_SSH_PORT = 22
 DEFAULT_REACHY_MIC_SSH_USER = "reachy"
@@ -697,6 +762,7 @@ SEMANTIC_RAISE_PHRASE_HINT_SET = build_normalized_hint_set(SEMANTIC_RAISE_PHRASE
 SEMANTIC_WAVE_TOKEN_HINT_SET = build_normalized_hint_set(SEMANTIC_WAVE_TOKEN_HINTS)
 SEMANTIC_WAVE_PHRASE_HINT_SET = build_normalized_hint_set(SEMANTIC_WAVE_PHRASE_HINTS)
 SEMANTIC_QUESTION_TOKEN_HINT_SET = build_normalized_hint_set(SEMANTIC_QUESTION_TOKEN_HINTS)
+TTS_BARGE_IN_DEFAULT_TOKEN_SETS = build_token_sets_from_phrases(DEFAULT_TTS_BARGE_IN_PHRASES)
 
 
 def transcript_mentions_known_joint(compact_transcript: str, known_joints: list[str]) -> bool:
@@ -879,6 +945,20 @@ def normalize_phrase_list(value, fallback: list[str]) -> list[str]:
     return fallback_normalized
 
 
+def extract_matching_phrase(words: list[str], sequences: list[list[str]]) -> str:
+    if not words or not sequences:
+        return ""
+
+    for sequence in sequences:
+        if not sequence or len(words) < len(sequence):
+            continue
+        limit = len(words) - len(sequence) + 1
+        for idx in range(limit):
+            if words[idx:idx + len(sequence)] == sequence:
+                return " ".join(sequence)
+    return ""
+
+
 def load_config(path: Path) -> dict:
     config = {
         "bind_host": "127.0.0.1",
@@ -978,6 +1058,23 @@ def load_config(path: Path) -> dict:
         "openai_transcribe_silence_seconds": 0.8,
         "openai_transcribe_pre_roll_seconds": 0.25,
         "openai_transcribe_rms_threshold": 520,
+        "tts_barge_in_enabled": True,
+        "tts_barge_in_phrases": list(DEFAULT_TTS_BARGE_IN_PHRASES),
+        "tts_barge_in_loudness_enabled": True,
+        "tts_barge_in_loudness_window_seconds": DEFAULT_TTS_BARGE_IN_LOUDNESS_WINDOW_SECONDS,
+        "tts_barge_in_loudness_min_history_seconds": DEFAULT_TTS_BARGE_IN_LOUDNESS_MIN_HISTORY_SECONDS,
+        "tts_barge_in_loudness_min_reference_rms": DEFAULT_TTS_BARGE_IN_LOUDNESS_MIN_REFERENCE_RMS,
+        "tts_barge_in_loudness_absolute_min_rms": DEFAULT_TTS_BARGE_IN_LOUDNESS_ABSOLUTE_MIN_RMS,
+        "tts_barge_in_loudness_multiplier": DEFAULT_TTS_BARGE_IN_LOUDNESS_MULTIPLIER,
+        "tts_barge_in_loudness_min_delta_rms": DEFAULT_TTS_BARGE_IN_LOUDNESS_MIN_DELTA_RMS,
+        "tts_barge_in_loudness_sustain_seconds": DEFAULT_TTS_BARGE_IN_LOUDNESS_SUSTAIN_SECONDS,
+        "tts_barge_in_transcribe_enabled": DEFAULT_TTS_BARGE_IN_TRANSCRIBE_ENABLED,
+        "tts_barge_in_transcribe_min_clip_seconds": DEFAULT_TTS_BARGE_IN_TRANSCRIBE_MIN_CLIP_SECONDS,
+        "tts_barge_in_transcribe_max_clip_seconds": DEFAULT_TTS_BARGE_IN_TRANSCRIBE_MAX_CLIP_SECONDS,
+        "tts_barge_in_transcribe_silence_seconds": DEFAULT_TTS_BARGE_IN_TRANSCRIBE_SILENCE_SECONDS,
+        "tts_barge_in_transcribe_pre_roll_seconds": DEFAULT_TTS_BARGE_IN_TRANSCRIBE_PRE_ROLL_SECONDS,
+        "tts_barge_in_transcribe_rms_threshold": DEFAULT_TTS_BARGE_IN_TRANSCRIBE_RMS_THRESHOLD,
+        "tts_barge_in_transcribe_timeout_seconds": DEFAULT_TTS_BARGE_IN_TRANSCRIBE_TIMEOUT_SECONDS,
     }
     config["_config_dir"] = str(path.parent.resolve())
 
@@ -1289,6 +1386,112 @@ def load_config(path: Path) -> dict:
     config["openai_transcribe_rms_threshold"] = max(
         80,
         min(5000, int(config.get("openai_transcribe_rms_threshold", 520))))
+    config["tts_barge_in_enabled"] = parse_bool(config.get("tts_barge_in_enabled"), True)
+    config["tts_barge_in_phrases"] = normalize_phrase_list(
+        config.get("tts_barge_in_phrases", []),
+        DEFAULT_TTS_BARGE_IN_PHRASES,
+    )
+    config["tts_barge_in_loudness_enabled"] = parse_bool(
+        config.get("tts_barge_in_loudness_enabled"),
+        True,
+    )
+    config["tts_barge_in_loudness_window_seconds"] = max(
+        10.0,
+        min(180.0, float(
+            config.get("tts_barge_in_loudness_window_seconds", DEFAULT_TTS_BARGE_IN_LOUDNESS_WINDOW_SECONDS))))
+    config["tts_barge_in_loudness_min_history_seconds"] = max(
+        2.0,
+        min(
+            config["tts_barge_in_loudness_window_seconds"],
+            float(
+                config.get(
+                    "tts_barge_in_loudness_min_history_seconds",
+                    DEFAULT_TTS_BARGE_IN_LOUDNESS_MIN_HISTORY_SECONDS,
+                )
+            ),
+        ),
+    )
+    config["tts_barge_in_loudness_min_reference_rms"] = max(
+        50.0,
+        min(10000.0, float(
+            config.get(
+                "tts_barge_in_loudness_min_reference_rms",
+                DEFAULT_TTS_BARGE_IN_LOUDNESS_MIN_REFERENCE_RMS,
+            ))))
+    config["tts_barge_in_loudness_absolute_min_rms"] = max(
+        config["tts_barge_in_loudness_min_reference_rms"],
+        min(12000.0, float(
+            config.get(
+                "tts_barge_in_loudness_absolute_min_rms",
+                DEFAULT_TTS_BARGE_IN_LOUDNESS_ABSOLUTE_MIN_RMS,
+            ))))
+    config["tts_barge_in_loudness_multiplier"] = max(
+        1.05,
+        min(4.0, float(
+            config.get(
+                "tts_barge_in_loudness_multiplier",
+                DEFAULT_TTS_BARGE_IN_LOUDNESS_MULTIPLIER,
+            ))))
+    config["tts_barge_in_loudness_min_delta_rms"] = max(
+        0.0,
+        min(10000.0, float(
+            config.get(
+                "tts_barge_in_loudness_min_delta_rms",
+                DEFAULT_TTS_BARGE_IN_LOUDNESS_MIN_DELTA_RMS,
+            ))))
+    config["tts_barge_in_loudness_sustain_seconds"] = max(
+        0.15,
+        min(3.0, float(
+            config.get(
+                "tts_barge_in_loudness_sustain_seconds",
+                DEFAULT_TTS_BARGE_IN_LOUDNESS_SUSTAIN_SECONDS,
+            ))))
+    config["tts_barge_in_transcribe_enabled"] = parse_bool(
+        config.get("tts_barge_in_transcribe_enabled"),
+        DEFAULT_TTS_BARGE_IN_TRANSCRIBE_ENABLED,
+    )
+    config["tts_barge_in_transcribe_min_clip_seconds"] = max(
+        0.12,
+        min(3.0, float(
+            config.get(
+                "tts_barge_in_transcribe_min_clip_seconds",
+                DEFAULT_TTS_BARGE_IN_TRANSCRIBE_MIN_CLIP_SECONDS,
+            ))))
+    config["tts_barge_in_transcribe_max_clip_seconds"] = max(
+        config["tts_barge_in_transcribe_min_clip_seconds"],
+        min(8.0, float(
+            config.get(
+                "tts_barge_in_transcribe_max_clip_seconds",
+                DEFAULT_TTS_BARGE_IN_TRANSCRIBE_MAX_CLIP_SECONDS,
+            ))))
+    config["tts_barge_in_transcribe_silence_seconds"] = max(
+        0.08,
+        min(2.5, float(
+            config.get(
+                "tts_barge_in_transcribe_silence_seconds",
+                DEFAULT_TTS_BARGE_IN_TRANSCRIBE_SILENCE_SECONDS,
+            ))))
+    config["tts_barge_in_transcribe_pre_roll_seconds"] = max(
+        0.0,
+        min(1.0, float(
+            config.get(
+                "tts_barge_in_transcribe_pre_roll_seconds",
+                DEFAULT_TTS_BARGE_IN_TRANSCRIBE_PRE_ROLL_SECONDS,
+            ))))
+    config["tts_barge_in_transcribe_rms_threshold"] = max(
+        100.0,
+        min(8000.0, float(
+            config.get(
+                "tts_barge_in_transcribe_rms_threshold",
+                DEFAULT_TTS_BARGE_IN_TRANSCRIBE_RMS_THRESHOLD,
+            ))))
+    config["tts_barge_in_transcribe_timeout_seconds"] = max(
+        0.8,
+        min(15.0, float(
+            config.get(
+                "tts_barge_in_transcribe_timeout_seconds",
+                DEFAULT_TTS_BARGE_IN_TRANSCRIBE_TIMEOUT_SECONDS,
+            ))))
     if config["joint_min_degrees"] > config["joint_max_degrees"]:
         low = config["joint_max_degrees"]
         high = config["joint_min_degrees"]
@@ -1955,6 +2158,11 @@ class State:
         self.online_last_connection_test_result = "Not tested."
         self.online_last_connection_test_ok = False
         self.online_source_backend = "openai_responses"
+        self.last_tts_barge_in_reason = ""
+        self.last_tts_barge_in_transcript = ""
+        self.last_tts_barge_in_detector = ""
+        self.last_tts_barge_in_rms = 0.0
+        self.last_tts_barge_in_utc = ""
 
     def log(self, level: str, message: str) -> None:
         msg = (message or "").strip() or "n/a"
@@ -1969,6 +2177,18 @@ class State:
             self.last_message = msg
             if lvl in ("error", "critical"):
                 self.last_error = msg
+        python_level = {
+            "debug": logging.DEBUG,
+            "info": logging.INFO,
+            "warn": logging.WARNING,
+            "warning": logging.WARNING,
+            "error": logging.ERROR,
+            "critical": logging.CRITICAL,
+        }.get(lvl, logging.INFO)
+        try:
+            logging.getLogger("reachy.voice_agent.runtime").log(python_level, msg)
+        except Exception:
+            pass
 
     @staticmethod
     def _utc_now_text() -> str:
@@ -2103,6 +2323,21 @@ class State:
     def clear_pending_partial(self) -> None:
         with self.lock:
             self.pending_partial = None
+
+    def record_tts_barge_in(
+        self,
+        *,
+        reason: str,
+        transcript: str = "",
+        detector: str = "",
+        rms: float = 0.0,
+    ) -> None:
+        with self.lock:
+            self.last_tts_barge_in_reason = str(reason or "").strip()
+            self.last_tts_barge_in_transcript = str(transcript or "").strip()
+            self.last_tts_barge_in_detector = str(detector or "").strip()
+            self.last_tts_barge_in_rms = max(0.0, float(rms or 0.0))
+            self.last_tts_barge_in_utc = self._utc_now_text()
 
     def process_transcript(
         self,
@@ -2277,6 +2512,11 @@ class State:
                 "online_ai_last_connection_test_result": self.online_last_connection_test_result,
                 "online_ai_last_connection_test_ok": self.online_last_connection_test_ok,
                 "online_ai_source_backend": self.online_source_backend,
+                "last_tts_barge_in_reason": self.last_tts_barge_in_reason,
+                "last_tts_barge_in_transcript": self.last_tts_barge_in_transcript,
+                "last_tts_barge_in_detector": self.last_tts_barge_in_detector,
+                "last_tts_barge_in_rms": self.last_tts_barge_in_rms,
+                "last_tts_barge_in_utc": self.last_tts_barge_in_utc,
                 "last_message": self.last_message,
                 "last_error": self.last_error,
             }
@@ -2301,6 +2541,8 @@ class TTS:
         self._active_process_lock = threading.Lock()
         self._active_temp_audio_path = ""
         self._active_temp_audio_path_lock = threading.Lock()
+        self._interrupt_generation = 0
+        self._interrupt_generation_lock = threading.Lock()
         self.thread = None
         self._pyttsx3_module = None
         self._powershell_executable = resolve_windows_powershell_executable()
@@ -2342,6 +2584,7 @@ class TTS:
         try:
             completion_queue = queue.Queue(maxsize=1) if wait_for_completion else None
             if interrupt:
+                self._advance_interrupt_generation()
                 self.interrupt_event.set()
                 self._clear_queue_nonblocking("TTS request cleared by interrupt.")
                 self._terminate_active_process()
@@ -2362,6 +2605,7 @@ class TTS:
             return False, "TTS queue is full."
 
     def interrupt(self) -> tuple[bool, str]:
+        self._advance_interrupt_generation()
         self.interrupt_event.set()
         self._clear_queue_nonblocking("TTS request cleared by interrupt.")
         self._terminate_active_process()
@@ -2404,6 +2648,15 @@ class TTS:
     def _set_active_temp_audio_path(self, path: str) -> None:
         with self._active_temp_audio_path_lock:
             self._active_temp_audio_path = str(path or "").strip()
+
+    def _advance_interrupt_generation(self) -> int:
+        with self._interrupt_generation_lock:
+            self._interrupt_generation += 1
+            return self._interrupt_generation
+
+    def get_interrupt_generation(self) -> int:
+        with self._interrupt_generation_lock:
+            return self._interrupt_generation
 
     def _cleanup_active_temp_audio_path(self) -> None:
         path = ""
@@ -2778,6 +3031,13 @@ class TTS:
             return False, "TTS interrupted."
         return self._play_wav_bytes_with_subprocess(audio_bytes, text)
 
+    @staticmethod
+    def _is_expected_tts_abort_message(message: str) -> bool:
+        normalized = str(message or "").strip().lower()
+        if not normalized:
+            return False
+        return normalized.startswith("tts interrupted") or normalized.startswith("tts stopped")
+
     def _speak_with_selected_provider(self, text: str, tts_mode_override: str = "") -> tuple[bool, str]:
         preferred_mode = normalize_tts_mode(
             tts_mode_override if str(tts_mode_override or "").strip() else self.config.get("tts_mode", DEFAULT_TTS_MODE)
@@ -2788,6 +3048,8 @@ class TTS:
         ok, message = self._speak_online(text)
         if ok:
             return True, message
+        if self._is_expected_tts_abort_message(message):
+            return False, message
 
         if not self.local_backend_enabled:
             return False, message
@@ -2844,6 +3106,8 @@ class TTS:
                 ok, message = self._speak_with_selected_provider(text, tts_mode_override)
                 if ok:
                     self.state.log("info", f"TTS spoke: {text}")
+                elif self._is_expected_tts_abort_message(message):
+                    self.state.log("info", message)
                 else:
                     self.state.log("error", message)
             finally:
@@ -2873,6 +3137,62 @@ class DisabledSTT:
         pass
 
 
+class VoskKeywordSpotter:
+    def __init__(self, config: dict, state: State, sample_rate_hz: int) -> None:
+        self.config = config
+        self.state = state
+        self.sample_rate_hz = max(8000, int(sample_rate_hz))
+        self.available = False
+        self.recognizer = None
+        self._load()
+
+    def _load(self) -> None:
+        try:
+            import vosk  # type: ignore
+        except Exception as exc:
+            self.state.log("warn", f"TTS keyword spotter unavailable because Vosk could not be imported: {exc}")
+            return
+
+        model_path = resolve_config_relative_path(self.config, self.config.get("stt_model_path", ""))
+        if not model_path.exists():
+            self.state.log("warn", f"TTS keyword spotter unavailable because the Vosk model path does not exist: {model_path}")
+            return
+
+        try:
+            model = vosk.Model(str(model_path))
+            self.recognizer = vosk.KaldiRecognizer(model, self.sample_rate_hz)
+            self.available = True
+        except Exception as exc:
+            self.recognizer = None
+            self.available = False
+            self.state.log("warn", f"TTS keyword spotter initialization failed: {exc}")
+
+    def reset(self) -> None:
+        recognizer = self.recognizer
+        if not self.available or recognizer is None:
+            return
+        try:
+            reset_fn = getattr(recognizer, "Reset", None)
+            if callable(reset_fn):
+                reset_fn()
+        except Exception:
+            pass
+
+    def process_chunk(self, chunk: bytes) -> tuple[str, bool]:
+        recognizer = self.recognizer
+        if not self.available or recognizer is None or not chunk:
+            return "", False
+
+        try:
+            if recognizer.AcceptWaveform(chunk):
+                payload = json.loads(recognizer.Result())
+                return str(payload.get("text", "")).strip(), True
+            payload = json.loads(recognizer.PartialResult())
+            return str(payload.get("partial", "")).strip(), False
+        except Exception:
+            return "", False
+
+
 class MicrophoneSTTBase:
     def __init__(
         self,
@@ -2880,6 +3200,7 @@ class MicrophoneSTTBase:
         state: State,
         parser: Parser,
         online_orchestrator: "OnlineAIOrchestrator",
+        tts: TTS,
         *,
         backend_name: str,
         thread_name: str,
@@ -2888,10 +3209,17 @@ class MicrophoneSTTBase:
         self.state = state
         self.parser = parser
         self.online_orchestrator = online_orchestrator
+        self.tts = tts
         self.backend_name = backend_name
         self.thread_name = thread_name
         self.stop_event = threading.Event()
         self.thread = None
+        self._tts_barge_phrase_token_sets = self._build_tts_barge_phrase_token_sets()
+        self._tts_barge_rms_history: deque[tuple[float, float]] = deque()
+        self._tts_barge_session_active = False
+        self._tts_barge_interrupted_current_session = False
+        self._tts_barge_loud_candidate_started_at = 0.0
+        self._tts_barge_loud_candidate_reference_rms = 0.0
 
     def start(self) -> None:
         self.thread = threading.Thread(target=self._run, daemon=True, name=self.thread_name)
@@ -2911,6 +3239,232 @@ class MicrophoneSTTBase:
                 drained += 1
             except queue.Empty:
                 return drained
+
+    def _build_tts_barge_phrase_token_sets(self) -> list[list[str]]:
+        phrases = normalize_phrase_list(
+            self.config.get("tts_barge_in_phrases", []),
+            DEFAULT_TTS_BARGE_IN_PHRASES,
+        )
+        token_sets: list[list[str]] = []
+        for phrase in phrases:
+            normalized_tokens = [normalize(token) for token in tokenize(phrase) if normalize(token)]
+            if normalized_tokens and normalized_tokens not in token_sets:
+                token_sets.append(normalized_tokens)
+        if token_sets:
+            return token_sets
+        return [
+            [normalize(token) for token in tokens if normalize(token)]
+            for tokens in TTS_BARGE_IN_DEFAULT_TOKEN_SETS
+            if tokens
+        ]
+
+    def _reset_tts_barge_loudness_candidate(self) -> None:
+        self._tts_barge_loud_candidate_started_at = 0.0
+        self._tts_barge_loud_candidate_reference_rms = 0.0
+
+    def _begin_tts_barge_session(self) -> None:
+        self._tts_barge_session_active = True
+        self._tts_barge_interrupted_current_session = False
+        self._reset_tts_barge_loudness_candidate()
+
+    def _end_tts_barge_session(self) -> None:
+        self._tts_barge_session_active = False
+        self._tts_barge_interrupted_current_session = False
+        self._reset_tts_barge_loudness_candidate()
+
+    def _record_tts_barge_baseline_rms(self, rms: float, now: float) -> None:
+        if rms <= 0.0:
+            return
+        window_seconds = float(
+            self.config.get(
+                "tts_barge_in_loudness_window_seconds",
+                DEFAULT_TTS_BARGE_IN_LOUDNESS_WINDOW_SECONDS,
+            )
+        )
+        cutoff = now - max(10.0, window_seconds)
+        history = self._tts_barge_rms_history
+        history.append((now, max(0.0, float(rms))))
+        while history and history[0][0] < cutoff:
+            history.popleft()
+
+    def _match_tts_barge_phrase(self, transcript: str) -> str:
+        normalized_words = [normalize(token) for token in tokenize(transcript) if normalize(token)]
+        if not normalized_words:
+            return ""
+        return extract_matching_phrase(normalized_words, self._tts_barge_phrase_token_sets)
+
+    def _maybe_interrupt_tts_for_keyword(
+        self,
+        transcript: str,
+        *,
+        detector: str,
+        rms: float = 0.0,
+    ) -> bool:
+        if not parse_bool(self.config.get("tts_barge_in_enabled"), True):
+            return False
+        matched_phrase = self._match_tts_barge_phrase(transcript)
+        if not matched_phrase:
+            return False
+        return self._interrupt_tts_for_barge_in(
+            reason=f"keyword phrase '{matched_phrase}'",
+            detector=detector,
+            transcript=transcript,
+            rms=rms,
+        )
+
+    def _maybe_interrupt_tts_for_loudness(self, rms: float, now: float) -> bool:
+        if not parse_bool(self.config.get("tts_barge_in_enabled"), True):
+            self._reset_tts_barge_loudness_candidate()
+            return False
+        if not parse_bool(self.config.get("tts_barge_in_loudness_enabled"), True):
+            self._reset_tts_barge_loudness_candidate()
+            return False
+
+        history = self._tts_barge_rms_history
+        if not history:
+            self._reset_tts_barge_loudness_candidate()
+            return False
+
+        cutoff = now - float(
+            self.config.get(
+                "tts_barge_in_loudness_window_seconds",
+                DEFAULT_TTS_BARGE_IN_LOUDNESS_WINDOW_SECONDS,
+            )
+        )
+        while history and history[0][0] < cutoff:
+            history.popleft()
+        if not history:
+            self._reset_tts_barge_loudness_candidate()
+            return False
+
+        history_span = max(0.0, now - history[0][0])
+        minimum_history = float(
+            self.config.get(
+                "tts_barge_in_loudness_min_history_seconds",
+                DEFAULT_TTS_BARGE_IN_LOUDNESS_MIN_HISTORY_SECONDS,
+            )
+        )
+        if history_span < minimum_history:
+            self._reset_tts_barge_loudness_candidate()
+            return False
+
+        baseline_reference = max(level for _timestamp, level in history)
+        minimum_reference = float(
+            self.config.get(
+                "tts_barge_in_loudness_min_reference_rms",
+                DEFAULT_TTS_BARGE_IN_LOUDNESS_MIN_REFERENCE_RMS,
+            )
+        )
+        if baseline_reference < minimum_reference:
+            self._reset_tts_barge_loudness_candidate()
+            return False
+
+        if self._tts_barge_loud_candidate_started_at <= 0.0:
+            self._tts_barge_loud_candidate_reference_rms = baseline_reference
+
+        reference_rms = max(baseline_reference, self._tts_barge_loud_candidate_reference_rms)
+        multiplier = float(
+            self.config.get(
+                "tts_barge_in_loudness_multiplier",
+                DEFAULT_TTS_BARGE_IN_LOUDNESS_MULTIPLIER,
+            )
+        )
+        minimum_delta = float(
+            self.config.get(
+                "tts_barge_in_loudness_min_delta_rms",
+                DEFAULT_TTS_BARGE_IN_LOUDNESS_MIN_DELTA_RMS,
+            )
+        )
+        absolute_minimum = float(
+            self.config.get(
+                "tts_barge_in_loudness_absolute_min_rms",
+                DEFAULT_TTS_BARGE_IN_LOUDNESS_ABSOLUTE_MIN_RMS,
+            )
+        )
+        threshold = max(
+            reference_rms * multiplier,
+            reference_rms + minimum_delta,
+            absolute_minimum,
+        )
+        if rms < threshold:
+            self._reset_tts_barge_loudness_candidate()
+            return False
+
+        if self._tts_barge_loud_candidate_started_at <= 0.0:
+            self._tts_barge_loud_candidate_started_at = now
+            self._tts_barge_loud_candidate_reference_rms = reference_rms
+            return False
+
+        sustain_seconds = float(
+            self.config.get(
+                "tts_barge_in_loudness_sustain_seconds",
+                DEFAULT_TTS_BARGE_IN_LOUDNESS_SUSTAIN_SECONDS,
+            )
+        )
+        if (now - self._tts_barge_loud_candidate_started_at) < sustain_seconds:
+            return False
+
+        return self._interrupt_tts_for_barge_in(
+            reason=(
+                f"raised voice detected (rms={rms:.0f}, threshold={threshold:.0f}, "
+                f"previous_max={reference_rms:.0f})"
+            ),
+            detector="loudness",
+            transcript="",
+            rms=rms,
+        )
+
+    def _interrupt_tts_for_barge_in(
+        self,
+        *,
+        reason: str,
+        detector: str,
+        transcript: str,
+        rms: float,
+    ) -> bool:
+        if self._tts_barge_interrupted_current_session:
+            return True
+        if not self.state.is_tts_speaking():
+            return False
+
+        ok, message = self.tts.interrupt()
+        if not ok:
+            self.state.log("warn", f"TTS barge-in interrupt failed ({detector}): {message}")
+            return False
+
+        self._tts_barge_interrupted_current_session = True
+        self.state.record_tts_barge_in(
+            reason=reason,
+            transcript=transcript,
+            detector=detector,
+            rms=rms,
+        )
+        detail = f"TTS interrupted by {detector}: {reason}"
+        clean_transcript = str(transcript or "").strip()
+        if clean_transcript:
+            detail += f" Transcript='{clean_transcript[:120]}'"
+        self.state.log("info", detail)
+        self._reset_tts_barge_loudness_candidate()
+        return True
+
+    def _observe_tts_barge_in_chunk(
+        self,
+        *,
+        rms: float,
+        now: float,
+        transcript: str = "",
+        detector: str = "keyword",
+    ) -> bool:
+        if self._maybe_interrupt_tts_for_loudness(rms, now):
+            return True
+        clean_transcript = str(transcript or "").strip()
+        if clean_transcript and self._maybe_interrupt_tts_for_keyword(
+            clean_transcript,
+            detector=detector,
+            rms=rms,
+        ):
+            return True
+        return False
 
     @staticmethod
     def _is_virtual_input_name(name: str) -> bool:
@@ -3791,12 +4345,20 @@ class HybridAudioInput:
             mixed_view[index] = value
         return bytes(mixed)
 class VoskSTT(MicrophoneSTTBase):
-    def __init__(self, config: dict, state: State, parser: Parser, online_orchestrator: OnlineAIOrchestrator) -> None:
+    def __init__(
+        self,
+        config: dict,
+        state: State,
+        parser: Parser,
+        online_orchestrator: OnlineAIOrchestrator,
+        tts: TTS,
+    ) -> None:
         super().__init__(
             config,
             state,
             parser,
             online_orchestrator,
+            tts,
             backend_name="vosk",
             thread_name="vosk-stt",
         )
@@ -3860,6 +4422,8 @@ class VoskSTT(MicrophoneSTTBase):
                         last_listening_state = listening_enabled
                     continue
 
+                now = time.time()
+                rms = pcm16_rms(chunk)
                 tts_speaking = self.state.is_tts_speaking()
                 if tts_speaking:
                     if last_listening_state is not False:
@@ -3867,14 +4431,43 @@ class VoskSTT(MicrophoneSTTBase):
                         last_listening_state = False
                     if not tts_gate_active:
                         tts_gate_active = True
+                        self._begin_tts_barge_session()
                         self.state.clear_pending_partial()
                         self._reset_recognizer(recognizer)
-                        self.state.log("info", "STT input gated while TTS is speaking.")
+                        self.state.log("info", "STT transcript routing paused while TTS is speaking; barge-in monitor active.")
+                    detected_text = ""
+                    if recognizer.AcceptWaveform(chunk):
+                        payload = json.loads(recognizer.Result())
+                        detected_text = str(payload.get("text", "")).strip()
+                        self._observe_tts_barge_in_chunk(
+                            rms=rms,
+                            now=now,
+                            transcript=detected_text,
+                            detector="vosk_final",
+                        )
+                    else:
+                        payload = json.loads(recognizer.PartialResult())
+                        detected_text = str(payload.get("partial", "")).strip()
+                        self._observe_tts_barge_in_chunk(
+                            rms=rms,
+                            now=now,
+                            transcript=detected_text,
+                            detector="vosk_partial",
+                        )
                     continue
                 if tts_gate_active:
+                    interrupted_by_barge_in = self._tts_barge_interrupted_current_session
                     tts_gate_active = False
+                    self._end_tts_barge_session()
                     self._reset_recognizer(recognizer)
-                    self.state.log("info", "STT input resumed after TTS completed.")
+                    self.state.log(
+                        "info",
+                        "STT input resumed after TTS completed."
+                        if not interrupted_by_barge_in
+                        else "STT input resumed after TTS was interrupted by barge-in.",
+                    )
+
+                self._record_tts_barge_baseline_rms(rms, now)
 
                 listening_enabled = self.state.is_listening_enabled()
                 if listening_enabled != last_listening_state:
@@ -3919,14 +4512,205 @@ class VoskSTT(MicrophoneSTTBase):
 
 
 class OpenAITranscribeSTT(MicrophoneSTTBase):
-    def __init__(self, config: dict, state: State, parser: Parser, online_orchestrator: "OnlineAIOrchestrator") -> None:
+    def __init__(
+        self,
+        config: dict,
+        state: State,
+        parser: Parser,
+        online_orchestrator: "OnlineAIOrchestrator",
+        tts: TTS,
+    ) -> None:
         super().__init__(
             config,
             state,
             parser,
             online_orchestrator,
+            tts,
             backend_name="openai_transcribe",
             thread_name="openai-transcribe-stt",
+        )
+
+    def _create_tts_barge_in_transcribe_state(self, chunk_duration_seconds: float) -> dict | None:
+        if not parse_bool(self.config.get("tts_barge_in_enabled"), True):
+            return None
+        if not parse_bool(self.config.get("tts_barge_in_transcribe_enabled"), DEFAULT_TTS_BARGE_IN_TRANSCRIBE_ENABLED):
+            return None
+
+        pre_roll_seconds = float(
+            self.config.get(
+                "tts_barge_in_transcribe_pre_roll_seconds",
+                DEFAULT_TTS_BARGE_IN_TRANSCRIBE_PRE_ROLL_SECONDS,
+            )
+        )
+        pre_roll_chunk_count = max(0, int(round(pre_roll_seconds / max(chunk_duration_seconds, 0.001))))
+        return {
+            "chunk_duration_seconds": max(0.001, float(chunk_duration_seconds)),
+            "speech_threshold_rms": max(
+                100.0,
+                float(
+                    self.config.get(
+                        "tts_barge_in_transcribe_rms_threshold",
+                        DEFAULT_TTS_BARGE_IN_TRANSCRIBE_RMS_THRESHOLD,
+                    )
+                ),
+            ),
+            "silence_seconds": max(
+                0.08,
+                float(
+                    self.config.get(
+                        "tts_barge_in_transcribe_silence_seconds",
+                        DEFAULT_TTS_BARGE_IN_TRANSCRIBE_SILENCE_SECONDS,
+                    )
+                ),
+            ),
+            "min_clip_seconds": max(
+                0.12,
+                float(
+                    self.config.get(
+                        "tts_barge_in_transcribe_min_clip_seconds",
+                        DEFAULT_TTS_BARGE_IN_TRANSCRIBE_MIN_CLIP_SECONDS,
+                    )
+                ),
+            ),
+            "max_clip_seconds": max(
+                float(
+                    self.config.get(
+                        "tts_barge_in_transcribe_min_clip_seconds",
+                        DEFAULT_TTS_BARGE_IN_TRANSCRIBE_MIN_CLIP_SECONDS,
+                    )
+                ),
+                float(
+                    self.config.get(
+                        "tts_barge_in_transcribe_max_clip_seconds",
+                        DEFAULT_TTS_BARGE_IN_TRANSCRIBE_MAX_CLIP_SECONDS,
+                    )
+                ),
+            ),
+            "pre_roll_chunks": deque(maxlen=max(1, pre_roll_chunk_count or 1)),
+            "active_chunks": [],
+            "active_duration_seconds": 0.0,
+            "trailing_silence_seconds": 0.0,
+            "speech_active": False,
+            "max_rms": 0.0,
+        }
+
+    @staticmethod
+    def _reset_tts_barge_in_transcribe_state(state: dict | None) -> None:
+        if not state:
+            return
+        state["active_chunks"] = []
+        state["active_duration_seconds"] = 0.0
+        state["trailing_silence_seconds"] = 0.0
+        state["speech_active"] = False
+        state["max_rms"] = 0.0
+        pre_roll_chunks = state.get("pre_roll_chunks")
+        if isinstance(pre_roll_chunks, deque):
+            pre_roll_chunks.clear()
+
+    @staticmethod
+    def _consume_tts_barge_in_audio_chunk(state: dict | None, chunk: bytes, rms: float) -> tuple[bytes, float]:
+        if not state or not chunk:
+            return b"", 0.0
+
+        chunk_duration_seconds = float(state.get("chunk_duration_seconds", 0.1) or 0.1)
+        speech_threshold_rms = float(state.get("speech_threshold_rms", DEFAULT_TTS_BARGE_IN_TRANSCRIBE_RMS_THRESHOLD))
+        silence_seconds = float(state.get("silence_seconds", DEFAULT_TTS_BARGE_IN_TRANSCRIBE_SILENCE_SECONDS))
+        min_clip_seconds = float(state.get("min_clip_seconds", DEFAULT_TTS_BARGE_IN_TRANSCRIBE_MIN_CLIP_SECONDS))
+        max_clip_seconds = float(state.get("max_clip_seconds", DEFAULT_TTS_BARGE_IN_TRANSCRIBE_MAX_CLIP_SECONDS))
+        pre_roll_chunks = state.get("pre_roll_chunks")
+        if not isinstance(pre_roll_chunks, deque):
+            return b"", 0.0
+
+        active_chunks = state.get("active_chunks")
+        if not isinstance(active_chunks, list):
+            active_chunks = []
+            state["active_chunks"] = active_chunks
+
+        is_speech_chunk = float(rms) >= speech_threshold_rms
+        if bool(state.get("speech_active")):
+            active_chunks.append(chunk)
+            state["active_duration_seconds"] = float(state.get("active_duration_seconds", 0.0)) + chunk_duration_seconds
+            state["trailing_silence_seconds"] = 0.0 if is_speech_chunk else (
+                float(state.get("trailing_silence_seconds", 0.0)) + chunk_duration_seconds
+            )
+            state["max_rms"] = max(float(state.get("max_rms", 0.0)), float(rms))
+        else:
+            if pre_roll_chunks.maxlen and pre_roll_chunks.maxlen > 0:
+                pre_roll_chunks.append(chunk)
+            if not is_speech_chunk:
+                return b"", 0.0
+            state["speech_active"] = True
+            active_chunks = list(pre_roll_chunks) if pre_roll_chunks.maxlen and pre_roll_chunks.maxlen > 0 else []
+            active_chunks.append(chunk)
+            state["active_chunks"] = active_chunks
+            state["active_duration_seconds"] = chunk_duration_seconds * float(len(active_chunks))
+            state["trailing_silence_seconds"] = 0.0
+            state["max_rms"] = max(float(state.get("max_rms", 0.0)), float(rms))
+
+        clip_ready = (
+            float(state.get("active_duration_seconds", 0.0)) >= max_clip_seconds or
+            float(state.get("trailing_silence_seconds", 0.0)) >= silence_seconds
+        )
+        if not clip_ready:
+            return b"", 0.0
+
+        clip_duration_seconds = float(state.get("active_duration_seconds", 0.0))
+        clip_audio = b"".join(chunk for chunk in active_chunks if chunk)
+        clip_peak_rms = max(float(state.get("max_rms", 0.0)), float(rms))
+        OpenAITranscribeSTT._reset_tts_barge_in_transcribe_state(state)
+
+        if clip_duration_seconds < min_clip_seconds or not clip_audio:
+            return b"", 0.0
+        return clip_audio, clip_peak_rms
+
+    def _build_tts_barge_in_transcription_prompt(self) -> str:
+        prompt_parts = [
+            "Transcribe a short human interruption during robot speech exactly.",
+            "Focus on the human voice speaking over the robot's synthetic speech.",
+            "If the audio only contains the robot speaking and no human interruption, prefer returning an empty transcription.",
+        ]
+        language_hints = [
+            str(item).strip().lower()
+            for item in self.config.get("openai_transcribe_language_hints", [])
+            if str(item).strip()
+        ]
+        if language_hints:
+            language_names: list[str] = []
+            for code in language_hints[:4]:
+                if code == "en":
+                    language_names.append("English")
+                elif code == "fi":
+                    language_names.append("Finnish")
+                else:
+                    language_names.append(code)
+            prompt_parts.append(
+                "The interruption is most likely in "
+                + ", ".join(language_names)
+                + ". Prefer those languages when the audio is ambiguous."
+            )
+        phrases = normalize_phrase_list(
+            self.config.get("tts_barge_in_phrases", []),
+            DEFAULT_TTS_BARGE_IN_PHRASES,
+        )
+        if phrases:
+            prompt_parts.append(
+                "Common interruption phrases include: "
+                + ", ".join(phrases[:24])
+                + "."
+            )
+        return " ".join(part for part in prompt_parts if part)
+
+    def _transcribe_tts_barge_in_clip(self, pcm_audio: bytes, sample_rate_hz: int) -> str:
+        return self._transcribe_clip(
+            pcm_audio,
+            sample_rate_hz,
+            prompt_override=self._build_tts_barge_in_transcription_prompt(),
+            timeout_override_seconds=float(
+                self.config.get(
+                    "tts_barge_in_transcribe_timeout_seconds",
+                    DEFAULT_TTS_BARGE_IN_TRANSCRIBE_TIMEOUT_SECONDS,
+                )
+            ),
         )
 
     def _run(self) -> None:
@@ -3969,8 +4753,21 @@ class OpenAITranscribeSTT(MicrophoneSTTBase):
 
         audio_input = None
         audio_input = HybridAudioInput(self, sd, sample_rate, blocksize)
+        keyword_spotter = (
+            VoskKeywordSpotter(self.config, self.state, sample_rate)
+            if parse_bool(self.config.get("tts_barge_in_enabled"), True)
+            else None
+        )
+        tts_barge_transcribe_state = self._create_tts_barge_in_transcribe_state(chunk_duration_seconds)
         self.state.set_runtime(audio_input.has_active_source(), self.state.is_listening_enabled(), self.backend_name)
         self.state.log("info", f"OpenAI STT worker started ({audio_input.describe_route()}).")
+        if parse_bool(self.config.get("tts_barge_in_enabled"), True):
+            detectors = ["loudness"]
+            if tts_barge_transcribe_state is not None:
+                detectors.append("openai_barge_clip_transcriber")
+            if keyword_spotter is not None and keyword_spotter.available:
+                detectors.append("vosk_keyword_spotter")
+            self.state.log("info", f"TTS barge-in detectors active: {', '.join(detectors)}.")
 
         try:
             last_listening_state = None
@@ -3984,6 +4781,8 @@ class OpenAITranscribeSTT(MicrophoneSTTBase):
                         last_listening_state = listening_enabled
                     continue
 
+                now = time.time()
+                rms = pcm16_rms(chunk)
                 tts_speaking = self.state.is_tts_speaking()
                 if tts_speaking:
                     if last_listening_state is not False:
@@ -3991,16 +4790,66 @@ class OpenAITranscribeSTT(MicrophoneSTTBase):
                         last_listening_state = False
                     if not tts_gate_active:
                         tts_gate_active = True
+                        self._begin_tts_barge_session()
                         self.state.clear_pending_partial()
                         reset_segment()
+                        self._reset_tts_barge_in_transcribe_state(tts_barge_transcribe_state)
                         audio_input.clear_buffers()
-                        self.state.log("info", "STT input gated while TTS is speaking.")
+                        if keyword_spotter is not None:
+                            keyword_spotter.reset()
+                        self.state.log("info", "STT transcript routing paused while TTS is speaking; barge-in monitor active.")
+                    keyword_transcript = ""
+                    keyword_detector = "keyword_spotter"
+                    if keyword_spotter is not None and keyword_spotter.available:
+                        keyword_transcript, keyword_is_final = keyword_spotter.process_chunk(chunk)
+                        keyword_detector = "vosk_keyword_final" if keyword_is_final else "vosk_keyword_partial"
+                    if self._observe_tts_barge_in_chunk(
+                        rms=rms,
+                        now=now,
+                        transcript=keyword_transcript,
+                        detector=keyword_detector,
+                    ):
+                        self._reset_tts_barge_in_transcribe_state(tts_barge_transcribe_state)
+                        continue
+                    clip_audio, clip_peak_rms = self._consume_tts_barge_in_audio_chunk(
+                        tts_barge_transcribe_state,
+                        chunk,
+                        rms,
+                    )
+                    if clip_audio and not self._tts_barge_interrupted_current_session:
+                        try:
+                            clip_transcript = self._transcribe_tts_barge_in_clip(clip_audio, sample_rate)
+                        except Exception as exc:
+                            error_message = str(exc).strip() or "Unknown TTS barge-in transcription error."
+                            friendly = OnlineAIOrchestrator._summarize_online_request_error(error_message)
+                            self.state.log("warn", f"TTS barge-in transcription failed: {friendly}")
+                            continue
+                        if clip_transcript:
+                            self._observe_tts_barge_in_chunk(
+                                rms=max(rms, clip_peak_rms),
+                                now=time.time(),
+                                transcript=clip_transcript,
+                                detector="openai_barge_clip",
+                            )
                     continue
                 if tts_gate_active:
+                    interrupted_by_barge_in = self._tts_barge_interrupted_current_session
                     tts_gate_active = False
+                    self._end_tts_barge_session()
                     reset_segment()
-                    audio_input.clear_buffers()
-                    self.state.log("info", "STT input resumed after TTS completed.")
+                    self._reset_tts_barge_in_transcribe_state(tts_barge_transcribe_state)
+                    if keyword_spotter is not None:
+                        keyword_spotter.reset()
+                    if not interrupted_by_barge_in:
+                        audio_input.clear_buffers()
+                    self.state.log(
+                        "info",
+                        "STT input resumed after TTS completed."
+                        if not interrupted_by_barge_in
+                        else "STT input resumed after TTS was interrupted by barge-in.",
+                    )
+
+                self._record_tts_barge_baseline_rms(rms, now)
 
                 listening_enabled = self.state.is_listening_enabled()
                 if listening_enabled != last_listening_state:
@@ -4011,7 +4860,6 @@ class OpenAITranscribeSTT(MicrophoneSTTBase):
                     reset_segment()
                     continue
 
-                rms = pcm16_rms(chunk)
                 is_speech_chunk = rms >= rms_threshold
 
                 if speech_active:
@@ -4079,7 +4927,14 @@ class OpenAITranscribeSTT(MicrophoneSTTBase):
             return "", env_var
         return os.environ.get(env_var, "").strip(), env_var
 
-    def _transcribe_clip(self, pcm_audio: bytes, sample_rate_hz: int) -> str:
+    def _transcribe_clip(
+        self,
+        pcm_audio: bytes,
+        sample_rate_hz: int,
+        *,
+        prompt_override: str = "",
+        timeout_override_seconds: float = 0.0,
+    ) -> str:
         api_key, env_var = self._read_openai_api_key()
         if not api_key:
             raise RuntimeError(build_missing_online_api_key_message(env_var))
@@ -4096,7 +4951,7 @@ class OpenAITranscribeSTT(MicrophoneSTTBase):
             ).strip()
             or DEFAULT_ONLINE_AI_TRANSCRIBE_MODEL
         )
-        prompt = self._build_transcription_prompt()
+        prompt = str(prompt_override or "").strip() or self._build_transcription_prompt()
         request_fields = {
             "model": model,
             "response_format": "json",
@@ -4111,7 +4966,11 @@ class OpenAITranscribeSTT(MicrophoneSTTBase):
             file_bytes=wav_audio,
             file_content_type="audio/wav",
         )
-        timeout_seconds = float(self.config.get("online_ai_timeout_seconds", 15.0))
+        timeout_seconds = (
+            max(0.8, float(timeout_override_seconds))
+            if float(timeout_override_seconds or 0.0) > 0.0
+            else float(self.config.get("online_ai_timeout_seconds", 15.0))
+        )
         request = urllib_request.Request(
             endpoint,
             data=body,
@@ -4224,6 +5083,7 @@ def build_stt_runtime(
     state: State,
     parser: Parser,
     online_orchestrator: "OnlineAIOrchestrator",
+    tts: TTS,
 ):
     requested_backend = normalize_stt_backend(config.get("stt_backend", "auto"))
     api_key_available, env_var = state.refresh_online_key_status()
@@ -4239,15 +5099,16 @@ def build_stt_runtime(
         state.log("info", f"STT backend auto-resolved to '{effective_backend}' because {resolution_reason}.")
 
     if effective_backend == "vosk":
-        return VoskSTT(config, state, parser, online_orchestrator)
+        return VoskSTT(config, state, parser, online_orchestrator, tts)
     if effective_backend == "openai_transcribe":
-        return OpenAITranscribeSTT(config, state, parser, online_orchestrator)
+        return OpenAITranscribeSTT(config, state, parser, online_orchestrator, tts)
     return DisabledSTT(config, state, requested_backend)
 
 
 class OnlineReplySpeechStreamer:
     def __init__(self, tts: TTS) -> None:
         self.tts = tts
+        self._interrupt_generation = tts.get_interrupt_generation()
         self._preface_buffer = ""
         self._capturing_reply = False
         self._reply_complete = False
@@ -4256,9 +5117,17 @@ class OnlineReplySpeechStreamer:
         self._pending_segment_buffer = ""
         self.reply_already_spoken = False
         self.failure_message = ""
+        self._cancelled = False
+
+    def _is_cancelled(self) -> bool:
+        if self._cancelled:
+            return True
+        if self.tts.get_interrupt_generation() != self._interrupt_generation:
+            self._cancelled = True
+        return self._cancelled
 
     def consume_delta(self, delta_text: str) -> None:
-        if self.failure_message or self._reply_complete:
+        if self.failure_message or self._reply_complete or self._is_cancelled():
             return
 
         text = str(delta_text or "")
@@ -4282,7 +5151,7 @@ class OnlineReplySpeechStreamer:
         self._consume_reply_chars(text)
 
     def finish(self) -> None:
-        if self.failure_message:
+        if self.failure_message or self._is_cancelled():
             return
         self._flush_pending_segments(final=True)
 
@@ -4333,16 +5202,19 @@ class OnlineReplySpeechStreamer:
             self._append_decoded_reply_text(ch)
 
     def _append_decoded_reply_text(self, text: str) -> None:
-        if not text or self.failure_message:
+        if not text or self.failure_message or self._is_cancelled():
             return
         self._pending_segment_buffer += text
         self._flush_pending_segments(final=False)
 
     def _flush_pending_segments(self, final: bool) -> None:
-        if self.failure_message:
+        if self.failure_message or self._is_cancelled():
             return
 
         while True:
+            if self._is_cancelled():
+                self._pending_segment_buffer = ""
+                return
             segment, remainder = self._extract_ready_segment(self._pending_segment_buffer, final)
             if not segment:
                 self._pending_segment_buffer = remainder
@@ -6458,7 +7330,7 @@ class App:
         self.parser = Parser(config)
         self.tts = TTS(config, self.state)
         self.online = OnlineAIOrchestrator(config, self.state, self.tts)
-        self.stt = build_stt_runtime(config, self.state, self.parser, self.online)
+        self.stt = build_stt_runtime(config, self.state, self.parser, self.online, self.tts)
         self.help_responder = LocalHelpResponder(config, self.state)
 
     def start(self) -> None:
@@ -6839,8 +7711,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--log-file",
         type=str,
-        default="",
-        help="Optional log file path for sidecar startup/runtime diagnostics.",
+        default=str(Path(__file__).with_name("local_voice_agent_sidecar_last_run.log")),
+        help="Log file path for sidecar startup/runtime diagnostics.",
     )
     return parser.parse_args()
 
