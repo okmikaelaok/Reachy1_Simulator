@@ -1582,6 +1582,7 @@ namespace Reachy.ControlApp
             public float online_ai_timeout_seconds = 15f;
             public float online_ai_temperature = 0.2f;
             public int online_ai_max_output_tokens = DefaultOnlineAiMaxOutputTokens;
+            public string online_tts_voice = DefaultOnlineTtsVoice;
             public string online_ai_persona_mode = "assistant";
             public string online_ai_assistant_system_prompt = DefaultAssistantOnlineAiSystemPrompt;
             public string online_ai_assistant_tts_voice = DefaultOnlineTtsVoice;
@@ -1832,7 +1833,18 @@ namespace Reachy.ControlApp
             bool loadedVoiceConfig = TryLoadVoiceAgentConfigFromDisk(out string startupVoiceConfigMessage);
             if (loadedVoiceConfig)
             {
-                _voiceLastActionResult = startupVoiceConfigMessage;
+                ApplyStartupOnlineAiSessionDefaults();
+                bool startupConsistencyOk = TryConfirmSelectedOnlineAiModeConsistency(
+                    "Startup AI mode verification",
+                    updateRunningSidecar: false,
+                    out string startupConsistencyMessage);
+                _voiceLastActionResult = string.IsNullOrWhiteSpace(startupConsistencyMessage)
+                    ? startupVoiceConfigMessage
+                    : $"{startupVoiceConfigMessage} Startup defaults applied: online AI disabled, Assistant mode selected. {startupConsistencyMessage}";
+                if (!startupConsistencyOk)
+                {
+                    _voiceLastParserMessage = startupConsistencyMessage;
+                }
             }
             else if (!string.IsNullOrWhiteSpace(startupVoiceConfigMessage) &&
                 startupVoiceConfigMessage.IndexOf("not found", StringComparison.OrdinalIgnoreCase) < 0)
@@ -8467,6 +8479,34 @@ namespace Reachy.ControlApp
             return string.IsNullOrWhiteSpace(normalized) ? fallback : normalized;
         }
 
+        private static string GetStoredOnlineAiSystemPromptFallback(
+            string storedPrompt,
+            OnlineAiPersonaMode loadedMode,
+            OnlineAiPersonaMode targetMode,
+            string fallback)
+        {
+            if (loadedMode != targetMode || string.IsNullOrWhiteSpace(storedPrompt))
+            {
+                return fallback;
+            }
+
+            return storedPrompt;
+        }
+
+        private static string GetStoredOnlineAiTtsVoiceFallback(
+            string storedTtsVoice,
+            OnlineAiPersonaMode loadedMode,
+            OnlineAiPersonaMode targetMode,
+            string fallback)
+        {
+            if (loadedMode != targetMode)
+            {
+                return fallback;
+            }
+
+            return NormalizeOnlineAiTtsVoiceValue(storedTtsVoice, fallback);
+        }
+
         private string GetOnlineAiTtsVoiceForMode(OnlineAiPersonaMode mode)
         {
             if (mode == OnlineAiPersonaMode.FortuneTeller)
@@ -9586,6 +9626,68 @@ namespace Reachy.ControlApp
                     ? "Running sidecar did not accept the AI mode update."
                     : result.Error);
             return result.Success;
+        }
+
+        private bool TryConfirmSelectedOnlineAiModeConsistency(
+            string sourceLabel,
+            bool updateRunningSidecar,
+            out string message)
+        {
+            RefreshEffectiveOnlineAiSystemPrompt();
+
+            bool savedVoiceConfig = TrySaveVoiceAgentConfigToDisk(out string saveMessage);
+            bool syncedSidecarConfig = TrySyncLocalSidecarConfigFromUi(out string syncMessage);
+            bool updatedRunningSidecar = false;
+            string runtimeUpdateMessage = string.Empty;
+            if (syncedSidecarConfig && updateRunningSidecar)
+            {
+                updatedRunningSidecar = TryApplyOnlineAiModeToRunningSidecar(out runtimeUpdateMessage);
+            }
+
+            if (savedVoiceConfig && syncedSidecarConfig)
+            {
+                ResetOnlineAiPersonaLiveApplyTracking();
+            }
+
+            bool success =
+                savedVoiceConfig &&
+                syncedSidecarConfig &&
+                (!updateRunningSidecar || updatedRunningSidecar);
+
+            var builder = new StringBuilder(192);
+            builder.Append(sourceLabel).Append(": confirmed ")
+                .Append(GetOnlineAiPersonaModeLabel())
+                .Append(" mode.");
+
+            if (!savedVoiceConfig)
+            {
+                builder.Append(" Voice config save failed: ").Append(saveMessage);
+            }
+
+            if (!syncedSidecarConfig)
+            {
+                builder.Append(" Sidecar config sync failed: ").Append(syncMessage);
+            }
+            else if (updateRunningSidecar)
+            {
+                builder.Append(updatedRunningSidecar
+                    ? " Running sidecar updated."
+                    : $" Running sidecar update failed: {runtimeUpdateMessage}");
+            }
+            else if (savedVoiceConfig)
+            {
+                builder.Append(" Configs resynced.");
+            }
+
+            message = builder.ToString();
+            return success;
+        }
+
+        private void ApplyStartupOnlineAiSessionDefaults()
+        {
+            enableOnlineAiAgent = false;
+            onlineAiPersonaMode = OnlineAiPersonaMode.Assistant;
+            RefreshEffectiveOnlineAiSystemPrompt();
         }
 
         private void HandleOnlineAiEnabledToggleChanged()
@@ -13232,12 +13334,18 @@ namespace Reachy.ControlApp
                     ? (string.IsNullOrWhiteSpace(config.online_ai_assistant_system_prompt)
                         ? DefaultAssistantOnlineAiSystemPrompt
                         : config.online_ai_assistant_system_prompt)
-                    : (string.IsNullOrWhiteSpace(config.online_ai_system_prompt)
-                        ? DefaultAssistantOnlineAiSystemPrompt
-                        : config.online_ai_system_prompt);
+                    : GetStoredOnlineAiSystemPromptFallback(
+                        config.online_ai_system_prompt,
+                        onlineAiPersonaMode,
+                        OnlineAiPersonaMode.Assistant,
+                        DefaultAssistantOnlineAiSystemPrompt);
                 onlineAiAssistantTtsVoice = hasOnlineAssistantTtsVoiceField
                     ? NormalizeOnlineAiTtsVoiceValue(config.online_ai_assistant_tts_voice, DefaultOnlineTtsVoice)
-                    : DefaultOnlineTtsVoice;
+                    : GetStoredOnlineAiTtsVoiceFallback(
+                        config.online_tts_voice,
+                        onlineAiPersonaMode,
+                        OnlineAiPersonaMode.Assistant,
+                        DefaultOnlineTtsVoice);
                 onlineAiSharedModeInstructions = hasOnlineSharedModeInstructionsField
                     ? (config.online_ai_shared_mode_instructions ?? string.Empty)
                     : string.Empty;
@@ -13263,12 +13371,20 @@ namespace Reachy.ControlApp
                 onlineAiFortuneTellerSystemPrompt = hasOnlineFortuneTellerSystemPromptField &&
                                                     !string.IsNullOrWhiteSpace(config.online_ai_fortune_teller_system_prompt)
                     ? config.online_ai_fortune_teller_system_prompt
-                    : DefaultFortuneTellerOnlineAiSystemPrompt;
+                    : GetStoredOnlineAiSystemPromptFallback(
+                        config.online_ai_system_prompt,
+                        onlineAiPersonaMode,
+                        OnlineAiPersonaMode.FortuneTeller,
+                        DefaultFortuneTellerOnlineAiSystemPrompt);
                 onlineAiFortuneTellerTtsVoice = hasOnlineFortuneTellerTtsVoiceField
                     ? NormalizeOnlineAiTtsVoiceValue(
                         config.online_ai_fortune_teller_tts_voice,
                         DefaultFortuneTellerOnlineTtsVoice)
-                    : DefaultFortuneTellerOnlineTtsVoice;
+                    : GetStoredOnlineAiTtsVoiceFallback(
+                        config.online_tts_voice,
+                        onlineAiPersonaMode,
+                        OnlineAiPersonaMode.FortuneTeller,
+                        DefaultFortuneTellerOnlineTtsVoice);
                 onlineAiCustomPersonaName = hasOnlineCustomPersonaNameField &&
                                             !string.IsNullOrWhiteSpace(config.online_ai_custom_persona_name)
                     ? config.online_ai_custom_persona_name.Trim()
@@ -13295,12 +13411,20 @@ namespace Reachy.ControlApp
                 onlineAiCustomSystemPrompt = hasOnlineCustomSystemPromptField &&
                                              !string.IsNullOrWhiteSpace(config.online_ai_custom_system_prompt)
                     ? config.online_ai_custom_system_prompt
-                    : DefaultCustomOnlineAiSystemPrompt;
+                    : GetStoredOnlineAiSystemPromptFallback(
+                        config.online_ai_system_prompt,
+                        onlineAiPersonaMode,
+                        OnlineAiPersonaMode.Custom,
+                        DefaultCustomOnlineAiSystemPrompt);
                 onlineAiCustomTtsVoice = hasOnlineCustomTtsVoiceField
                     ? NormalizeOnlineAiTtsVoiceValue(
                         config.online_ai_custom_tts_voice,
                         DefaultOnlineTtsVoice)
-                    : DefaultOnlineTtsVoice;
+                    : GetStoredOnlineAiTtsVoiceFallback(
+                        config.online_tts_voice,
+                        onlineAiPersonaMode,
+                        OnlineAiPersonaMode.Custom,
+                        DefaultOnlineTtsVoice);
                 RefreshEffectiveOnlineAiSystemPrompt();
                 ResetOnlineAiPersonaLiveApplyTracking();
                 ResolveSavedOnlineAiCustomPersonalitySelection();
@@ -13338,6 +13462,7 @@ namespace Reachy.ControlApp
 
             try
             {
+                RefreshEffectiveOnlineAiSystemPrompt();
                 VoiceAgentConfig config = new VoiceAgentConfig();
                 if (File.Exists(configPath))
                 {
@@ -13444,6 +13569,7 @@ namespace Reachy.ControlApp
                 config.online_ai_timeout_seconds = onlineAiTimeoutSeconds;
                 config.online_ai_temperature = onlineAiTemperature;
                 config.online_ai_max_output_tokens = onlineAiMaxOutputTokens;
+                config.online_tts_voice = GetSelectedOnlineAiTtsVoice();
                 config.online_ai_persona_mode = GetOnlineAiPersonaModeConfigValue();
                 config.online_ai_assistant_system_prompt = string.IsNullOrWhiteSpace(onlineAiAssistantSystemPrompt)
                     ? DefaultAssistantOnlineAiSystemPrompt
@@ -13527,6 +13653,7 @@ namespace Reachy.ControlApp
 
             try
             {
+                RefreshEffectiveOnlineAiSystemPrompt();
                 LocalVoiceAgentSidecarConfig config = new LocalVoiceAgentSidecarConfig();
                 if (File.Exists(sidecarConfigPath))
                 {
@@ -13885,12 +14012,18 @@ namespace Reachy.ControlApp
                     ? (string.IsNullOrWhiteSpace(config.online_ai_assistant_system_prompt)
                         ? DefaultAssistantOnlineAiSystemPrompt
                         : config.online_ai_assistant_system_prompt)
-                    : (string.IsNullOrWhiteSpace(config.online_ai_system_prompt)
-                        ? DefaultAssistantOnlineAiSystemPrompt
-                        : config.online_ai_system_prompt);
+                    : GetStoredOnlineAiSystemPromptFallback(
+                        config.online_ai_system_prompt,
+                        onlineAiPersonaMode,
+                        OnlineAiPersonaMode.Assistant,
+                        DefaultAssistantOnlineAiSystemPrompt);
                 onlineAiAssistantTtsVoice = hasOnlineAssistantTtsVoiceField
                     ? NormalizeOnlineAiTtsVoiceValue(config.online_ai_assistant_tts_voice, DefaultOnlineTtsVoice)
-                    : NormalizeOnlineAiTtsVoiceValue(config.online_tts_voice, DefaultOnlineTtsVoice);
+                    : GetStoredOnlineAiTtsVoiceFallback(
+                        config.online_tts_voice,
+                        onlineAiPersonaMode,
+                        OnlineAiPersonaMode.Assistant,
+                        DefaultOnlineTtsVoice);
                 onlineAiSharedModeInstructions = hasOnlineSharedModeInstructionsField
                     ? (config.online_ai_shared_mode_instructions ?? string.Empty)
                     : string.Empty;
@@ -13916,12 +14049,20 @@ namespace Reachy.ControlApp
                 onlineAiFortuneTellerSystemPrompt = hasOnlineFortuneTellerSystemPromptField &&
                                                     !string.IsNullOrWhiteSpace(config.online_ai_fortune_teller_system_prompt)
                     ? config.online_ai_fortune_teller_system_prompt
-                    : DefaultFortuneTellerOnlineAiSystemPrompt;
+                    : GetStoredOnlineAiSystemPromptFallback(
+                        config.online_ai_system_prompt,
+                        onlineAiPersonaMode,
+                        OnlineAiPersonaMode.FortuneTeller,
+                        DefaultFortuneTellerOnlineAiSystemPrompt);
                 onlineAiFortuneTellerTtsVoice = hasOnlineFortuneTellerTtsVoiceField
                     ? NormalizeOnlineAiTtsVoiceValue(
                         config.online_ai_fortune_teller_tts_voice,
                         DefaultFortuneTellerOnlineTtsVoice)
-                    : DefaultFortuneTellerOnlineTtsVoice;
+                    : GetStoredOnlineAiTtsVoiceFallback(
+                        config.online_tts_voice,
+                        onlineAiPersonaMode,
+                        OnlineAiPersonaMode.FortuneTeller,
+                        DefaultFortuneTellerOnlineTtsVoice);
                 onlineAiCustomPersonaName = hasOnlineCustomPersonaNameField &&
                                             !string.IsNullOrWhiteSpace(config.online_ai_custom_persona_name)
                     ? config.online_ai_custom_persona_name.Trim()
@@ -13948,12 +14089,20 @@ namespace Reachy.ControlApp
                 onlineAiCustomSystemPrompt = hasOnlineCustomSystemPromptField &&
                                              !string.IsNullOrWhiteSpace(config.online_ai_custom_system_prompt)
                     ? config.online_ai_custom_system_prompt
-                    : DefaultCustomOnlineAiSystemPrompt;
+                    : GetStoredOnlineAiSystemPromptFallback(
+                        config.online_ai_system_prompt,
+                        onlineAiPersonaMode,
+                        OnlineAiPersonaMode.Custom,
+                        DefaultCustomOnlineAiSystemPrompt);
                 onlineAiCustomTtsVoice = hasOnlineCustomTtsVoiceField
                     ? NormalizeOnlineAiTtsVoiceValue(
                         config.online_ai_custom_tts_voice,
                         DefaultOnlineTtsVoice)
-                    : DefaultOnlineTtsVoice;
+                    : GetStoredOnlineAiTtsVoiceFallback(
+                        config.online_tts_voice,
+                        onlineAiPersonaMode,
+                        OnlineAiPersonaMode.Custom,
+                        DefaultOnlineTtsVoice);
                 RefreshEffectiveOnlineAiSystemPrompt();
                 ResetOnlineAiPersonaLiveApplyTracking();
                 ResolveSavedOnlineAiCustomPersonalitySelection();
@@ -16724,6 +16873,7 @@ namespace Reachy.ControlApp
             string initialFingerprint = BuildOnlineAiPersonaSettingsFingerprint();
             bool applyImmediately = false;
             bool announceSuccess = false;
+            bool confirmedModeSelection = false;
 
             GUILayout.BeginArea(area, GUI.skin.box);
             GUILayout.Label("AI Modes", _titleStyle);
@@ -16756,6 +16906,24 @@ namespace Reachy.ControlApp
                         : UiModeAudioCue.AssistantPersonaSelected));
                 applyImmediately = true;
                 announceSuccess = true;
+
+                bool selectionConfirmed = TryConfirmSelectedOnlineAiModeConsistency(
+                    "AI mode button selection",
+                    updateRunningSidecar: IsCurrentAiModeEnabled() &&
+                                             IsOnlineAiModeSelected() &&
+                                             _localAiAgentSidecarReady,
+                    out string modeSelectionMessage);
+                _voiceLastActionResult = modeSelectionMessage;
+                if (!selectionConfirmed)
+                {
+                    _voiceLastParserMessage = modeSelectionMessage;
+                }
+                else if (announceSuccess)
+                {
+                    TryQueueUiModeVoiceAnnouncement($"{GetOnlineAiPersonaModeLabel()} mode selected.");
+                }
+
+                confirmedModeSelection = true;
             }
 
             GUILayout.Space(8f);
@@ -16914,7 +17082,8 @@ namespace Reachy.ControlApp
             }
 
             string updatedFingerprint = BuildOnlineAiPersonaSettingsFingerprint();
-            if (!string.Equals(initialFingerprint, updatedFingerprint, StringComparison.Ordinal))
+            if (!confirmedModeSelection &&
+                !string.Equals(initialFingerprint, updatedFingerprint, StringComparison.Ordinal))
             {
                 ScheduleOnlineAiPersonaLiveApply(immediate: applyImmediately, announceSuccess: announceSuccess);
             }
