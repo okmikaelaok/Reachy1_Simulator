@@ -12,3 +12,7 @@ This allows you to create, save and delete animated poses for Reachy.
 - `Joint sliders`: Move any of Reachy's joints with sliders.
 - `Animate body avatar` (WiP): With Reachy's 3D avatar, you can animate the joints by clicking and dragging them.
 - `Keyframe recording`: Move a joint and save each keyframe by keyframe to make an animation sequence.
+
+
+https://github.com/user-attachments/assets/76dc7745-296d-45d0-ad07-7b6e9a5f2524
+
