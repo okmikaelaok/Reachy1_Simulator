@@ -58,6 +58,8 @@
     "online_ai_timeout_seconds": 15.0,
     "online_ai_temperature": 0.20000000298023225,
     "online_ai_max_output_tokens": 480,
+    "online_ai_local_user_memory_messages": 3,
+    "online_ai_local_assistant_memory_messages": 3,
     "online_ai_persona_mode": "custom",
     "online_ai_assistant_system_prompt": "You are Reachy. Identify yourself as Reachy, explain who you are when asked, tell users about yourself and the robot, and assist with whatever they want help with using clear practical answers.",
     "online_ai_assistant_tts_voice": "alloy",

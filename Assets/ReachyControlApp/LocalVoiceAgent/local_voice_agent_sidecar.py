@@ -184,6 +184,9 @@ ONLINE_TTS_VOICE_OPTIONS = (
 DEFAULT_ONLINE_AI_ASSISTANT_TTS_VOICE = DEFAULT_ONLINE_TTS_VOICE
 DEFAULT_ONLINE_AI_FORTUNE_TELLER_TTS_VOICE = "shimmer"
 DEFAULT_ONLINE_AI_MAX_OUTPUT_TOKENS = 480
+DEFAULT_ONLINE_AI_LOCAL_USER_MEMORY_MESSAGES = 3
+DEFAULT_ONLINE_AI_LOCAL_ASSISTANT_MEMORY_MESSAGES = 3
+MAX_ONLINE_AI_LOCAL_MEMORY_MESSAGES = 20
 DEFAULT_ONLINE_AI_PERSONA_MODE = "assistant"
 DEFAULT_ONLINE_AI_ASSISTANT_SYSTEM_PROMPT = (
     "You are Reachy. Identify yourself as Reachy, explain who you are when asked, "
@@ -1020,6 +1023,8 @@ def load_config(path: Path) -> dict:
         "openai_transcribe_language_hints": list(DEFAULT_OPENAI_TRANSCRIBE_LANGUAGE_HINTS),
         "online_ai_temperature": 0.2,
         "online_ai_max_output_tokens": DEFAULT_ONLINE_AI_MAX_OUTPUT_TOKENS,
+        "online_ai_local_user_memory_messages": DEFAULT_ONLINE_AI_LOCAL_USER_MEMORY_MESSAGES,
+        "online_ai_local_assistant_memory_messages": DEFAULT_ONLINE_AI_LOCAL_ASSISTANT_MEMORY_MESSAGES,
         "online_ai_persona_mode": DEFAULT_ONLINE_AI_PERSONA_MODE,
         "online_ai_assistant_system_prompt": DEFAULT_ONLINE_AI_ASSISTANT_SYSTEM_PROMPT,
         "online_ai_assistant_tts_voice": DEFAULT_ONLINE_AI_ASSISTANT_TTS_VOICE,
@@ -1217,6 +1222,30 @@ def load_config(path: Path) -> dict:
     config["online_ai_max_output_tokens"] = max(
         32,
         min(2048, int(config.get("online_ai_max_output_tokens", DEFAULT_ONLINE_AI_MAX_OUTPUT_TOKENS))))
+    config["online_ai_local_user_memory_messages"] = max(
+        0,
+        min(
+            MAX_ONLINE_AI_LOCAL_MEMORY_MESSAGES,
+            int(
+                config.get(
+                    "online_ai_local_user_memory_messages",
+                    DEFAULT_ONLINE_AI_LOCAL_USER_MEMORY_MESSAGES,
+                )
+            ),
+        ),
+    )
+    config["online_ai_local_assistant_memory_messages"] = max(
+        0,
+        min(
+            MAX_ONLINE_AI_LOCAL_MEMORY_MESSAGES,
+            int(
+                config.get(
+                    "online_ai_local_assistant_memory_messages",
+                    DEFAULT_ONLINE_AI_LOCAL_ASSISTANT_MEMORY_MESSAGES,
+                )
+            ),
+        ),
+    )
     config["online_ai_persona_mode"] = normalize_online_ai_persona_mode(
         config.get("online_ai_persona_mode", DEFAULT_ONLINE_AI_PERSONA_MODE))
     config["online_ai_assistant_tts_voice"] = (
@@ -2158,6 +2187,8 @@ class State:
         self.online_last_connection_test_result = "Not tested."
         self.online_last_connection_test_ok = False
         self.online_source_backend = "openai_responses"
+        self.online_conversation_history: deque[dict] = deque()
+        self._online_conversation_sequence = 0
         self.last_tts_barge_in_reason = ""
         self.last_tts_barge_in_transcript = ""
         self.last_tts_barge_in_detector = ""
@@ -2255,6 +2286,109 @@ class State:
             self.online_last_http_error = str(http_error or "").strip()
             if model:
                 self.online_model = str(model).strip()
+
+    @staticmethod
+    def _normalize_online_conversation_text(text: str) -> str:
+        return re.sub(r"\s+", " ", str(text or "")).strip()
+
+    def _get_online_conversation_memory_limits_locked(self) -> tuple[int, int]:
+        user_limit = max(
+            0,
+            min(
+                MAX_ONLINE_AI_LOCAL_MEMORY_MESSAGES,
+                int(
+                    self.config.get(
+                        "online_ai_local_user_memory_messages",
+                        DEFAULT_ONLINE_AI_LOCAL_USER_MEMORY_MESSAGES,
+                    )
+                ),
+            ),
+        )
+        assistant_limit = max(
+            0,
+            min(
+                MAX_ONLINE_AI_LOCAL_MEMORY_MESSAGES,
+                int(
+                    self.config.get(
+                        "online_ai_local_assistant_memory_messages",
+                        DEFAULT_ONLINE_AI_LOCAL_ASSISTANT_MEMORY_MESSAGES,
+                    )
+                ),
+            ),
+        )
+        return user_limit, assistant_limit
+
+    def _trim_online_conversation_history_locked(self) -> None:
+        user_limit, assistant_limit = self._get_online_conversation_memory_limits_locked()
+        retained_reversed: list[dict] = []
+        kept_user = 0
+        kept_assistant = 0
+
+        for entry in reversed(self.online_conversation_history):
+            role = str(entry.get("role", "")).strip().lower()
+            if role == "user":
+                if kept_user >= user_limit:
+                    continue
+                kept_user += 1
+            elif role == "assistant":
+                if kept_assistant >= assistant_limit:
+                    continue
+                kept_assistant += 1
+            else:
+                continue
+            retained_reversed.append(entry)
+
+        retained_reversed.reverse()
+        self.online_conversation_history = deque(retained_reversed)
+
+    def record_online_conversation_turn(self, user_text: str, assistant_text: str) -> None:
+        entries = (
+            ("user", self._normalize_online_conversation_text(user_text)),
+            ("assistant", self._normalize_online_conversation_text(assistant_text)),
+        )
+        with self.lock:
+            appended = False
+            for role, text in entries:
+                if not text:
+                    continue
+                self._online_conversation_sequence += 1
+                self.online_conversation_history.append(
+                    {
+                        "seq": self._online_conversation_sequence,
+                        "role": role,
+                        "text": text,
+                    }
+                )
+                appended = True
+            if appended:
+                self._trim_online_conversation_history_locked()
+
+    def build_online_conversation_memory_payload(self) -> dict | None:
+        with self.lock:
+            self._trim_online_conversation_history_locked()
+            messages = [
+                {
+                    "role": str(entry.get("role", "")).strip().lower(),
+                    "text": str(entry.get("text", "")).strip(),
+                }
+                for entry in self.online_conversation_history
+                if str(entry.get("role", "")).strip().lower() in ("user", "assistant")
+                and str(entry.get("text", "")).strip()
+            ]
+            user_limit, assistant_limit = self._get_online_conversation_memory_limits_locked()
+
+        if not messages:
+            return None
+
+        return {
+            "description": (
+                "Earlier local-session conversation context in chronological order. "
+                "These are previous messages only; the current operator message is in user_transcript."
+            ),
+            "user_message_limit": user_limit,
+            "assistant_message_limit": assistant_limit,
+            "messages": messages,
+        }
 
     def set_runtime(self, mic_active: bool, listening: bool, backend: str | None = None) -> None:
         with self.lock:
@@ -5269,6 +5403,9 @@ class OnlineAIOrchestrator:
         self.source_backend = "openai_responses"
         self._streaming_online_reply_ready = False
 
+    def _remember_local_conversation_turn(self, transcript: str, reply_text: str) -> None:
+        self.state.record_online_conversation_turn(transcript, reply_text)
+
     def is_selected_mode(self) -> bool:
         return str(self.config.get("ai_mode", "local")).strip().lower() == "online"
 
@@ -5523,12 +5660,19 @@ class OnlineAIOrchestrator:
             resolved_confidence,
         )
         if suppressed_intent is not None:
+            self._remember_local_conversation_turn(
+                transcript,
+                str(suppressed_intent.get("reply_text", "")).strip(),
+            )
             return suppressed_intent, suppression_message
 
         if not parse_bool(self.config.get("online_ai_enabled"), False):
             message = "Online AI mode is selected, but the online backend is disabled."
+            reply_text = (
+                "Online AI is currently disabled. Switch back to Local AI or enable the online backend."
+            )
             self.state.record_online_response(
-                reply_text="Online AI is currently disabled. Switch back to Local AI or enable the online backend.",
+                reply_text=reply_text,
                 validation_result="disabled",
                 validation_failure=message,
                 response_summary=message,
@@ -5536,19 +5680,22 @@ class OnlineAIOrchestrator:
                 latency_ms=-1.0,
                 source_backend=self.source_backend,
             )
-            return self._build_safe_reply_intent(
+            safe_reply = self._build_safe_reply_intent(
                 transcript,
                 resolved_confidence,
-                "Online AI is currently disabled. Switch back to Local AI or enable the online backend.",
+                reply_text,
                 validation_status="disabled",
                 validation_message=message,
-            ), message
+            )
+            self._remember_local_conversation_turn(transcript, reply_text)
+            return safe_reply, message
 
         model = str(self.config.get("online_ai_model", DEFAULT_ONLINE_AI_MODEL)).strip() or DEFAULT_ONLINE_AI_MODEL
         if not model:
             message = "Online AI model is empty."
+            reply_text = "Online AI is not configured yet. Set an OpenAI model name before testing it."
             self.state.record_online_response(
-                reply_text="Online AI is not configured yet. Set an OpenAI model name before testing it.",
+                reply_text=reply_text,
                 validation_result="config_error",
                 validation_failure=message,
                 response_summary=message,
@@ -5556,20 +5703,26 @@ class OnlineAIOrchestrator:
                 latency_ms=-1.0,
                 source_backend=self.source_backend,
             )
-            return self._build_safe_reply_intent(
+            safe_reply = self._build_safe_reply_intent(
                 transcript,
                 resolved_confidence,
-                "Online AI is not configured yet. Set an OpenAI model name before testing it.",
+                reply_text,
                 validation_status="config_error",
                 validation_message=message,
-            ), message
+            )
+            self._remember_local_conversation_turn(transcript, reply_text)
+            return safe_reply, message
 
         api_key_found, env_var = self.state.refresh_online_key_status()
         api_key = os.environ.get(env_var, "").strip()
         if not api_key_found or not api_key:
             message = build_missing_online_api_key_message(env_var)
+            reply_text = (
+                "I cannot use online AI until the OpenAI API key is available in the app's local secret "
+                "store or configured environment variable."
+            )
             self.state.record_online_response(
-                reply_text="I cannot use online AI until the OpenAI API key is available in the app's local secret store or configured environment variable.",
+                reply_text=reply_text,
                 validation_result="missing_api_key",
                 validation_failure=message,
                 response_summary=message,
@@ -5577,13 +5730,15 @@ class OnlineAIOrchestrator:
                 latency_ms=-1.0,
                 source_backend=self.source_backend,
             )
-            return self._build_safe_reply_intent(
+            safe_reply = self._build_safe_reply_intent(
                 transcript,
                 resolved_confidence,
-                "I cannot use online AI until the OpenAI API key is available in the app's local secret store or configured environment variable.",
+                reply_text,
                 validation_status="missing_api_key",
                 validation_message=message,
-            ), message
+            )
+            self._remember_local_conversation_turn(transcript, reply_text)
+            return safe_reply, message
 
         reply_streamer = self._build_reply_streamer(connection_test=False)
         self.state.record_online_request_started(model)
@@ -5608,14 +5763,16 @@ class OnlineAIOrchestrator:
                 latency_ms=latency_ms,
                 source_backend=self.source_backend,
             )
-            return self._build_safe_reply_intent(
+            safe_reply = self._build_safe_reply_intent(
                 transcript,
                 resolved_confidence,
                 reply_text,
                 validation_status="http_error",
                 validation_message=error_message,
                 reply_already_spoken=bool(reply_streamer and reply_streamer.reply_already_spoken),
-            ), f"online_http_error: {error_message}"
+            )
+            self._remember_local_conversation_turn(transcript, reply_text)
+            return safe_reply, f"online_http_error: {error_message}"
 
         if reply_streamer is not None and reply_streamer.failure_message:
             self.state.log("warn", f"Online reply speech streaming degraded: {reply_streamer.failure_message}")
@@ -5642,6 +5799,10 @@ class OnlineAIOrchestrator:
             http_error="",
             latency_ms=latency_ms,
             source_backend=normalized_intent.get("source_backend", self.source_backend),
+        )
+        self._remember_local_conversation_turn(
+            transcript,
+            str(normalized_intent.get("reply_text", "")).strip(),
         )
         self._streaming_online_reply_ready = True
         return normalized_intent, message
@@ -6319,6 +6480,9 @@ class OnlineAIOrchestrator:
                 ],
             },
         }
+        conversation_memory = self.state.build_online_conversation_memory_payload()
+        if conversation_memory is not None:
+            user_payload["conversation_memory"] = conversation_memory
         return {
             "model": str(self.config.get("online_ai_model", DEFAULT_ONLINE_AI_MODEL)).strip() or DEFAULT_ONLINE_AI_MODEL,
             "temperature": float(self.config.get("online_ai_temperature", 0.2)),
@@ -6658,6 +6822,8 @@ class OnlineAIOrchestrator:
             "Rules:\n"
             "- Return valid JSON only.\n"
             "- Keep spoken output in reply_text.\n"
+            "- The user payload may include conversation_memory with earlier local-session messages in chronological order, excluding the current user_transcript.\n"
+            "- Use conversation_memory to answer follow-up questions about what either side just said before claiming there is no context.\n"
             "- Put one robot action in action.intent.\n"
             "- Always include action.pose_name, action.joint_name, action.joint_degrees, action.speed_scale, action.joint_targets, and action.motion_steps; use null or [] when a field does not apply.\n"
             "- Use intent 'none' when no robot action is needed.\n"

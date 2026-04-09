@@ -234,6 +234,8 @@ namespace Reachy.ControlApp
         private const float OnlineAiModesLiveApplyDebounceSeconds = 0.45f;
         private const string DefaultOnlineAiModel = "gpt-5.4";
         private const int DefaultOnlineAiMaxOutputTokens = 480;
+        private const int DefaultOnlineAiLocalUserMemoryMessages = 3;
+        private const int DefaultOnlineAiLocalAssistantMemoryMessages = 3;
         private const string DefaultOnlineAiTranscriptionModel = "gpt-4o-mini-transcribe";
         private const string DefaultOnlineTtsModel = "gpt-4o-mini-tts";
         private const string DefaultOnlineTtsVoice = "alloy";
@@ -970,6 +972,8 @@ namespace Reachy.ControlApp
         [SerializeField] private float onlineAiTimeoutSeconds = 15f;
         [SerializeField] private float onlineAiTemperature = 0.2f;
         [SerializeField] private int onlineAiMaxOutputTokens = DefaultOnlineAiMaxOutputTokens;
+        [SerializeField] private int onlineAiLocalUserMemoryMessages = DefaultOnlineAiLocalUserMemoryMessages;
+        [SerializeField] private int onlineAiLocalAssistantMemoryMessages = DefaultOnlineAiLocalAssistantMemoryMessages;
         [SerializeField] private OnlineAiPersonaMode onlineAiPersonaMode = OnlineAiPersonaMode.Assistant;
         [SerializeField]
         [TextArea(3, 8)]
@@ -1634,6 +1638,8 @@ namespace Reachy.ControlApp
             public float online_ai_timeout_seconds = 15f;
             public float online_ai_temperature = 0.2f;
             public int online_ai_max_output_tokens = DefaultOnlineAiMaxOutputTokens;
+            public int online_ai_local_user_memory_messages = DefaultOnlineAiLocalUserMemoryMessages;
+            public int online_ai_local_assistant_memory_messages = DefaultOnlineAiLocalAssistantMemoryMessages;
             public string online_tts_voice = DefaultOnlineTtsVoice;
             public string online_ai_persona_mode = "assistant";
             public string online_ai_assistant_system_prompt = DefaultAssistantOnlineAiSystemPrompt;
@@ -1743,6 +1749,8 @@ namespace Reachy.ControlApp
             public string[] openai_transcribe_language_hints = { "en", "fi" };
             public float online_ai_temperature = 0.2f;
             public int online_ai_max_output_tokens = DefaultOnlineAiMaxOutputTokens;
+            public int online_ai_local_user_memory_messages = DefaultOnlineAiLocalUserMemoryMessages;
+            public int online_ai_local_assistant_memory_messages = DefaultOnlineAiLocalAssistantMemoryMessages;
             public string online_ai_persona_mode = "assistant";
             public string online_ai_assistant_system_prompt = DefaultAssistantOnlineAiSystemPrompt;
             public string online_ai_assistant_tts_voice = DefaultOnlineTtsVoice;
@@ -3826,6 +3834,8 @@ namespace Reachy.ControlApp
             onlineAiTimeoutSeconds = Mathf.Clamp(onlineAiTimeoutSeconds, 3f, 120f);
             onlineAiTemperature = Mathf.Clamp(onlineAiTemperature, 0f, 2f);
             onlineAiMaxOutputTokens = Mathf.Clamp(onlineAiMaxOutputTokens, 32, 2048);
+            onlineAiLocalUserMemoryMessages = Mathf.Clamp(onlineAiLocalUserMemoryMessages, 0, 20);
+            onlineAiLocalAssistantMemoryMessages = Mathf.Clamp(onlineAiLocalAssistantMemoryMessages, 0, 20);
             if (string.IsNullOrWhiteSpace(onlineAiModel))
             {
                 onlineAiModel = DefaultOnlineAiModel;
@@ -13196,6 +13206,12 @@ namespace Reachy.ControlApp
                 bool hasOnlinePersonaModeField = json.IndexOf(
                     "\"online_ai_persona_mode\"",
                     StringComparison.OrdinalIgnoreCase) >= 0;
+                bool hasOnlineLocalUserMemoryMessagesField = json.IndexOf(
+                    "\"online_ai_local_user_memory_messages\"",
+                    StringComparison.OrdinalIgnoreCase) >= 0;
+                bool hasOnlineLocalAssistantMemoryMessagesField = json.IndexOf(
+                    "\"online_ai_local_assistant_memory_messages\"",
+                    StringComparison.OrdinalIgnoreCase) >= 0;
                 bool hasOnlineAssistantSystemPromptField = json.IndexOf(
                     "\"online_ai_assistant_system_prompt\"",
                     StringComparison.OrdinalIgnoreCase) >= 0;
@@ -13413,6 +13429,12 @@ namespace Reachy.ControlApp
                 }
                 onlineAiTemperature = Mathf.Clamp(config.online_ai_temperature, 0f, 2f);
                 onlineAiMaxOutputTokens = Mathf.Clamp(config.online_ai_max_output_tokens, 32, 2048);
+                onlineAiLocalUserMemoryMessages = hasOnlineLocalUserMemoryMessagesField
+                    ? Mathf.Clamp(config.online_ai_local_user_memory_messages, 0, 20)
+                    : DefaultOnlineAiLocalUserMemoryMessages;
+                onlineAiLocalAssistantMemoryMessages = hasOnlineLocalAssistantMemoryMessagesField
+                    ? Mathf.Clamp(config.online_ai_local_assistant_memory_messages, 0, 20)
+                    : DefaultOnlineAiLocalAssistantMemoryMessages;
                 onlineAiPersonaMode = hasOnlinePersonaModeField
                     ? ParseOnlineAiPersonaMode(config.online_ai_persona_mode)
                     : OnlineAiPersonaMode.Assistant;
@@ -13660,6 +13682,9 @@ namespace Reachy.ControlApp
                 config.online_ai_timeout_seconds = onlineAiTimeoutSeconds;
                 config.online_ai_temperature = onlineAiTemperature;
                 config.online_ai_max_output_tokens = onlineAiMaxOutputTokens;
+                config.online_ai_local_user_memory_messages = Mathf.Clamp(onlineAiLocalUserMemoryMessages, 0, 20);
+                config.online_ai_local_assistant_memory_messages =
+                    Mathf.Clamp(onlineAiLocalAssistantMemoryMessages, 0, 20);
                 config.online_tts_voice = GetSelectedOnlineAiTtsVoice();
                 config.online_ai_persona_mode = GetOnlineAiPersonaModeConfigValue();
                 config.online_ai_assistant_system_prompt = string.IsNullOrWhiteSpace(onlineAiAssistantSystemPrompt)
@@ -13883,6 +13908,9 @@ namespace Reachy.ControlApp
                 }
                 config.online_ai_temperature = Mathf.Clamp(onlineAiTemperature, 0f, 2f);
                 config.online_ai_max_output_tokens = Mathf.Clamp(onlineAiMaxOutputTokens, 32, 2048);
+                config.online_ai_local_user_memory_messages = Mathf.Clamp(onlineAiLocalUserMemoryMessages, 0, 20);
+                config.online_ai_local_assistant_memory_messages =
+                    Mathf.Clamp(onlineAiLocalAssistantMemoryMessages, 0, 20);
                 config.online_ai_persona_mode = GetOnlineAiPersonaModeConfigValue();
                 config.online_ai_assistant_system_prompt = string.IsNullOrWhiteSpace(onlineAiAssistantSystemPrompt)
                     ? DefaultAssistantOnlineAiSystemPrompt
@@ -13984,6 +14012,12 @@ namespace Reachy.ControlApp
                     StringComparison.OrdinalIgnoreCase) >= 0;
                 bool hasOnlinePersonaModeField = json.IndexOf(
                     "\"online_ai_persona_mode\"",
+                    StringComparison.OrdinalIgnoreCase) >= 0;
+                bool hasOnlineLocalUserMemoryMessagesField = json.IndexOf(
+                    "\"online_ai_local_user_memory_messages\"",
+                    StringComparison.OrdinalIgnoreCase) >= 0;
+                bool hasOnlineLocalAssistantMemoryMessagesField = json.IndexOf(
+                    "\"online_ai_local_assistant_memory_messages\"",
                     StringComparison.OrdinalIgnoreCase) >= 0;
                 bool hasOnlineAssistantSystemPromptField = json.IndexOf(
                     "\"online_ai_assistant_system_prompt\"",
@@ -14101,6 +14135,12 @@ namespace Reachy.ControlApp
                 onlineAiTimeoutSeconds = Mathf.Clamp(config.online_ai_timeout_seconds, 3f, 120f);
                 onlineAiTemperature = Mathf.Clamp(config.online_ai_temperature, 0f, 2f);
                 onlineAiMaxOutputTokens = Mathf.Clamp(config.online_ai_max_output_tokens, 32, 2048);
+                onlineAiLocalUserMemoryMessages = hasOnlineLocalUserMemoryMessagesField
+                    ? Mathf.Clamp(config.online_ai_local_user_memory_messages, 0, 20)
+                    : DefaultOnlineAiLocalUserMemoryMessages;
+                onlineAiLocalAssistantMemoryMessages = hasOnlineLocalAssistantMemoryMessagesField
+                    ? Mathf.Clamp(config.online_ai_local_assistant_memory_messages, 0, 20)
+                    : DefaultOnlineAiLocalAssistantMemoryMessages;
                 onlineAiPersonaMode = hasOnlinePersonaModeField
                     ? ParseOnlineAiPersonaMode(config.online_ai_persona_mode)
                     : OnlineAiPersonaMode.Assistant;
@@ -18513,6 +18553,27 @@ namespace Reachy.ControlApp
                 onlineAiMaxOutputTokens = Mathf.Clamp(parsedMaxTokens, 32, 2048);
             }
             GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Mem usr", GUILayout.Width(AiW(62f, aiWidthScale)));
+            string userMemoryText = GUILayout.TextField(
+                onlineAiLocalUserMemoryMessages.ToString(CultureInfo.InvariantCulture),
+                GUILayout.Width(AiW(64f, aiWidthScale)));
+            if (int.TryParse(userMemoryText, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsedUserMemory))
+            {
+                onlineAiLocalUserMemoryMessages = Mathf.Clamp(parsedUserMemory, 0, 20);
+            }
+
+            GUILayout.Label("Mem AI", GUILayout.Width(AiW(48f, aiWidthScale)));
+            string assistantMemoryText = GUILayout.TextField(
+                onlineAiLocalAssistantMemoryMessages.ToString(CultureInfo.InvariantCulture),
+                GUILayout.Width(AiW(64f, aiWidthScale)));
+            if (int.TryParse(assistantMemoryText, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsedAssistantMemory))
+            {
+                onlineAiLocalAssistantMemoryMessages = Mathf.Clamp(parsedAssistantMemory, 0, 20);
+            }
+            GUILayout.EndHorizontal();
+            GUILayout.Label("Local conversation memory for online AI. Previous user and assistant messages are injected as context; 0 disables either side.");
 
             onlineAiAllowDirectJointCommands = GUILayout.Toggle(
                 onlineAiAllowDirectJointCommands,
