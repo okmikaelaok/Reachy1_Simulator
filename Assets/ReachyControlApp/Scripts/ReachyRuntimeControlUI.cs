@@ -164,6 +164,9 @@ namespace Reachy.ControlApp
         private const string BenderSleepActedSequenceName = "bender sleep";
         private const string BenderSleepLoopingAnimationName = "Bender Sleep";
         private const string BenderSleepAudioFileName = "bender_sleep.mp3";
+        private const string SadAudioFileName = "sad_whimper.mp3";
+        private const string Sad1ActedSequenceName = "sad";
+        private const float EmotionPoseHoldSeconds = 2.5f;
         private const string RobotSpeakerTtsMirrorPath = "speak";
         private const string RobotSpeakerAudioMirrorPath = "play-audio";
         private const string RobotSpeakerStopPath = "stop";
@@ -1152,6 +1155,7 @@ namespace Reachy.ControlApp
         private AudioSource _uiModeFeedbackAudioSource;
         private AudioClip _localAiMicTestRecordClip;
         private AudioClip _benderSleepAudioClip;
+        private AudioClip _sadAudioClip;
         private readonly Dictionary<UiModeAudioCue, AudioClip> _uiModeAudioClips =
             new Dictionary<UiModeAudioCue, AudioClip>();
         private int _robotSpeakerAudioMirrorRequestVersion;
@@ -15460,6 +15464,7 @@ namespace Reachy.ControlApp
             bool previousEnabled = GUI.enabled;
             bool isReachyIntroductionActive = IsActedSequenceActive(ReachyIntroductionActedSequenceName);
             bool isBenderSleepActive = IsActedSequenceActive(BenderSleepActedSequenceName);
+            bool isSadActive = IsActedSequenceActive(Sad1ActedSequenceName);
 
             GUILayout.BeginVertical(GUI.skin.box);
             GUILayout.Label(ReachyIntroductionActedSequenceName, _titleStyle);
@@ -15473,6 +15478,24 @@ namespace Reachy.ControlApp
             if (GUILayout.Button(isReachyIntroductionActive ? "Running" : "Start", GUILayout.Height(26f)))
             {
                 bool ok = TryStartReachyIntroductionActedSequence(out string message);
+                if (!ok)
+                {
+                    SetStatus("Acted sequence failed", message);
+                }
+            }
+
+            GUI.enabled = previousEnabled;
+            GUILayout.EndVertical();
+
+            GUILayout.BeginVertical(GUI.skin.box);
+            GUILayout.Label(Sad1ActedSequenceName, _titleStyle);
+            GUILayout.Label(
+                $"Plays '{SadAudioFileName}' once while moving through Sad1 and Sad2 before returning to Neutral Arms.");
+
+            GUI.enabled = previousEnabled && !_isConnectAttemptInProgress && !isSadActive;
+            if (GUILayout.Button(isSadActive ? "Running" : "Start", GUILayout.Height(26f)))
+            {
+                bool ok = TryStartSad1ActedSequence(out string message);
                 if (!ok)
                 {
                     SetStatus("Acted sequence failed", message);
@@ -15639,6 +15662,51 @@ namespace Reachy.ControlApp
             return true;
         }
 
+        private bool TryStartSad1ActedSequence(out string message)
+        {
+            message = string.Empty;
+            if (_isConnectAttemptInProgress)
+            {
+                message = "Acted sequence start blocked: connect attempt in progress.";
+                return false;
+            }
+
+            if (_client == null || !_client.IsConnected)
+            {
+                message = "Acted sequence start blocked: robot is not connected.";
+                return false;
+            }
+
+            StopVoiceShowMovementSequence(
+                updateStatus: false,
+                reason: $"Interrupted by acted sequence '{Sad1ActedSequenceName}'.");
+            StopVoiceHelloReturnTimer(
+                updateStatus: false,
+                reason: $"Interrupted by acted sequence '{Sad1ActedSequenceName}'.");
+            StopActedSequence(
+                updateStatus: false,
+                reason: $"Restarted by acted sequence '{Sad1ActedSequenceName}'.",
+                stopLoopingAnimation: false);
+            StopLoopingAnimation(
+                updateStatus: false,
+                reason: $"Restarted by acted sequence '{Sad1ActedSequenceName}'.");
+
+            _activeActedSequenceName = Sad1ActedSequenceName;
+            _actedSequenceCoroutine = StartCoroutine(RunSadActedSequenceCoroutine());
+
+            bool targetsRealRobot = IsRealRobotSessionActive();
+            LogMotionEvent(
+                "acted-sequence",
+                "start",
+                $"sequence={Sad1ActedSequenceName}; mode={GetConnectedModeLabel()}",
+                success: true,
+                targetsRealRobot: targetsRealRobot);
+
+            message = $"Acted sequence '{Sad1ActedSequenceName}' started.";
+            SetStatus("Acted sequence started", message);
+            return true;
+        }
+
         private bool TryStartBenderSleepActedSequence(out string message)
         {
             message = string.Empty;
@@ -15683,6 +15751,62 @@ namespace Reachy.ControlApp
                 $"Acted sequence '{BenderSleepActedSequenceName}' started. It will loop a sleepy standing animation with '{BenderSleepAudioFileName}' until interrupted.";
             SetStatus("Acted sequence started", message);
             return true;
+        }
+
+        private IEnumerator RunSadActedSequenceCoroutine()
+        {
+            string sequenceName = Sad1ActedSequenceName;
+
+            if (_client == null || !_client.IsConnected)
+            {
+                string msg = $"Acted sequence '{sequenceName}' stopped: robot is not connected.";
+                LogRuntimeEvent("acted-sequence", "stopped", msg, "WARN");
+                ClearActedSequenceState();
+                SetStatus("Acted sequence stopped", msg);
+                yield break;
+            }
+
+            AudioClip sadClip = _sadAudioClip;
+            if (sadClip == null)
+            {
+                yield return LoadSadAudioClipCoroutine((clip, _) => { sadClip = clip; });
+            }
+
+            TrySendActedSequencePresetPose(sequenceName, "Sad1", "slump", 1, 2, out _, out float d1);
+
+            if (sadClip != null)
+            {
+                EnsureActedSequenceAudioSource();
+                if (_actedSequenceAudioSource != null)
+                {
+                    _actedSequenceAudioSource.Stop();
+                    _actedSequenceAudioSource.loop = false;
+                    _actedSequenceAudioSource.PlayOneShot(sadClip);
+                    StartRobotSpeakerAudioMirrorIfAvailable(sadClip, sadClip.name, loop: false, interrupt: true);
+                }
+            }
+
+            yield return new WaitForSecondsRealtime(d1 + 0.8f);
+            if (_client == null || !_client.IsConnected)
+            {
+                ClearActedSequenceState();
+                yield break;
+            }
+
+            TrySendActedSequencePresetPose(sequenceName, "Sad2", "collapse", 2, 2, out _, out float d2);
+            yield return new WaitForSecondsRealtime(d2 + EmotionPoseHoldSeconds);
+            if (_client == null || !_client.IsConnected)
+            {
+                ClearActedSequenceState();
+                yield break;
+            }
+
+            TrySendActedSequencePresetPose(sequenceName, VoiceHelloReturnPoseName, "return-neutral", 1, 1, out _, out _);
+
+            string doneMessage = $"Acted sequence '{sequenceName}' complete.";
+            LogRuntimeEvent("acted-sequence", "complete", doneMessage, "INFO");
+            ClearActedSequenceState();
+            SetStatus("Acted sequence complete", doneMessage);
         }
 
         private IEnumerator RunReachyIntroductionActedSequenceCoroutine(string speechText)
@@ -16425,6 +16549,59 @@ namespace Reachy.ControlApp
             }
         }
 
+        private IEnumerator LoadSadAudioClipCoroutine(Action<AudioClip, string> onComplete)
+        {
+            if (_sadAudioClip != null)
+            {
+                onComplete?.Invoke(_sadAudioClip, string.Empty);
+                yield break;
+            }
+
+            string audioPath = GetSadAudioPath();
+            if (!File.Exists(audioPath))
+            {
+                onComplete?.Invoke(null, $"File not found at '{audioPath}'.");
+                yield break;
+            }
+
+            using (UnityWebRequest request = UnityWebRequestMultimedia.GetAudioClip(
+                       new Uri(audioPath).AbsoluteUri,
+                       AudioType.MPEG))
+            {
+                if (request.downloadHandler is DownloadHandlerAudioClip audioHandler)
+                {
+                    audioHandler.streamAudio = false;
+                }
+
+                yield return request.SendWebRequest();
+
+#if UNITY_2020_2_OR_NEWER
+                bool failed = request.result != UnityWebRequest.Result.Success;
+#else
+                bool failed = request.isHttpError || request.isNetworkError;
+#endif
+                if (failed)
+                {
+                    string errorMessage = string.IsNullOrWhiteSpace(request.error)
+                        ? $"Failed to load '{SadAudioFileName}'."
+                        : request.error;
+                    onComplete?.Invoke(null, errorMessage);
+                    yield break;
+                }
+
+                AudioClip clip = DownloadHandlerAudioClip.GetContent(request);
+                if (clip == null)
+                {
+                    onComplete?.Invoke(null, $"'{SadAudioFileName}' loaded without clip data.");
+                    yield break;
+                }
+
+                clip.name = Path.GetFileNameWithoutExtension(SadAudioFileName);
+                _sadAudioClip = clip;
+                onComplete?.Invoke(_sadAudioClip, string.Empty);
+            }
+        }
+
         private void EnsureActedSequenceAudioSource()
         {
             if (_actedSequenceAudioSource != null)
@@ -16724,6 +16901,17 @@ namespace Reachy.ControlApp
             }
 
             return Path.Combine(Application.dataPath, BenderSleepAudioFileName);
+        }
+
+        private static string GetSadAudioPath()
+        {
+            string streamingAssetsPath = Path.Combine(Application.streamingAssetsPath, SadAudioFileName);
+            if (File.Exists(streamingAssetsPath))
+            {
+                return streamingAssetsPath;
+            }
+
+            return Path.Combine(Application.dataPath, SadAudioFileName);
         }
 
         private string GetReachyIntroductionSequenceText()

@@ -87,7 +87,7 @@ Example Unity response:
 ```json
 {
   "ok": true,
-  "result": "Preset 'Neutral Arms' sent (16 joints).",
+  "result": "Preset 'Neutral Arms' sent (21 joints).",
   "timestamp_utc": "2026-03-05T10:00:00Z"
 }
 ```
