@@ -1087,7 +1087,7 @@ namespace Reachy.ControlApp
             new List<Dictionary<string, float>>();
         private readonly Dictionary<string, float> _manualControllerTargets =
             new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
-        private ReachyAnimationCreatorPreview _animationCreatorPreview;
+        private ReachyAnimationCreator _animationCreator;
         private Coroutine _animationCreatorPlaybackCoroutine;
         private bool _animationCreatorEditModeEnabled;
         private string _animationCreatorActivePoseName = string.Empty;
@@ -1945,8 +1945,8 @@ namespace Reachy.ControlApp
 
             _client?.Dispose();
             _client = null;
-            _animationCreatorPreview?.Dispose();
-            _animationCreatorPreview = null;
+            _animationCreator?.Dispose();
+            _animationCreator = null;
             ShutdownRuntimeLogSession("OnDestroy");
         }
 
@@ -1966,7 +1966,7 @@ namespace Reachy.ControlApp
             UpdateRobotSpeakerMirrorDiagnostics();
             UpdateLocalAiAgent();
             UpdateManualController();
-            UpdateAnimationCreatorPreview();
+            UpdateAnimationCreator();
             UpdateMobileBaseServiceRecovery();
 
             if (_isConnectAttemptInProgress)
@@ -14683,20 +14683,20 @@ namespace Reachy.ControlApp
             {
                 Rect centerArea = new Rect(centerPanelX, topY, centerPanelWidth, usableHeight);
                 DrawAnimationCreatorCenterOverlay(centerArea);
-                if (_animationCreatorPreview != null)
+                if (_animationCreator != null)
                 {
-                    _animationCreatorPreview.SetScreenRect(ScaleLogicalRectToScreen(centerArea));
+                    _animationCreator.SetScreenRect(ScaleLogicalRectToScreen(centerArea));
                 }
             }
-            else if (_animationCreatorPreview != null)
+            else if (_animationCreator != null)
             {
-                _animationCreatorPreview.SetScreenRect(new Rect(0f, 0f, 0f, 0f));
+                _animationCreator.SetScreenRect(new Rect(0f, 0f, 0f, 0f));
             }
         }
 
         private void DrawAnimationCreatorControlsPanel(Rect area)
         {
-            bool previewReady = EnsureAnimationCreatorPreview(out string previewMessage);
+            bool creatorReady = EnsureAnimationCreator(out string creatorMessage);
 
             GUILayout.BeginArea(area, GUI.skin.box);
             GUILayout.Label("Animation Creator", _titleStyle);
@@ -14708,7 +14708,7 @@ namespace Reachy.ControlApp
                 true,
                 GUILayout.Height(bodyHeight));
 
-            GUILayout.Label("This tab allows you to create custom Animation Poses for Reachy key frame by key frame. You can create a new pose, move the joints by dragging the sliders below or by moving his joints in the middle area. To finalise, you can then save all the animation key frames you created.");
+            GUILayout.Label("This tab allows you to create custom Animation Poses for Reachy keyframe by keyframe. You can create a new pose, move the joints by dragging the sliders below or by moving his joints in the middle area. To finalise, you can then save all the animation key frames you created.");
             GUILayout.Space(6f);
             DrawPoseSpeedSliderSection(
                 "Adjust shared pose transition speed for preset poses, looping animations, and Animation Creator playback.");
@@ -14727,7 +14727,7 @@ namespace Reachy.ControlApp
             }
 
             bool previousGuiEnabled = GUI.enabled;
-            GUI.enabled = previewReady;
+            GUI.enabled = creatorReady;
             if (GUILayout.Button(
                 "Reset Pose",
                 GUILayout.Width(CalcUiButtonWidth("Reset Pose", 98f)),
@@ -14747,7 +14747,7 @@ namespace Reachy.ControlApp
             GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal();
-            GUI.enabled = previewReady;
+            GUI.enabled = creatorReady;
             if (GUILayout.Button(
                 "Save",
                 GUILayout.Width(CalcUiButtonWidth("Save", 118f)),
@@ -14773,10 +14773,10 @@ namespace Reachy.ControlApp
             GUI.enabled = previousGuiEnabled;
             GUILayout.EndHorizontal();
 
-            if (!previewReady)
+            if (!creatorReady)
             {
                 GUILayout.Space(8f);
-                GUILayout.Label(previewMessage);
+                GUILayout.Label(creatorMessage);
                 GUILayout.EndScrollView();
                 GUILayout.EndArea();
                 return;
@@ -14790,32 +14790,32 @@ namespace Reachy.ControlApp
                 ? $"Draft animation frames recorded: {_animationCreatorDraftKeyframes.Count}"
                 : "Draft animation frames recorded: 0");
 
-            string selectedJointName = _animationCreatorPreview.SelectedJointName;
+            string selectedJointName = _animationCreator.SelectedJointName;
             if (string.IsNullOrWhiteSpace(selectedJointName))
             {
                 GUILayout.Label("Selected joint: none");
             }
             else
             {
-                GUILayout.Label($"Selected joint: {ReachyAnimationCreatorPreview.GetDisplayName(selectedJointName)}");
-                if (_animationCreatorPreview.TryGetJointTarget(selectedJointName, out float currentDegrees) &&
-                    _animationCreatorPreview.TryGetJointRange(selectedJointName, out float minDegrees, out float maxDegrees))
+                GUILayout.Label($"Selected joint: {ReachyAnimationCreator.GetDisplayName(selectedJointName)}");
+                if (_animationCreator.TryGetJointTarget(selectedJointName, out float currentDegrees) &&
+                    _animationCreator.TryGetJointRange(selectedJointName, out float minDegrees, out float maxDegrees))
                 {
                     float nextDegrees = GUILayout.HorizontalSlider(currentDegrees, minDegrees, maxDegrees);
                     GUILayout.Label($"{currentDegrees:F1} deg  (range {minDegrees:F0} deg to {maxDegrees:F0} deg)");
                     if (Mathf.Abs(nextDegrees - currentDegrees) > 0.01f)
                     {
                         StopAnimationCreatorPlayback(updateStatus: false, reason: "Adjusted in Animation Creator.");
-                        _animationCreatorPreview.SetJointTarget(selectedJointName, nextDegrees);
+                        _animationCreator.SetJointTarget(selectedJointName, nextDegrees);
                     }
                 }
             }
 
             GUILayout.Space(10f);
             GUILayout.Label("Quick joint access", _titleStyle);
-            for (int i = 0; i < _animationCreatorPreview.JointNames.Count; i++)
+            for (int i = 0; i < _animationCreator.JointNames.Count; i++)
             {
-                string jointName = _animationCreatorPreview.JointNames[i];
+                string jointName = _animationCreator.JointNames[i];
                 if (string.IsNullOrWhiteSpace(jointName))
                 {
                     continue;
@@ -14823,14 +14823,14 @@ namespace Reachy.ControlApp
 
                 bool isSelected = string.Equals(
                     jointName,
-                    _animationCreatorPreview.SelectedJointName,
+                    _animationCreator.SelectedJointName,
                     StringComparison.OrdinalIgnoreCase);
                 string buttonLabel = isSelected
-                    ? $"> {ReachyAnimationCreatorPreview.GetDisplayName(jointName)}"
-                    : ReachyAnimationCreatorPreview.GetDisplayName(jointName);
+                    ? $"> {ReachyAnimationCreator.GetDisplayName(jointName)}"
+                    : ReachyAnimationCreator.GetDisplayName(jointName);
                 if (GUILayout.Button(buttonLabel, GUILayout.Height(22f)))
                 {
-                    _animationCreatorPreview.SelectJoint(jointName);
+                    _animationCreator.SelectJoint(jointName);
                 }
             }
 
@@ -14840,9 +14840,9 @@ namespace Reachy.ControlApp
 
         private void DrawAnimationCreatorCenterOverlay(Rect area)
         {
-            bool previewReady = EnsureAnimationCreatorPreview(out string previewMessage);
+            bool creatorReady = EnsureAnimationCreator(out string creatorMessage);
             float overlayWidth = Mathf.Min(area.width, 340f);
-            float overlayHeight = previewReady ? 62f : 86f;
+            float overlayHeight = creatorReady ? 62f : 86f;
             Rect overlayRect = new Rect(
                 area.x + Mathf.Max(0f, (area.width - overlayWidth) * 0.5f),
                 area.y + 8f,
@@ -14850,16 +14850,16 @@ namespace Reachy.ControlApp
                 overlayHeight);
 
             GUILayout.BeginArea(overlayRect, GUI.skin.box);
-            GUILayout.Label("Animate With Mouse (Work in Progress)", _titleStyle);
-            GUILayout.Label(previewReady
-                ? "You can move Reachy's limb with mouse in this area. Click a joint and drag to pose Reachy."
-                : previewMessage);
+            GUILayout.Label("Animate Avatar With Mouse (Work in Progress)", _titleStyle);
+            GUILayout.Label(creatorReady
+                ? "You can move Reachy's joints with mouse in this area. Click a joint and drag to pose Reachy."
+                : creatorMessage);
             GUILayout.EndArea();
         }
 
         private void DrawAnimationCreatorLibraryPanel(Rect area)
         {
-            bool previewReady = EnsureAnimationCreatorPreview(out _);
+            bool creatorReady = EnsureAnimationCreator(out _);
 
             GUILayout.BeginArea(area, GUI.skin.box);
             GUILayout.Label("Saved Animations", _titleStyle);
@@ -14939,10 +14939,10 @@ namespace Reachy.ControlApp
             GUILayout.Space(10f);
             GUILayout.Label("Status", _titleStyle);
             GUILayout.Label(_animationCreatorStatus);
-            if (previewReady)
+            if (creatorReady)
             {
                 GUILayout.Space(6f);
-                GUILayout.Label($"Scene body: {_animationCreatorPreview.Status}");
+                GUILayout.Label($"Scene body: {_animationCreator.Status}");
             }
 
             GUILayout.EndScrollView();
@@ -19122,24 +19122,24 @@ namespace Reachy.ControlApp
             GUILayout.EndArea();
         }
 
-        private void UpdateAnimationCreatorPreview()
+        private void UpdateAnimationCreator()
         {
-            if (_activeMenuView != RuntimeMenuView.AnimationCreator || _animationCreatorPreview == null)
+            if (_activeMenuView != RuntimeMenuView.AnimationCreator || _animationCreator == null)
             {
                 return;
             }
 
-            _animationCreatorPreview.UpdateInteraction(_animationCreatorEditModeEnabled);
+            _animationCreator.UpdateInteraction(_animationCreatorEditModeEnabled);
         }
 
-        private bool EnsureAnimationCreatorPreview(out string message)
+        private bool EnsureAnimationCreator(out string message)
         {
-            if (_animationCreatorPreview == null)
+            if (_animationCreator == null)
             {
-                _animationCreatorPreview = new ReachyAnimationCreatorPreview();
+                _animationCreator = new ReachyAnimationCreator();
             }
 
-            return _animationCreatorPreview.EnsureInitialized(out message);
+            return _animationCreator.EnsureInitialized(out message);
         }
 
         private Rect ScaleLogicalRectToScreen(Rect logicalRect)
@@ -19153,7 +19153,7 @@ namespace Reachy.ControlApp
 
         private void BeginAnimationCreatorPoseCapture()
         {
-            if (!EnsureAnimationCreatorPreview(out string message))
+            if (!EnsureAnimationCreator(out string message))
             {
                 _animationCreatorStatus = message;
                 return;
@@ -19178,27 +19178,32 @@ namespace Reachy.ControlApp
 
         private void ResetAnimationCreatorPose()
         {
-            if (!EnsureAnimationCreatorPreview(out string message))
+            if (!EnsureAnimationCreator(out string message))
             {
                 _animationCreatorStatus = message;
                 return;
             }
 
             StopAnimationCreatorPlayback(updateStatus: false, reason: "Reset pose in Animation Creator.");
-            _animationCreatorPreview.SetPose(BuildAnimationCreatorNeutralPose());
-            _animationCreatorStatus = "Reset pose applied. Reachy returned to Neutral pose.";
+            Dictionary<string, float> neutralPose = BuildAnimationCreatorNeutralPose();
+            _animationCreatorPlaybackCoroutine = StartCoroutine(
+                RunAnimationCreatorSingleTransition(
+                    neutralPose,
+                    ScaleAnimationCreatorPlaybackDuration(0.38f),
+                    "Reset pose applied. Reachy returned to Neutral pose using the Animations & Poses speed."));
+            _animationCreatorStatus = "Resetting Reachy to Neutral pose using the Animations & Poses speed.";
         }
 
         private void RecordAnimationCreatorKeyframe()
         {
-            if (!EnsureAnimationCreatorPreview(out string message))
+            if (!EnsureAnimationCreator(out string message))
             {
                 _animationCreatorStatus = message;
                 return;
             }
 
             StopAnimationCreatorPlayback(updateStatus: false, reason: "Recording Animation Creator keyframe.");
-            Dictionary<string, float> keyframe = _animationCreatorPreview.CapturePose();
+            Dictionary<string, float> keyframe = _animationCreator.CapturePose();
             if (keyframe.Count <= 0)
             {
                 _animationCreatorStatus = "No scene pose was available to record.";
@@ -19213,7 +19218,7 @@ namespace Reachy.ControlApp
 
         private void SaveAnimationCreatorPose()
         {
-            if (!EnsureAnimationCreatorPreview(out string message))
+            if (!EnsureAnimationCreator(out string message))
             {
                 _animationCreatorStatus = message;
                 return;
@@ -19228,7 +19233,7 @@ namespace Reachy.ControlApp
 
             if (keyframes.Count <= 0)
             {
-                Dictionary<string, float> currentPose = _animationCreatorPreview.CapturePose();
+                Dictionary<string, float> currentPose = _animationCreator.CapturePose();
                 if (currentPose.Count > 0)
                 {
                     keyframes.Add(currentPose);
@@ -19354,7 +19359,7 @@ namespace Reachy.ControlApp
                 return;
             }
 
-            if (!EnsureAnimationCreatorPreview(out string message))
+            if (!EnsureAnimationCreator(out string message))
             {
                 _animationCreatorStatus = message;
                 return;
@@ -19406,16 +19411,30 @@ namespace Reachy.ControlApp
             }
         }
 
+        private IEnumerator RunAnimationCreatorSingleTransition(
+            IReadOnlyDictionary<string, float> targetPose,
+            float durationSeconds,
+            string completedStatus)
+        {
+            yield return AnimateAnimationCreatorPose(targetPose, durationSeconds);
+            _animationCreatorPlaybackCoroutine = null;
+            _animationCreatorActivePoseName = string.Empty;
+            if (!string.IsNullOrWhiteSpace(completedStatus))
+            {
+                _animationCreatorStatus = completedStatus;
+            }
+        }
+
         private IEnumerator AnimateAnimationCreatorPose(
             IReadOnlyDictionary<string, float> targetPose,
             float durationSeconds)
         {
-            if (_animationCreatorPreview == null || targetPose == null)
+            if (_animationCreator == null || targetPose == null)
             {
                 yield break;
             }
 
-            Dictionary<string, float> startPose = _animationCreatorPreview.CapturePose();
+            Dictionary<string, float> startPose = _animationCreator.CapturePose();
             float duration = Mathf.Max(0.01f, durationSeconds);
             float elapsed = 0f;
             while (elapsed < duration)
@@ -19423,32 +19442,32 @@ namespace Reachy.ControlApp
                 elapsed += Time.unscaledDeltaTime;
                 float t = Mathf.Clamp01(elapsed / duration);
                 var blendedPose = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
-                for (int i = 0; i < _animationCreatorPreview.JointNames.Count; i++)
+                for (int i = 0; i < _animationCreator.JointNames.Count; i++)
                 {
-                    string jointName = _animationCreatorPreview.JointNames[i];
+                    string jointName = _animationCreator.JointNames[i];
                     float startDegrees = startPose.TryGetValue(jointName, out float startValue) ? startValue : 0f;
                     float endDegrees = targetPose.TryGetValue(jointName, out float endValue) ? endValue : 0f;
                     blendedPose[jointName] = Mathf.Lerp(startDegrees, endDegrees, t);
                 }
 
-                _animationCreatorPreview.SetPose(blendedPose);
+                _animationCreator.SetPose(blendedPose);
                 yield return null;
             }
 
-            _animationCreatorPreview.SetPose(targetPose);
+            _animationCreator.SetPose(targetPose);
         }
 
         private Dictionary<string, float> BuildAnimationCreatorNeutralPose()
         {
             var neutralPose = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
-            if (_animationCreatorPreview == null)
+            if (_animationCreator == null)
             {
                 return neutralPose;
             }
 
-            for (int i = 0; i < _animationCreatorPreview.JointNames.Count; i++)
+            for (int i = 0; i < _animationCreator.JointNames.Count; i++)
             {
-                string jointName = _animationCreatorPreview.JointNames[i];
+                string jointName = _animationCreator.JointNames[i];
                 neutralPose[jointName] = 0f;
             }
 
@@ -21973,3 +21992,8 @@ namespace Reachy.ControlApp
         }
     }
 }
+
+
+
+
+

@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Reachy.ControlApp
 {
-    internal sealed class ReachyAnimationCreatorPreview : IDisposable
+    internal sealed class ReachyAnimationCreator : IDisposable
     {
         private sealed class JointBinding
         {
@@ -678,3 +678,4 @@ namespace Reachy.ControlApp
         }
     }
 }
+
