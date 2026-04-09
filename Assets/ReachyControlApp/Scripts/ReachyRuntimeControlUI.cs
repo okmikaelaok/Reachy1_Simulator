@@ -901,6 +901,9 @@ namespace Reachy.ControlApp
         [SerializeField] private float grpcConnectTimeoutSeconds = 3.0f;
         [SerializeField] private float presetPoseTransitionSpeedScale = 0.6f;
         [SerializeField] private bool useKeyframePoseSpeedLimit = true;
+        [SerializeField] private bool animationCreatorMirrorToRealRobot = true;
+        [SerializeField] private float animationCreatorLivePreviewSpeedPercent = 35.0f;
+        [SerializeField] private float animationCreatorLivePreviewSendIntervalSeconds = 0.12f;
         [SerializeField] private float postRestartWaitSeconds = 2.5f;
         [SerializeField] private float healthCheckIntervalSeconds = 2.0f;
         [SerializeField] private float reconnectCooldownSeconds = 4.0f;
@@ -1138,15 +1141,21 @@ namespace Reachy.ControlApp
             new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly List<Dictionary<string, float>> _animationCreatorDraftKeyframes =
             new List<Dictionary<string, float>>();
+        private readonly Dictionary<string, float> _animationCreatorLastLivePreviewPose =
+            new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, float> _manualControllerTargets =
             new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
         private ReachyAnimationCreator _animationCreator;
         private Coroutine _animationCreatorPlaybackCoroutine;
         private bool _animationCreatorEditModeEnabled;
+        private bool _animationCreatorLastTransitionFailed;
+        private string _animationCreatorLastTransitionFailureMessage = string.Empty;
+        private float _nextAnimationCreatorLivePreviewAt;
         private string _animationCreatorActivePoseName = string.Empty;
         private string _animationCreatorPoseTitle = "Custom Pose 1";
         private string _animationCreatorStatus =
-            "Create New Pose to enable the editor on the original scene Reachy in the middle.";
+            "Create New Pose to enable the editor on the original scene Reachy in the middle. " +
+            "When a Real Robot session is connected, Animation Creator can also mirror edits to hardware.";
         private int _animationCreatorNextPoseNumber = 1;
         private string _manualControllerStatus = "Controller inactive.";
         private string _manualControllerDetectedDevice = "No gamepad detected.";
@@ -1885,6 +1894,10 @@ namespace Reachy.ControlApp
             simulationCameraPort = Mathf.Clamp(simulationCameraPort, 1, 65535);
             robotCameraPort = Mathf.Clamp(robotCameraPort, 1, 65535);
             presetPoseTransitionSpeedScale = Mathf.Clamp(presetPoseTransitionSpeedScale, 0.05f, 2.0f);
+            animationCreatorLivePreviewSpeedPercent =
+                Mathf.Clamp(animationCreatorLivePreviewSpeedPercent, 5f, 100f);
+            animationCreatorLivePreviewSendIntervalSeconds =
+                Mathf.Max(0.05f, animationCreatorLivePreviewSendIntervalSeconds);
             SyncPoseMotionSettingsToClient();
             cameraRefreshIntervalSeconds = Mathf.Max(0.05f, cameraRefreshIntervalSeconds);
             cameraRpcTimeoutSeconds = Mathf.Max(0.2f, cameraRpcTimeoutSeconds);
@@ -2115,7 +2128,9 @@ namespace Reachy.ControlApp
                         _client.Disconnect();
                         StopActedSequence(updateStatus: false, reason: "Connection lost.", stopLoopingAnimation: false);
                         StopLoopingAnimation(updateStatus: false, reason: "Connection lost.");
+                        StopAnimationCreatorPlayback(updateStatus: false, reason: "Connection lost.");
                         StopVoiceMotionSequence(updateStatus: false, reason: "Connection lost.");
+                        ResetAnimationCreatorLivePreviewState();
                         ReachyControlMode reconnectMode = _connectedMode ?? mode;
                         _connectedMode = null;
                         if (!_manualDisconnect)
@@ -10627,6 +10642,7 @@ namespace Reachy.ControlApp
                         reason: "Disconnected by voice command.",
                         stopLoopingAnimation: false);
                     StopLoopingAnimation(updateStatus: false, reason: "Disconnected by voice command.");
+                    StopAnimationCreatorPlayback(updateStatus: false, reason: "Disconnected by voice command.");
                     StopVoiceShowMovementSequence(updateStatus: false, reason: "Disconnected by voice command.");
                     StopVoiceMotionSequence(updateStatus: false, reason: "Disconnected by voice command.");
                     StopVoiceHelloReturnTimer(updateStatus: false, reason: "Disconnected by voice command.");
@@ -10634,6 +10650,7 @@ namespace Reachy.ControlApp
                     _manualDisconnect = true;
                     _autoReconnectScheduled = false;
                     _client.Disconnect();
+                    ResetAnimationCreatorLivePreviewState();
                     _connectedMode = null;
                     message = "Disconnected by voice command.";
                     LogConnectionEvent(disconnectedMode, "voice-disconnect", message);
@@ -14778,11 +14795,44 @@ namespace Reachy.ControlApp
                 true,
                 GUILayout.Height(bodyHeight));
 
-            GUILayout.Label("This tab allows you to create custom Animation Poses for Reachy keyframe by keyframe. You can create a new pose, move the joints by dragging the sliders below or by moving his joints in the middle area. To finalise, you can then save all the animation key frames you created.");
+            GUILayout.Label(
+                "This tab lets you create custom Reachy animations keyframe by keyframe. " +
+                "Pose the scene Reachy with the sliders below or by dragging joints in the middle area, " +
+                "record full-body keyframes, and save the result for looping playback. " +
+                "When a Real Robot session is active, the creator can also mirror those edits and playbacks to hardware.");
             GUILayout.Space(6f);
             DrawPoseSpeedSliderSection(
                 "Adjust shared pose transition speed for preset poses, looping animations, and Animation Creator playback.");
             GUILayout.Space(10f);
+
+            bool previousMirrorToRealRobot = animationCreatorMirrorToRealRobot;
+            animationCreatorMirrorToRealRobot = GUILayout.Toggle(
+                animationCreatorMirrorToRealRobot,
+                "Mirror Animation Creator to Real Robot when connected");
+            if (animationCreatorMirrorToRealRobot != previousMirrorToRealRobot)
+            {
+                ResetAnimationCreatorLivePreviewState();
+                if (ShouldAnimationCreatorMirrorToRealRobot())
+                {
+                    if (TrySyncAnimationCreatorSceneFromRealRobot(out string mirrorSyncMessage))
+                    {
+                        _animationCreatorStatus = mirrorSyncMessage;
+                    }
+                }
+            }
+
+            GUILayout.Label(GetAnimationCreatorRoutingSummary());
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Live preview speed", GUILayout.Width(118f));
+            animationCreatorLivePreviewSpeedPercent = GUILayout.HorizontalSlider(
+                animationCreatorLivePreviewSpeedPercent,
+                5f,
+                100f);
+            animationCreatorLivePreviewSpeedPercent =
+                Mathf.Clamp(animationCreatorLivePreviewSpeedPercent, 5f, 100f);
+            GUILayout.Label($"{Mathf.RoundToInt(animationCreatorLivePreviewSpeedPercent)}%", GUILayout.Width(44f));
+            GUILayout.EndHorizontal();
+            GUILayout.Space(8f);
 
             GUILayout.Label("Pose title");
             _animationCreatorPoseTitle = GUILayout.TextField(_animationCreatorPoseTitle ?? string.Empty);
@@ -14853,9 +14903,7 @@ namespace Reachy.ControlApp
             }
 
             GUILayout.Space(8f);
-            GUILayout.Label(_animationCreatorEditModeEnabled
-                ? "Pose capture is active. Click a joint on Reachy in the middle scene and drag with the left mouse button."
-                : "Pose capture is idle. Use Create New Pose to enable body editing.");
+            GUILayout.Label(GetAnimationCreatorPoseCaptureSummary());
             GUILayout.Label(_animationCreatorDraftKeyframes.Count > 0
                 ? $"Draft animation frames recorded: {_animationCreatorDraftKeyframes.Count}"
                 : "Draft animation frames recorded: 0");
@@ -14920,9 +14968,11 @@ namespace Reachy.ControlApp
                 overlayHeight);
 
             GUILayout.BeginArea(overlayRect, GUI.skin.box);
-            GUILayout.Label("Animate Avatar With Mouse (Work in Progress)", _titleStyle);
+            GUILayout.Label("Animate Reachy With Mouse", _titleStyle);
             GUILayout.Label(creatorReady
-                ? "You can move Reachy's joints with mouse in this area. Click a joint and drag to pose Reachy."
+                ? ShouldAnimationCreatorMirrorToRealRobot()
+                    ? "You can move Reachy's joints with the mouse here. Click a joint and drag to pose Reachy; the connected live robot will mirror your edits."
+                    : "You can move Reachy's joints with the mouse here. Click a joint and drag to pose Reachy."
                 : creatorMessage);
             GUILayout.EndArea();
         }
@@ -14944,7 +14994,7 @@ namespace Reachy.ControlApp
             int selectedSavedPoseCount = CountSelectedAnimationCreatorSavedPoses();
             if (_animationCreatorSavedPoses.Count <= 0)
             {
-                GUILayout.Label("No saved scene animations yet. When your animations are saved, you can find them here and play them back or delete them.");
+                GUILayout.Label("No saved animations yet. When your animations are saved, you can find them here and play them back or delete them.");
             }
             else
             {
@@ -15013,6 +15063,7 @@ namespace Reachy.ControlApp
             {
                 GUILayout.Space(6f);
                 GUILayout.Label($"Scene body: {_animationCreator.Status}");
+                GUILayout.Label($"Motion route: {GetAnimationCreatorRoutingSummary()}");
             }
 
             GUILayout.EndScrollView();
@@ -19338,16 +19389,191 @@ namespace Reachy.ControlApp
             }
 
             _animationCreator.UpdateInteraction(_animationCreatorEditModeEnabled);
+            UpdateAnimationCreatorLivePreview();
         }
 
         private bool EnsureAnimationCreator(out string message)
         {
+            bool created = false;
             if (_animationCreator == null)
             {
                 _animationCreator = new ReachyAnimationCreator();
+                created = true;
             }
 
-            return _animationCreator.EnsureInitialized(out message);
+            bool ready = _animationCreator.EnsureInitialized(out message);
+            if (ready && created && ShouldAnimationCreatorMirrorToRealRobot())
+            {
+                TrySyncAnimationCreatorSceneFromRealRobot(out _);
+            }
+
+            return ready;
+        }
+
+        private bool ShouldAnimationCreatorMirrorToRealRobot()
+        {
+            return animationCreatorMirrorToRealRobot && IsRealRobotSessionActive();
+        }
+
+        private string GetAnimationCreatorRoutingSummary()
+        {
+            if (ShouldAnimationCreatorMirrorToRealRobot())
+            {
+                string endpoint = _client != null && _client.IsConnected
+                    ? $"{_client.ConnectedHost}:{_client.ConnectedPort}"
+                    : "current robot";
+                return
+                    $"Live robot mirroring is active for edit previews, resets, and playback on {endpoint} " +
+                    $"at {Mathf.RoundToInt(animationCreatorLivePreviewSpeedPercent)}% preview speed.";
+            }
+
+            if (!animationCreatorMirrorToRealRobot)
+            {
+                return "Live robot mirroring is off. Animation Creator is editing the scene Reachy only.";
+            }
+
+            return "No live robot session is active. Animation Creator is editing the scene Reachy only.";
+        }
+
+        private string GetAnimationCreatorPoseCaptureSummary()
+        {
+            string interactionSummary = _animationCreatorEditModeEnabled
+                ? "Pose capture is active. Click a joint on Reachy in the middle scene and drag with the left mouse button."
+                : "Pose capture is idle. Use Create New Pose to enable body editing.";
+            return $"{interactionSummary} {GetAnimationCreatorRoutingSummary()}";
+        }
+
+        private void ResetAnimationCreatorLivePreviewState()
+        {
+            _animationCreatorLastLivePreviewPose.Clear();
+            _nextAnimationCreatorLivePreviewAt = 0f;
+        }
+
+        private void CacheAnimationCreatorLivePreviewPose(IReadOnlyDictionary<string, float> pose)
+        {
+            _animationCreatorLastLivePreviewPose.Clear();
+            if (pose == null)
+            {
+                return;
+            }
+
+            foreach (KeyValuePair<string, float> item in pose)
+            {
+                if (!string.IsNullOrWhiteSpace(item.Key))
+                {
+                    _animationCreatorLastLivePreviewPose[item.Key] = item.Value;
+                }
+            }
+        }
+
+        private static bool AreAnimationCreatorPosesEquivalent(
+            IReadOnlyDictionary<string, float> left,
+            IReadOnlyDictionary<string, float> right,
+            float toleranceDegrees = 0.2f)
+        {
+            if (ReferenceEquals(left, right))
+            {
+                return true;
+            }
+
+            if (left == null || right == null || left.Count != right.Count)
+            {
+                return false;
+            }
+
+            foreach (KeyValuePair<string, float> item in left)
+            {
+                if (!right.TryGetValue(item.Key, out float otherDegrees) ||
+                    Mathf.Abs(item.Value - otherDegrees) > toleranceDegrees)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private bool TrySyncAnimationCreatorSceneFromRealRobot(out string message)
+        {
+            message = string.Empty;
+            if (_animationCreator == null)
+            {
+                message = "Animation Creator is not initialized.";
+                return false;
+            }
+
+            if (!ShouldAnimationCreatorMirrorToRealRobot() || _client == null || !_client.IsConnected)
+            {
+                message = "No active live robot session is available for Animation Creator sync.";
+                return false;
+            }
+
+            bool wasConnected = _client.IsConnected;
+            bool ok = _client.TryGetJointPositions(
+                _animationCreator.JointNames,
+                out Dictionary<string, float> livePose,
+                out string syncMessage);
+            HandlePotentialDisconnectAfterOperation("Animation Creator live pose sync", wasConnected);
+            if (!ok || livePose == null || livePose.Count <= 0)
+            {
+                message = string.IsNullOrWhiteSpace(syncMessage)
+                    ? "Animation Creator could not read the current live robot pose."
+                    : syncMessage;
+                return false;
+            }
+
+            _animationCreator.SetPose(livePose);
+            CacheAnimationCreatorLivePreviewPose(livePose);
+            _nextAnimationCreatorLivePreviewAt =
+                Time.unscaledTime + Mathf.Max(0.05f, animationCreatorLivePreviewSendIntervalSeconds);
+            message = string.IsNullOrWhiteSpace(syncMessage)
+                ? "Animation Creator scene pose synced from the live robot."
+                : $"Animation Creator scene pose synced from the live robot. {syncMessage}";
+            return true;
+        }
+
+        private void UpdateAnimationCreatorLivePreview()
+        {
+            if (_animationCreator == null ||
+                _animationCreatorPlaybackCoroutine != null ||
+                !ShouldAnimationCreatorMirrorToRealRobot() ||
+                _client == null ||
+                !_client.IsConnected)
+            {
+                return;
+            }
+
+            if (Time.unscaledTime < _nextAnimationCreatorLivePreviewAt)
+            {
+                return;
+            }
+
+            Dictionary<string, float> currentPose = _animationCreator.CapturePose();
+            if (currentPose == null || currentPose.Count <= 0 ||
+                AreAnimationCreatorPosesEquivalent(currentPose, _animationCreatorLastLivePreviewPose))
+            {
+                return;
+            }
+
+            bool wasConnected = _client.IsConnected;
+            bool ok = _client.SendJointGoals(
+                currentPose,
+                animationCreatorLivePreviewSpeedPercent,
+                out string previewMessage);
+            HandlePotentialDisconnectAfterOperation("Animation Creator live preview", wasConnected);
+            _nextAnimationCreatorLivePreviewAt =
+                Time.unscaledTime + Mathf.Max(0.05f, animationCreatorLivePreviewSendIntervalSeconds);
+            if (!ok)
+            {
+                if (_client != null && _client.IsConnected)
+                {
+                    _animationCreatorStatus = $"Animation Creator live preview failed. {previewMessage}";
+                }
+
+                return;
+            }
+
+            CacheAnimationCreatorLivePreviewPose(currentPose);
         }
 
         private Rect ScaleLogicalRectToScreen(Rect logicalRect)
@@ -19373,6 +19599,7 @@ namespace Reachy.ControlApp
                 stopLoopingAnimation: false);
             StopLoopingAnimation(updateStatus: false, reason: "Entered Animation Creator.");
             StopAnimationCreatorPlayback(updateStatus: false, reason: "Started a new pose.");
+            _client?.CancelActivePoseMotion();
             _animationCreatorDraftKeyframes.Clear();
             _animationCreatorEditModeEnabled = true;
             if (string.IsNullOrWhiteSpace(_animationCreatorPoseTitle))
@@ -19380,8 +19607,23 @@ namespace Reachy.ControlApp
                 _animationCreatorPoseTitle = $"Custom Pose {_animationCreatorNextPoseNumber}";
             }
 
-            _animationCreatorStatus =
-                "Pose capture enabled. Click a joint on the original Reachy in the middle and drag with the left mouse button. Use Record Keyframe Animation to add full-body keyframes.";
+            bool syncedLiveRobot = false;
+            string syncMessage = string.Empty;
+            if (ShouldAnimationCreatorMirrorToRealRobot())
+            {
+                syncedLiveRobot = TrySyncAnimationCreatorSceneFromRealRobot(out syncMessage);
+            }
+
+            if (!syncedLiveRobot)
+            {
+                ResetAnimationCreatorLivePreviewState();
+            }
+
+            _animationCreatorStatus = syncedLiveRobot
+                ? $"{syncMessage} {GetAnimationCreatorPoseCaptureSummary()}"
+                : string.IsNullOrWhiteSpace(syncMessage)
+                    ? GetAnimationCreatorPoseCaptureSummary()
+                    : $"{syncMessage} {GetAnimationCreatorPoseCaptureSummary()}";
         }
 
         private void ResetAnimationCreatorPose()
@@ -19393,13 +19635,22 @@ namespace Reachy.ControlApp
             }
 
             StopAnimationCreatorPlayback(updateStatus: false, reason: "Reset pose in Animation Creator.");
+            if (ShouldAnimationCreatorMirrorToRealRobot())
+            {
+                TrySyncAnimationCreatorSceneFromRealRobot(out _);
+            }
+
             Dictionary<string, float> neutralPose = BuildAnimationCreatorNeutralPose();
             _animationCreatorPlaybackCoroutine = StartCoroutine(
                 RunAnimationCreatorSingleTransition(
                     neutralPose,
                     ScaleAnimationCreatorPlaybackDuration(0.38f),
-                    "Reset pose applied. Reachy returned to Neutral pose using the Animations & Poses speed."));
-            _animationCreatorStatus = "Resetting Reachy to Neutral pose using the Animations & Poses speed.";
+                    ShouldAnimationCreatorMirrorToRealRobot()
+                        ? "Reset pose applied on the scene Reachy and the live robot using the Animations & Poses speed."
+                        : "Reset pose applied. Reachy returned to Neutral pose using the Animations & Poses speed."));
+            _animationCreatorStatus = ShouldAnimationCreatorMirrorToRealRobot()
+                ? "Resetting Reachy to Neutral pose on the scene Reachy and the live robot using the Animations & Poses speed."
+                : "Resetting Reachy to Neutral pose using the Animations & Poses speed.";
         }
 
         private void RecordAnimationCreatorKeyframe()
@@ -19461,13 +19712,13 @@ namespace Reachy.ControlApp
             {
                 _animationCreatorSavedPoses[existingIndex] = savedPose;
                 _animationCreatorStatus =
-                    $"Updated scene animation '{poseName}' with {savedPose.KeyframeCount} frame(s).";
+                    $"Updated animation '{poseName}' with {savedPose.KeyframeCount} frame(s).";
             }
             else
             {
                 _animationCreatorSavedPoses.Add(savedPose);
                 _animationCreatorStatus =
-                    $"Saved scene animation '{poseName}' with {savedPose.KeyframeCount} frame(s).";
+                    $"Saved animation '{poseName}' with {savedPose.KeyframeCount} frame(s).";
             }
 
             _animationCreatorEditModeEnabled = false;
@@ -19556,8 +19807,8 @@ namespace Reachy.ControlApp
             }
 
             _animationCreatorStatus = deletedCount == 1
-                ? "Deleted 1 saved scene animation."
-                : $"Deleted {deletedCount} saved scene animations.";
+                ? "Deleted 1 saved animation."
+                : $"Deleted {deletedCount} saved animations.";
         }
 
         private void PlayAnimationCreatorPose(AnimationCreatorSavedPose savedPose)
@@ -19579,11 +19830,18 @@ namespace Reachy.ControlApp
                 stopLoopingAnimation: false);
             StopLoopingAnimation(updateStatus: false, reason: "Entered Animation Creator.");
             StopAnimationCreatorPlayback(updateStatus: false, reason: "Restarting Animation Creator playback.");
+            if (ShouldAnimationCreatorMirrorToRealRobot())
+            {
+                TrySyncAnimationCreatorSceneFromRealRobot(out _);
+            }
+
             _animationCreatorEditModeEnabled = false;
             _animationCreatorPlaybackCoroutine = StartCoroutine(RunAnimationCreatorPoseLoop(savedPose));
             _animationCreatorActivePoseName = savedPose.Name;
             _animationCreatorStatus =
-                $"Playing looping animation '{savedPose.Name}' on the scene Reachy ({savedPose.KeyframeCount} frame(s)).";
+                ShouldAnimationCreatorMirrorToRealRobot()
+                    ? $"Playing looping animation '{savedPose.Name}' on the scene Reachy and the live robot ({savedPose.KeyframeCount} frame(s))."
+                    : $"Playing looping animation '{savedPose.Name}' on the scene Reachy ({savedPose.KeyframeCount} frame(s)).";
         }
 
         private IEnumerator RunAnimationCreatorPoseLoop(AnimationCreatorSavedPose savedPose)
@@ -19607,6 +19865,16 @@ namespace Reachy.ControlApp
                     yield return AnimateAnimationCreatorPose(
                         keyframe,
                         ScaleAnimationCreatorPlaybackDuration(0.42f));
+                    if (_animationCreatorLastTransitionFailed)
+                    {
+                        _animationCreatorPlaybackCoroutine = null;
+                        _animationCreatorActivePoseName = string.Empty;
+                        _animationCreatorStatus = _animationCreatorLastTransitionFailureMessage;
+                        _animationCreatorLastTransitionFailed = false;
+                        _animationCreatorLastTransitionFailureMessage = string.Empty;
+                        yield break;
+                    }
+
                     yield return new WaitForSecondsRealtime(
                         ScaleAnimationCreatorPlaybackDuration(0.32f));
                 }
@@ -19614,6 +19882,16 @@ namespace Reachy.ControlApp
                 yield return AnimateAnimationCreatorPose(
                     neutralPose,
                     ScaleAnimationCreatorPlaybackDuration(0.38f));
+                if (_animationCreatorLastTransitionFailed)
+                {
+                    _animationCreatorPlaybackCoroutine = null;
+                    _animationCreatorActivePoseName = string.Empty;
+                    _animationCreatorStatus = _animationCreatorLastTransitionFailureMessage;
+                    _animationCreatorLastTransitionFailed = false;
+                    _animationCreatorLastTransitionFailureMessage = string.Empty;
+                    yield break;
+                }
+
                 yield return new WaitForSecondsRealtime(
                     ScaleAnimationCreatorPlaybackDuration(0.35f));
             }
@@ -19627,6 +19905,14 @@ namespace Reachy.ControlApp
             yield return AnimateAnimationCreatorPose(targetPose, durationSeconds);
             _animationCreatorPlaybackCoroutine = null;
             _animationCreatorActivePoseName = string.Empty;
+            if (_animationCreatorLastTransitionFailed)
+            {
+                _animationCreatorStatus = _animationCreatorLastTransitionFailureMessage;
+                _animationCreatorLastTransitionFailed = false;
+                _animationCreatorLastTransitionFailureMessage = string.Empty;
+                yield break;
+            }
+
             if (!string.IsNullOrWhiteSpace(completedStatus))
             {
                 _animationCreatorStatus = completedStatus;
@@ -19642,8 +19928,36 @@ namespace Reachy.ControlApp
                 yield break;
             }
 
+            _animationCreatorLastTransitionFailed = false;
+            _animationCreatorLastTransitionFailureMessage = string.Empty;
             Dictionary<string, float> startPose = _animationCreator.CapturePose();
             float duration = Mathf.Max(0.01f, durationSeconds);
+            if (ShouldAnimationCreatorMirrorToRealRobot() && _client != null && _client.IsConnected)
+            {
+                bool wasConnected = _client.IsConnected;
+                bool ok = _client.SendPoseJointGoals(
+                    targetPose,
+                    presetPoseTransitionSpeedScale,
+                    out string motionMessage,
+                    out float scheduledDurationSeconds);
+                HandlePotentialDisconnectAfterOperation("Animation Creator pose motion", wasConnected);
+                if (!ok)
+                {
+                    _animationCreatorLastTransitionFailed = true;
+                    _animationCreatorLastTransitionFailureMessage =
+                        $"Animation Creator real robot motion failed. {motionMessage}";
+                    yield break;
+                }
+
+                CacheAnimationCreatorLivePreviewPose(targetPose);
+                _nextAnimationCreatorLivePreviewAt =
+                    Time.unscaledTime + Mathf.Max(0.05f, animationCreatorLivePreviewSendIntervalSeconds);
+                if (scheduledDurationSeconds > 0f)
+                {
+                    duration = Mathf.Max(duration, scheduledDurationSeconds);
+                }
+            }
+
             float elapsed = 0f;
             while (elapsed < duration)
             {
@@ -19690,6 +20004,9 @@ namespace Reachy.ControlApp
                 _animationCreatorPlaybackCoroutine = null;
             }
 
+            _client?.CancelActivePoseMotion();
+            _animationCreatorLastTransitionFailed = false;
+            _animationCreatorLastTransitionFailureMessage = string.Empty;
             _animationCreatorActivePoseName = string.Empty;
             if (updateStatus && !string.IsNullOrWhiteSpace(reason))
             {
@@ -20488,8 +20805,10 @@ namespace Reachy.ControlApp
                         reason: "Disconnected by UI button.",
                         stopLoopingAnimation: false);
                     StopLoopingAnimation(updateStatus: false, reason: "Disconnected by UI button.");
+                    StopAnimationCreatorPlayback(updateStatus: false, reason: "Disconnected by UI button.");
                     StopVoiceMotionSequence(updateStatus: false, reason: "Disconnected by UI button.");
                     _client.Disconnect();
+                    ResetAnimationCreatorLivePreviewState();
                     _connectedMode = null;
                     LogConnectionEvent(disconnectedMode, "manual-disconnect", "Disconnected by UI button.");
                     SetStatus("Disconnected", "Connection closed.");
@@ -21751,10 +22070,15 @@ namespace Reachy.ControlApp
                     _manualDisconnect = false;
                     _autoReconnectScheduled = false;
                     _connectedMode = targetMode;
+                    ResetAnimationCreatorLivePreviewState();
                     _nextHealthCheckAt = Time.unscaledTime + Mathf.Max(0.5f, healthCheckIntervalSeconds);
                     if (targetMode == ReachyControlMode.RealRobot)
                     {
                         EnableRuntimeFileLoggingForRealRobotConnection();
+                        if (_animationCreator != null)
+                        {
+                            TrySyncAnimationCreatorSceneFromRealRobot(out _);
+                        }
                     }
                     LogMobileBaseAvailabilityProbe(aggregate, targetMode);
                     LogConnectionEvent(
@@ -21774,6 +22098,7 @@ namespace Reachy.ControlApp
             }
 
             _connectedMode = null;
+            ResetAnimationCreatorLivePreviewState();
             string failureDetail = aggregate.ToString().Trim();
             if (string.IsNullOrEmpty(failureDetail))
             {
@@ -21873,6 +22198,7 @@ namespace Reachy.ControlApp
             }
 
             ReachyControlMode reconnectMode = _connectedMode ?? mode;
+            ResetAnimationCreatorLivePreviewState();
             _connectedMode = null;
             ScheduleAutoReconnect(0.5f, reconnectMode);
             LogConnectionEvent(
