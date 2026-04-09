@@ -46,6 +46,8 @@ namespace Reachy.ControlApp
         private const string RightHandUpPoseName = "Right Hand Up";
         private const string RightHandWavePoseName = "Right Hand Wave";
         private const string HandsUpPoseName = "Hands Up";
+        private const string Happy1PoseName = "Happy1";
+        private const string Happy2PoseName = "Happy2";
         private const string Sad1PoseName = "Sad1";
         private const string Sad2PoseName = "Sad2";
         private const float Deg2Rad = (float)(Math.PI / 180.0);
@@ -2504,6 +2506,60 @@ namespace Reachy.ControlApp
                         new PoseJointGoal("l_wrist_pitch", 20.0f),
                         new PoseJointGoal("l_wrist_roll", 0.0f),
                         new PoseJointGoal("l_gripper", 0.0f),
+                    }
+                ),
+                new PosePreset(
+                    Happy1PoseName,
+                    new List<PoseJointGoal>
+                    {
+                        new PoseJointGoal("r_shoulder_pitch", -42.0f),
+                        new PoseJointGoal("r_shoulder_roll", -18.0f),
+                        new PoseJointGoal("r_arm_yaw", -10.0f),
+                        new PoseJointGoal("r_elbow_pitch", -92.0f),
+                        new PoseJointGoal("r_forearm_yaw", -18.0f),
+                        new PoseJointGoal("r_wrist_pitch", 24.0f),
+                        new PoseJointGoal("r_wrist_roll", -6.0f),
+                        new PoseJointGoal("r_gripper", 0.0f),
+                        new PoseJointGoal("l_shoulder_pitch", -42.0f),
+                        new PoseJointGoal("l_shoulder_roll", 18.0f),
+                        new PoseJointGoal("l_arm_yaw", 10.0f),
+                        new PoseJointGoal("l_elbow_pitch", -92.0f),
+                        new PoseJointGoal("l_forearm_yaw", 18.0f),
+                        new PoseJointGoal("l_wrist_pitch", 24.0f),
+                        new PoseJointGoal("l_wrist_roll", 6.0f),
+                        new PoseJointGoal("l_gripper", 0.0f),
+                        new PoseJointGoal("neck_roll", 0.0f),
+                        new PoseJointGoal("neck_pitch", -16.0f),
+                        new PoseJointGoal("neck_yaw", 0.0f),
+                        new PoseJointGoal("l_antenna", 24.0f),
+                        new PoseJointGoal("r_antenna", -24.0f),
+                    }
+                ),
+                new PosePreset(
+                    Happy2PoseName,
+                    new List<PoseJointGoal>
+                    {
+                        new PoseJointGoal("r_shoulder_pitch", -70.0f),
+                        new PoseJointGoal("r_shoulder_roll", -30.0f),
+                        new PoseJointGoal("r_arm_yaw", -14.0f),
+                        new PoseJointGoal("r_elbow_pitch", -70.0f),
+                        new PoseJointGoal("r_forearm_yaw", -12.0f),
+                        new PoseJointGoal("r_wrist_pitch", 30.0f),
+                        new PoseJointGoal("r_wrist_roll", -10.0f),
+                        new PoseJointGoal("r_gripper", 0.0f),
+                        new PoseJointGoal("l_shoulder_pitch", -70.0f),
+                        new PoseJointGoal("l_shoulder_roll", 30.0f),
+                        new PoseJointGoal("l_arm_yaw", 14.0f),
+                        new PoseJointGoal("l_elbow_pitch", -70.0f),
+                        new PoseJointGoal("l_forearm_yaw", 12.0f),
+                        new PoseJointGoal("l_wrist_pitch", 30.0f),
+                        new PoseJointGoal("l_wrist_roll", 10.0f),
+                        new PoseJointGoal("l_gripper", 0.0f),
+                        new PoseJointGoal("neck_roll", 0.0f),
+                        new PoseJointGoal("neck_pitch", -28.0f),
+                        new PoseJointGoal("neck_yaw", 0.0f),
+                        new PoseJointGoal("l_antenna", 42.0f),
+                        new PoseJointGoal("r_antenna", -42.0f),
                     }
                 ),
                 new PosePreset(

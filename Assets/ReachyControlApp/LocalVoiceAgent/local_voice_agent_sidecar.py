@@ -220,6 +220,30 @@ DEFAULT_ONLINE_AI_CUSTOM_SYSTEM_PROMPT = (
     "while remaining honest about uncertainty and real robot limitations. Do not proactively bring up Reachy assistance, "
     "robot embodiment, or movement/control help unless the operator asks for it or the persona itself explicitly calls for it."
 )
+DEFAULT_ONLINE_AI_EMOTION_SYSTEM_PROMPT = (
+    "You are Reachy in silent emotion-reaction mode. Do not answer with spoken language. "
+    "Choose the single best configured emotion reaction for what the operator said and let the robot react through movement only."
+)
+DEFAULT_ONLINE_AI_EMOTION_REACTIONS = (
+    {
+        "emotion_key": "happy",
+        "display_name": "Happy",
+        "acted_sequence_name": "happy",
+        "description": (
+            "Use when the transcript feels upbeat, relieved, grateful, proud, excited, affectionate, amused, or celebratory."
+        ),
+        "enabled": True,
+    },
+    {
+        "emotion_key": "sad",
+        "display_name": "Sad",
+        "acted_sequence_name": "sad",
+        "description": (
+            "Use when the transcript feels disappointed, hurt, lonely, worried, grieving, apologetic, exhausted, or emotionally heavy."
+        ),
+        "enabled": True,
+    },
+)
 DEFAULT_OPENAI_TRANSCRIBE_LANGUAGE_HINTS = ["en", "fi"]
 DEFAULT_ONLINE_CUSTOM_POSE_MAX_JOINTS = len(DEFAULT_JOINTS)
 DEFAULT_ONLINE_MOTION_SEQUENCE_MAX_STEPS = 8
@@ -1046,6 +1070,8 @@ def load_config(path: Path) -> dict:
         "online_ai_custom_factual_grounding": DEFAULT_ONLINE_AI_CUSTOM_FACTUAL_GROUNDING,
         "online_ai_custom_system_prompt": DEFAULT_ONLINE_AI_CUSTOM_SYSTEM_PROMPT,
         "online_ai_custom_tts_voice": DEFAULT_ONLINE_TTS_VOICE,
+        "online_ai_emotion_system_prompt": DEFAULT_ONLINE_AI_EMOTION_SYSTEM_PROMPT,
+        "online_ai_emotion_reactions": build_default_online_ai_emotion_reactions(),
         "online_ai_system_prompt": DEFAULT_ONLINE_AI_ASSISTANT_SYSTEM_PROMPT,
         "online_ai_allow_direct_joint_commands": True,
         "online_ai_require_motion_confirmation": False,
@@ -1359,11 +1385,19 @@ def load_config(path: Path) -> dict:
     config["online_ai_custom_tts_voice"] = (
         str(config.get("online_ai_custom_tts_voice", DEFAULT_ONLINE_TTS_VOICE)).strip().lower()
         or DEFAULT_ONLINE_TTS_VOICE)
+    config["online_ai_emotion_system_prompt"] = (
+        str(config.get("online_ai_emotion_system_prompt", DEFAULT_ONLINE_AI_EMOTION_SYSTEM_PROMPT)).strip()
+        or DEFAULT_ONLINE_AI_EMOTION_SYSTEM_PROMPT)
+    config["online_ai_emotion_reactions"] = normalize_online_ai_emotion_reactions(
+        config.get("online_ai_emotion_reactions", build_default_online_ai_emotion_reactions())
+    )
     effective_prompt_fallback = DEFAULT_ONLINE_AI_ASSISTANT_SYSTEM_PROMPT
     if config["online_ai_persona_mode"] == "fortune_teller":
         effective_prompt_fallback = config["online_ai_fortune_teller_system_prompt"]
     elif config["online_ai_persona_mode"] == "custom":
         effective_prompt_fallback = config["online_ai_custom_system_prompt"]
+    elif config["online_ai_persona_mode"] == "emotion_reactions":
+        effective_prompt_fallback = config["online_ai_emotion_system_prompt"]
     config["online_ai_system_prompt"] = (
         str(config.get("online_ai_system_prompt", effective_prompt_fallback)).strip()
         or effective_prompt_fallback)
@@ -1553,7 +1587,87 @@ def normalize_online_ai_persona_mode(value) -> str:
         return "fortune_teller"
     if normalized in ("custom", "custom_mode", "custom mode"):
         return "custom"
+    if normalized in (
+        "emotion_reactions",
+        "emotion_reaction",
+        "emotion reactions",
+        "emotion reaction",
+        "emotion_mode",
+        "emotion mode",
+        "reaction_mode",
+        "reaction mode",
+    ):
+        return "emotion_reactions"
     return DEFAULT_ONLINE_AI_PERSONA_MODE
+
+
+def normalize_online_ai_emotion_key(value) -> str:
+    raw = str(value or "").strip().lower()
+    if not raw:
+        return ""
+
+    normalized_chars: list[str] = []
+    last_was_separator = False
+    for char in raw:
+        if char.isalnum():
+            normalized_chars.append(char)
+            last_was_separator = False
+        elif not last_was_separator:
+            normalized_chars.append("_")
+            last_was_separator = True
+
+    return "".join(normalized_chars).strip("_")
+
+
+def build_online_ai_emotion_display_name(emotion_key: str) -> str:
+    normalized_key = normalize_online_ai_emotion_key(emotion_key)
+    if not normalized_key:
+        return "Emotion"
+
+    parts = [part for part in normalized_key.split("_") if part]
+    if not parts:
+        return "Emotion"
+
+    return " ".join(part[:1].upper() + part[1:] for part in parts)
+
+
+def build_default_online_ai_emotion_reactions() -> list[dict]:
+    return [dict(item) for item in DEFAULT_ONLINE_AI_EMOTION_REACTIONS]
+
+
+def normalize_online_ai_emotion_reactions(value) -> list[dict]:
+    items = value if isinstance(value, list) else []
+    normalized_reactions: list[dict] = []
+    seen_keys: set[str] = set()
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+
+        emotion_key = normalize_online_ai_emotion_key(item.get("emotion_key"))
+        if not emotion_key or emotion_key in seen_keys:
+            continue
+
+        seen_keys.add(emotion_key)
+        display_name = str(item.get("display_name", "") or "").strip() or build_online_ai_emotion_display_name(emotion_key)
+        acted_sequence_name = str(item.get("acted_sequence_name", "") or "").strip() or emotion_key
+        description = str(item.get("description", "") or "").strip() or f"{display_name} reaction."
+        enabled = parse_bool(item.get("enabled"), True)
+        normalized_reactions.append(
+            {
+                "emotion_key": emotion_key,
+                "display_name": display_name,
+                "acted_sequence_name": acted_sequence_name,
+                "description": description,
+                "enabled": enabled,
+            }
+        )
+
+    if not normalized_reactions:
+        return build_default_online_ai_emotion_reactions()
+
+    if any(parse_bool(item.get("enabled"), True) for item in normalized_reactions):
+        return normalized_reactions
+    return build_default_online_ai_emotion_reactions()
 
 
 def resolve_effective_stt_backend(config: dict, api_key_available: bool) -> str:
@@ -1737,12 +1851,19 @@ def apply_online_ai_mode_payload(config: dict, payload: dict) -> dict:
         ),
         True,
     )
+    emotion_reactions = normalize_online_ai_emotion_reactions(
+        payload.get(
+            "online_ai_emotion_reactions",
+            config.get("online_ai_emotion_reactions", build_default_online_ai_emotion_reactions()),
+        )
+    )
 
     config["ai_mode"] = requested_ai_mode
     config["online_ai_enabled"] = online_enabled
     config["online_ai_persona_mode"] = requested_mode
     config["online_ai_system_prompt"] = system_prompt
     config["online_tts_voice"] = tts_voice
+    config["online_ai_emotion_reactions"] = emotion_reactions
     config["online_ai_allow_voice_persona_switch"] = allow_voice_switch
 
     return {
@@ -2631,7 +2752,12 @@ class State:
                 "online_ai_model": self.online_model,
                 "online_tts_stream_partial_replies": stream_partial_replies,
                 "online_tts_stream_partial_replies_active": (
-                    online_tts_mode and stream_partial_replies and api_key_found
+                    online_tts_mode
+                    and stream_partial_replies
+                    and api_key_found
+                    and normalize_online_ai_persona_mode(
+                        self.config.get("online_ai_persona_mode", DEFAULT_ONLINE_AI_PERSONA_MODE)
+                    ) != "emotion_reactions"
                 ),
                 "online_ai_api_key_env_var": env_var,
                 "online_ai_api_key_found": api_key_found,
@@ -2747,6 +2873,10 @@ class TTS:
         return True, "TTS playback interrupted."
 
     def should_stream_online_reply_audio(self) -> bool:
+        if normalize_online_ai_persona_mode(
+            self.config.get("online_ai_persona_mode", DEFAULT_ONLINE_AI_PERSONA_MODE)
+        ) == "emotion_reactions":
+            return False
         if normalize_tts_mode(self.config.get("tts_mode", DEFAULT_TTS_MODE)) != "online":
             return False
         if not parse_bool(self.config.get("online_tts_stream_partial_replies"), True):
@@ -5412,11 +5542,87 @@ class OnlineAIOrchestrator:
     def _build_reply_streamer(self, *, connection_test: bool) -> OnlineReplySpeechStreamer | None:
         if connection_test or self.tts is None:
             return None
+        if normalize_online_ai_persona_mode(
+            self.config.get("online_ai_persona_mode", DEFAULT_ONLINE_AI_PERSONA_MODE)
+        ) == "emotion_reactions":
+            return None
         if not self._streaming_online_reply_ready:
             return None
         if not self.tts.should_stream_online_reply_audio():
             return None
         return OnlineReplySpeechStreamer(self.tts)
+
+    def _get_enabled_online_ai_emotion_reactions(self) -> list[dict]:
+        normalized_reactions = normalize_online_ai_emotion_reactions(
+            self.config.get("online_ai_emotion_reactions", build_default_online_ai_emotion_reactions())
+        )
+        enabled_reactions = [
+            reaction
+            for reaction in normalized_reactions
+            if parse_bool(reaction.get("enabled"), True)
+        ]
+        if enabled_reactions:
+            return enabled_reactions
+        return build_default_online_ai_emotion_reactions()
+
+    @staticmethod
+    def _build_empty_emotion_reaction() -> dict:
+        return {
+            "emotion_key": "",
+            "display_name": "",
+            "confidence": 0.0,
+            "reason": "",
+        }
+
+    def _normalize_emotion_reaction(
+        self,
+        reaction_value,
+        *,
+        require_reaction: bool,
+    ) -> tuple[dict | None, str]:
+        if reaction_value is None:
+            if require_reaction:
+                return None, "emotion_reaction must be provided in emotion-reaction mode."
+            return self._build_empty_emotion_reaction(), ""
+
+        if not isinstance(reaction_value, dict):
+            return None, "emotion_reaction must be an object."
+
+        emotion_key = normalize_online_ai_emotion_key(reaction_value.get("emotion_key"))
+        if require_reaction and not emotion_key:
+            return None, "emotion_reaction.emotion_key must be a configured reaction key."
+        if not emotion_key:
+            return self._build_empty_emotion_reaction(), ""
+
+        enabled_reactions = self._get_enabled_online_ai_emotion_reactions()
+        matched_reaction = None
+        for candidate in enabled_reactions:
+            candidate_key = normalize_online_ai_emotion_key(candidate.get("emotion_key"))
+            if candidate_key == emotion_key:
+                matched_reaction = candidate
+                break
+
+        if matched_reaction is None:
+            return None, f"emotion_reaction.emotion_key '{emotion_key}' is not in the configured allowlist."
+
+        display_name = (
+            str(reaction_value.get("display_name", "") or "").strip()
+            or str(matched_reaction.get("display_name", "") or "").strip()
+            or build_online_ai_emotion_display_name(emotion_key)
+        )
+        try:
+            confidence = float(reaction_value.get("confidence", 0.0) or 0.0)
+        except Exception:
+            return None, "emotion_reaction.confidence was not numeric."
+
+        confidence = max(0.0, min(1.0, confidence))
+        reason = str(reaction_value.get("reason", "") or "").strip()
+        return {
+            "emotion_key": emotion_key,
+            "display_name": display_name,
+            "confidence": confidence,
+            "reason": reason,
+        }, ""
 
     def _try_build_persona_switch_suppression(
         self,
@@ -5515,7 +5721,20 @@ class OnlineAIOrchestrator:
             "madam circuit",
             "madame circuit",
         )
-        if targets_assistant == targets_fortune_teller:
+        targets_emotion_reactions = cls._contains_any_normalized_phrase(
+            normalized_transcript,
+            "emotion mode",
+            "emotion reaction mode",
+            "emotion reactions mode",
+            "reaction mode",
+            "silent emotion mode",
+            "happy sad mode",
+        )
+        if (
+            int(bool(targets_assistant))
+            + int(bool(targets_fortune_teller))
+            + int(bool(targets_emotion_reactions))
+        ) != 1:
             return False
 
         explicit_mode_phrase = cls._contains_any_normalized_phrase(
@@ -5527,6 +5746,12 @@ class OnlineAIOrchestrator:
             "oracle mode",
             "madam circuit",
             "madame circuit",
+            "emotion mode",
+            "emotion reaction mode",
+            "emotion reactions mode",
+            "reaction mode",
+            "silent emotion mode",
+            "happy sad mode",
         )
         explicit_switch_verb = cls._contains_any_normalized_phrase(
             normalized_transcript,
@@ -5857,9 +6082,14 @@ class OnlineAIOrchestrator:
                 1.0,
                 payload)
             reply_text = normalized_intent.get("reply_text", "")
+            emotion_reaction = normalized_intent.get("emotion_reaction", {})
+            emotion_key = ""
+            if isinstance(emotion_reaction, dict):
+                emotion_key = str(emotion_reaction.get("emotion_key", "") or "").strip()
             result_message = (
                 f"Online AI connection OK. Model={model}. "
-                f"{validation_message}. Reply='{reply_text}'."
+                f"{validation_message}. "
+                + (f"Emotion='{emotion_key}'." if emotion_key else f"Reply='{reply_text}'.")
             )
             self.state.record_online_response(
                 reply_text=reply_text,
@@ -6449,6 +6679,9 @@ class OnlineAIOrchestrator:
                 "default_min": float(self.config.get("joint_min_degrees", -180.0)),
                 "default_max": float(self.config.get("joint_max_degrees", 180.0)),
             },
+            "emotion_reactions": list(
+                self._get_enabled_online_ai_emotion_reactions()
+            ),
             "allowed_action_intents": list(ONLINE_ALLOWED_INTENTS),
             "semantic_motion_assist": {
                 "enabled": self._semantic_motion_assist_enabled(),
@@ -6805,7 +7038,29 @@ class OnlineAIOrchestrator:
         operator_prompt = (
             str(self.config.get("online_ai_system_prompt", DEFAULT_ONLINE_AI_ASSISTANT_SYSTEM_PROMPT)).strip()
             or DEFAULT_ONLINE_AI_ASSISTANT_SYSTEM_PROMPT)
-        persona_mode = str(self.config.get("online_ai_persona_mode", DEFAULT_ONLINE_AI_PERSONA_MODE)).strip().lower()
+        persona_mode = normalize_online_ai_persona_mode(
+            self.config.get("online_ai_persona_mode", DEFAULT_ONLINE_AI_PERSONA_MODE)
+        )
+        if persona_mode == "emotion_reactions":
+            return (
+                f"{operator_prompt}\n"
+                "You are producing one JSON object for a Reachy robot controller.\n"
+                "Rules:\n"
+                "- Return valid JSON only.\n"
+                "- This is silent emotion-reaction mode.\n"
+                "- reply_text must always be an empty string.\n"
+                "- action.intent must always be 'none'.\n"
+                "- action.pose_name, action.joint_name, action.joint_degrees, action.speed_scale, action.joint_targets, and action.motion_steps must stay null or [].\n"
+                "- Use emotion_reaction to choose exactly one configured emotion key from the provided emotion_reactions list.\n"
+                "- Do not invent new emotion keys.\n"
+                "- Base the choice on the emotional tone of user_transcript.\n"
+                "- Favor happy for upbeat, relieved, grateful, proud, excited, affectionate, amused, or celebratory content.\n"
+                "- Favor sad for disappointed, hurt, lonely, worried, grieving, apologetic, exhausted, or emotionally heavy content.\n"
+                "- When the feeling is mixed or subtle, choose the closest configured emotion instead of leaving it blank.\n"
+                "- Keep emotion_reaction.reason short.\n"
+                "- Do not produce any spoken reply.\n"
+            )
+
         persona_rules = (
             "- In fortune_teller mode, do not proactively ask for robot movement commands, setup tasks, or Reachy operator instructions.\n"
             "- In fortune_teller mode, only discuss robot control or movement when the operator explicitly asks for it.\n"
@@ -6857,6 +7112,17 @@ class OnlineAIOrchestrator:
             },
             "required": ["joint_name", "joint_degrees"],
         }
+        emotion_reaction_schema = {
+            "type": ["object", "null"],
+            "additionalProperties": False,
+            "properties": {
+                "emotion_key": {"type": ["string", "null"]},
+                "display_name": {"type": ["string", "null"]},
+                "confidence": {"type": ["number", "null"]},
+                "reason": {"type": ["string", "null"]},
+            },
+            "required": ["emotion_key", "display_name", "confidence", "reason"],
+        }
         motion_step_schema = {
             "type": "object",
             "additionalProperties": False,
@@ -6877,6 +7143,7 @@ class OnlineAIOrchestrator:
             "properties": {
                 "reply_text": {"type": "string"},
                 "confidence": {"type": "number"},
+                "emotion_reaction": emotion_reaction_schema,
                 "action": {
                     "type": "object",
                     "additionalProperties": False,
@@ -6909,7 +7176,7 @@ class OnlineAIOrchestrator:
                     ],
                 },
             },
-            "required": ["reply_text", "confidence", "action"],
+            "required": ["reply_text", "confidence", "emotion_reaction", "action"],
         }
 
     @staticmethod
@@ -7189,19 +7456,63 @@ class OnlineAIOrchestrator:
         confidence: float,
         payload: dict,
     ) -> tuple[dict, str]:
+        persona_mode = normalize_online_ai_persona_mode(
+            self.config.get("online_ai_persona_mode", DEFAULT_ONLINE_AI_PERSONA_MODE)
+        )
         if not isinstance(payload, dict):
             return self._build_safe_reply_intent(
                 transcript,
                 confidence,
-                "I could not understand the online AI response safely, so I did not move.",
+                "" if persona_mode == "emotion_reactions" else "I could not understand the online AI response safely, so I did not move.",
                 validation_status="invalid_schema",
                 validation_message="Top-level online response is not a JSON object.",
             ), "Online AI response rejected: top-level payload is not an object."
 
         reply_text_value = payload.get("reply_text", "")
         reply_text = "" if reply_text_value is None else str(reply_text_value).strip()
-        if not reply_text:
+        if persona_mode == "emotion_reactions":
+            reply_text = ""
+        elif not reply_text:
             reply_text = "I am ready."
+
+        emotion_reaction, emotion_error_message = self._normalize_emotion_reaction(
+            payload.get("emotion_reaction"),
+            require_reaction=persona_mode == "emotion_reactions",
+        )
+        if emotion_reaction is None:
+            return self._build_safe_reply_intent(
+                transcript,
+                confidence,
+                "",
+                validation_status="invalid_emotion_reaction",
+                validation_message=emotion_error_message,
+            ), f"Online AI response rejected: {emotion_error_message}"
+
+        if persona_mode == "emotion_reactions":
+            normalized_emotion = {
+                "type": "robot_command",
+                "intent": "none",
+                "pose_name": "",
+                "joint_name": "",
+                "joint_degrees": 0.0,
+                "speed_scale": 0.0,
+                "joint_targets": [],
+                "motion_steps": [],
+                "confidence": max(0.0, min(1.0, float(payload.get("confidence", confidence) or confidence))),
+                "requires_confirmation": False,
+                "reply_text": "",
+                "spoken_text": str(transcript or "").strip(),
+                "source_backend": self.source_backend,
+                "source_mode": "online",
+                "validation_status": "validated",
+                "validation_message": "",
+                "emotion_reaction": emotion_reaction,
+                "transcript_is_final": True,
+            }
+            return (
+                normalized_emotion,
+                f"Online AI emotion reaction validated for '{emotion_reaction.get('emotion_key', '')}'.",
+            )
 
         action = payload.get("action")
         if not isinstance(action, dict):
@@ -7244,6 +7555,7 @@ class OnlineAIOrchestrator:
             "source_mode": "online",
             "validation_status": "validated",
             "validation_message": "",
+            "emotion_reaction": emotion_reaction,
             "transcript_is_final": True,
         }
 
@@ -7484,6 +7796,7 @@ class OnlineAIOrchestrator:
             "source_mode": "online",
             "validation_status": str(validation_status or "").strip(),
             "validation_message": str(validation_message or "").strip(),
+            "emotion_reaction": self._build_empty_emotion_reaction(),
             "reply_already_spoken": bool(reply_already_spoken),
             "transcript_is_final": True,
         }
