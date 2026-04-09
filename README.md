@@ -21,6 +21,7 @@ require running any separate `Install GRPC` step before the project compiles.
 - Left/right eye camera preview over the Reachy camera service
 - Preset poses: `Neutral Arms`, `T-Pose`, `Tray Holding`, `Hello Pose A`, `Hello Pose B`, `Hello Pose C`, `Hello Pose D`
 - Looping animations and acted sequences, including `Speech A`, `Reachy introduction`, and `bender sleep`
+- Animation Creator tab for scene-side pose authoring, mouse joint posing, keyframe recording, loop playback, and save/delete of custom animations
 - Manual single-joint commands and full-pose commands at runtime
 - Xbox controller support for base driving, arm/head/gripper control, camera eye switching, and triggering acted sequences
 - Mobile-base velocity commands when the connected endpoint exposes mobility services

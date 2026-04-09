@@ -23,9 +23,10 @@ namespace Reachy.ControlApp
             AI = 1,
             AiModes = 2,
             AnimationsAndPoses = 3,
-            ManualControl = 4,
-            Teleoperation = 5,
-            Connections = 6
+            AnimationCreator = 4,
+            ManualControl = 5,
+            Teleoperation = 6,
+            Connections = 7
         }
 
         private static readonly string[] RuntimeMenuViewLabels =
@@ -34,6 +35,7 @@ namespace Reachy.ControlApp
             "AI",
             "AI Modes",
             "Animations & Poses",
+            "Animation Creator",
             "Manual Control",
             "Teleoperation",
             "Connections"
@@ -553,6 +555,30 @@ namespace Reachy.ControlApp
             public string Name { get; }
             public string Description { get; }
             public List<LoopingAnimationKeyframe> Keyframes { get; }
+        }
+
+        private sealed class AnimationCreatorSavedPose
+        {
+            public AnimationCreatorSavedPose(string name, IEnumerable<Dictionary<string, float>> keyframes)
+            {
+                Name = string.IsNullOrWhiteSpace(name) ? "Custom Pose" : name.Trim();
+                Keyframes = new List<Dictionary<string, float>>();
+                if (keyframes == null)
+                {
+                    return;
+                }
+
+                foreach (Dictionary<string, float> keyframe in keyframes)
+                {
+                    Keyframes.Add(keyframe != null
+                        ? new Dictionary<string, float>(keyframe, StringComparer.OrdinalIgnoreCase)
+                        : new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase));
+                }
+            }
+
+            public string Name { get; }
+            public List<Dictionary<string, float>> Keyframes { get; }
+            public int KeyframeCount => Keyframes.Count;
         }
 
         private static readonly string[] ManualControllerTrackedJointNames =
@@ -1102,10 +1128,26 @@ namespace Reachy.ControlApp
         private Vector2 _manualControlScroll;
         private Vector2 _animationsAndPosesScroll;
         private Vector2 _animationsAndPosesRightPanelScroll;
+        private Vector2 _animationCreatorControlsScroll;
+        private Vector2 _animationCreatorLibraryScroll;
         private Vector2 _aiPrimaryScroll;
         private Vector2 _aiRuntimeScroll;
+        private readonly List<AnimationCreatorSavedPose> _animationCreatorSavedPoses =
+            new List<AnimationCreatorSavedPose>();
+        private readonly HashSet<string> _animationCreatorSelectedPoseNames =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly List<Dictionary<string, float>> _animationCreatorDraftKeyframes =
+            new List<Dictionary<string, float>>();
         private readonly Dictionary<string, float> _manualControllerTargets =
             new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+        private ReachyAnimationCreator _animationCreator;
+        private Coroutine _animationCreatorPlaybackCoroutine;
+        private bool _animationCreatorEditModeEnabled;
+        private string _animationCreatorActivePoseName = string.Empty;
+        private string _animationCreatorPoseTitle = "Custom Pose 1";
+        private string _animationCreatorStatus =
+            "Create New Pose to enable the editor on the original scene Reachy in the middle.";
+        private int _animationCreatorNextPoseNumber = 1;
         private string _manualControllerStatus = "Controller inactive.";
         private string _manualControllerDetectedDevice = "No gamepad detected.";
         private ManualControllerInputSource _manualControllerInputSource;
@@ -1986,6 +2028,7 @@ namespace Reachy.ControlApp
             StopVoiceShowMovementSequence(updateStatus: false, reason: "UI destroyed");
             StopVoiceMotionSequence(updateStatus: false, reason: "UI destroyed");
             StopVoiceHelloReturnTimer(updateStatus: false, reason: "UI destroyed");
+            StopAnimationCreatorPlayback(updateStatus: false, reason: "UI destroyed");
 
             _cameraFetchTask = null;
             if (_cameraPreviewTexture != null)
@@ -2006,6 +2049,8 @@ namespace Reachy.ControlApp
 
             _client?.Dispose();
             _client = null;
+            _animationCreator?.Dispose();
+            _animationCreator = null;
             ShutdownRuntimeLogSession("OnDestroy");
         }
 
@@ -2014,6 +2059,7 @@ namespace Reachy.ControlApp
             StopActedSequence(updateStatus: false, reason: "Application quit", stopLoopingAnimation: false);
             StopLoopingAnimation(updateStatus: false, reason: "Application quit");
             StopVoiceMotionSequence(updateStatus: false, reason: "Application quit");
+            StopAnimationCreatorPlayback(updateStatus: false, reason: "Application quit");
             CleanupAllSidecarsOnShutdown("application quit");
             ShutdownRuntimeLogSession("OnApplicationQuit");
         }
@@ -2024,6 +2070,7 @@ namespace Reachy.ControlApp
             UpdateRobotSpeakerMirrorDiagnostics();
             UpdateLocalAiAgent();
             UpdateManualController();
+            UpdateAnimationCreator();
             UpdateMobileBaseServiceRecovery();
 
             if (_isConnectAttemptInProgress)
@@ -2192,6 +2239,13 @@ namespace Reachy.ControlApp
                     ? "Keyboard fallback (Manual Control tab)"
                     : "No gamepad detected."
                 : detectedDevice;
+
+            if (_activeMenuView == RuntimeMenuView.AnimationCreator)
+            {
+                _manualControllerStatus = "Manual controller paused while Animation Creator is active.";
+                _manualControllerBaseWasActiveLastFrame = false;
+                return;
+            }
 
             if (!manualControllerEnabled)
             {
@@ -14333,6 +14387,13 @@ namespace Reachy.ControlApp
                     return;
                 }
 
+                if (_activeMenuView == RuntimeMenuView.AnimationCreator)
+                {
+                    DrawAnimationCreatorView(topY, logicalMargin, logicalScreenWidth, logicalScreenHeight);
+                    GUI.matrix = previousMatrix;
+                    return;
+                }
+
                 if (_activeMenuView == RuntimeMenuView.ManualControl)
                 {
                     DrawManualControlView(topY, logicalMargin, logicalScreenWidth, logicalScreenHeight);
@@ -14642,6 +14703,317 @@ namespace Reachy.ControlApp
             DrawActedSequencesSection();
             GUILayout.Space(10f);
             DrawStatusSection();
+
+            GUILayout.EndScrollView();
+            GUILayout.EndArea();
+        }
+
+        private void DrawAnimationCreatorView(
+            float topY,
+            float logicalMargin,
+            float logicalScreenWidth,
+            float logicalScreenHeight)
+        {
+            float usableWidth = Mathf.Max(320f, logicalScreenWidth - (2f * logicalMargin));
+            float usableHeight = Mathf.Max(220f, logicalScreenHeight - topY - logicalMargin);
+            float desiredPanelWidth = Mathf.Clamp(
+                usableWidth * DesignManualPanelWidthRatio,
+                DesignManualPanelMinWidth,
+                DesignManualPanelMaxWidth);
+            float maxPanelWidthByOpenSpace = Mathf.Max(180f, (usableWidth - DesignManualCenterOpenMinWidth) * 0.5f);
+            float leftPanelWidth = Mathf.Min(desiredPanelWidth, maxPanelWidthByOpenSpace);
+            float rightPanelWidth = leftPanelWidth;
+
+            float originalCenterGap = Mathf.Max(0f, usableWidth - leftPanelWidth - rightPanelWidth);
+            float targetCenterGap = originalCenterGap * DesignAiMiddleSpaceFactor;
+            float expandPerSide = Mathf.Max(0f, (originalCenterGap - targetCenterGap) * 0.5f);
+            leftPanelWidth += expandPerSide;
+            rightPanelWidth += expandPerSide;
+
+            float minimumGap = Mathf.Max(12f, DesignPanelGap);
+            float availableGap = usableWidth - leftPanelWidth - rightPanelWidth;
+            if (availableGap < minimumGap)
+            {
+                float deficit = minimumGap - availableGap;
+                float leftShrink = Mathf.Min(deficit * 0.5f, Mathf.Max(0f, leftPanelWidth - 140f));
+                float rightShrink = Mathf.Min(deficit * 0.5f, Mathf.Max(0f, rightPanelWidth - 140f));
+                leftPanelWidth -= leftShrink;
+                rightPanelWidth -= rightShrink;
+            }
+
+            float leftPanelX = logicalMargin;
+            float rightPanelX = logicalScreenWidth - logicalMargin - rightPanelWidth;
+            float centerPanelX = leftPanelX + leftPanelWidth;
+            float centerPanelWidth = Mathf.Max(0f, rightPanelX - centerPanelX);
+
+            DrawAnimationCreatorControlsPanel(new Rect(leftPanelX, topY, leftPanelWidth, usableHeight));
+            DrawAnimationCreatorLibraryPanel(new Rect(rightPanelX, topY, rightPanelWidth, usableHeight));
+
+            if (centerPanelWidth >= 220f)
+            {
+                Rect centerArea = new Rect(centerPanelX, topY, centerPanelWidth, usableHeight);
+                DrawAnimationCreatorCenterOverlay(centerArea);
+                if (_animationCreator != null)
+                {
+                    _animationCreator.SetScreenRect(ScaleLogicalRectToScreen(centerArea));
+                }
+            }
+            else if (_animationCreator != null)
+            {
+                _animationCreator.SetScreenRect(new Rect(0f, 0f, 0f, 0f));
+            }
+        }
+
+        private void DrawAnimationCreatorControlsPanel(Rect area)
+        {
+            bool creatorReady = EnsureAnimationCreator(out string creatorMessage);
+
+            GUILayout.BeginArea(area, GUI.skin.box);
+            GUILayout.Label("Animation Creator", _titleStyle);
+
+            float bodyHeight = Mathf.Max(120f, area.height - 38f);
+            _animationCreatorControlsScroll = GUILayout.BeginScrollView(
+                _animationCreatorControlsScroll,
+                false,
+                true,
+                GUILayout.Height(bodyHeight));
+
+            GUILayout.Label("This tab allows you to create custom Animation Poses for Reachy keyframe by keyframe. You can create a new pose, move the joints by dragging the sliders below or by moving his joints in the middle area. To finalise, you can then save all the animation key frames you created.");
+            GUILayout.Space(6f);
+            DrawPoseSpeedSliderSection(
+                "Adjust shared pose transition speed for preset poses, looping animations, and Animation Creator playback.");
+            GUILayout.Space(10f);
+
+            GUILayout.Label("Pose title");
+            _animationCreatorPoseTitle = GUILayout.TextField(_animationCreatorPoseTitle ?? string.Empty);
+
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button(
+                "Create New Pose",
+                GUILayout.Width(CalcUiButtonWidth("Create New Pose", 132f)),
+                GUILayout.Height(24f)))
+            {
+                BeginAnimationCreatorPoseCapture();
+            }
+
+            bool previousGuiEnabled = GUI.enabled;
+            GUI.enabled = creatorReady;
+            if (GUILayout.Button(
+                "Reset Pose",
+                GUILayout.Width(CalcUiButtonWidth("Reset Pose", 98f)),
+                GUILayout.Height(24f)))
+            {
+                ResetAnimationCreatorPose();
+            }
+
+            if (GUILayout.Button(
+                "Record Keyframe Animation",
+                GUILayout.Width(CalcUiButtonWidth("Record Keyframe Animation", 156f)),
+                GUILayout.Height(24f)))
+            {
+                RecordAnimationCreatorKeyframe();
+            }
+
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            GUI.enabled = creatorReady;
+            if (GUILayout.Button(
+                "Save",
+                GUILayout.Width(CalcUiButtonWidth("Save", 118f)),
+                GUILayout.Height(24f)))
+            {
+                SaveAnimationCreatorPose();
+            }
+
+            GUI.enabled = !string.IsNullOrWhiteSpace(_animationCreatorActivePoseName);
+            if (GUILayout.Button(
+                "Stop",
+                GUILayout.Width(CalcUiButtonWidth("Stop", 118f)),
+                GUILayout.Height(24f)))
+            {
+                StopActedSequence(
+                    updateStatus: false,
+                    reason: "Stopped from Animation Creator.",
+                    stopLoopingAnimation: false);
+                StopLoopingAnimation(updateStatus: false, reason: "Stopped from Animation Creator.");
+                StopAnimationCreatorPlayback(updateStatus: true, reason: "Stopped from Animation Creator.");
+            }
+
+            GUI.enabled = previousGuiEnabled;
+            GUILayout.EndHorizontal();
+
+            if (!creatorReady)
+            {
+                GUILayout.Space(8f);
+                GUILayout.Label(creatorMessage);
+                GUILayout.EndScrollView();
+                GUILayout.EndArea();
+                return;
+            }
+
+            GUILayout.Space(8f);
+            GUILayout.Label(_animationCreatorEditModeEnabled
+                ? "Pose capture is active. Click a joint on Reachy in the middle scene and drag with the left mouse button."
+                : "Pose capture is idle. Use Create New Pose to enable body editing.");
+            GUILayout.Label(_animationCreatorDraftKeyframes.Count > 0
+                ? $"Draft animation frames recorded: {_animationCreatorDraftKeyframes.Count}"
+                : "Draft animation frames recorded: 0");
+
+            string selectedJointName = _animationCreator.SelectedJointName;
+            if (string.IsNullOrWhiteSpace(selectedJointName))
+            {
+                GUILayout.Label("Selected joint: none");
+            }
+            else
+            {
+                GUILayout.Label($"Selected joint: {ReachyAnimationCreator.GetDisplayName(selectedJointName)}");
+                if (_animationCreator.TryGetJointTarget(selectedJointName, out float currentDegrees) &&
+                    _animationCreator.TryGetJointRange(selectedJointName, out float minDegrees, out float maxDegrees))
+                {
+                    float nextDegrees = GUILayout.HorizontalSlider(currentDegrees, minDegrees, maxDegrees);
+                    GUILayout.Label($"{currentDegrees:F1} deg  (range {minDegrees:F0} deg to {maxDegrees:F0} deg)");
+                    if (Mathf.Abs(nextDegrees - currentDegrees) > 0.01f)
+                    {
+                        StopAnimationCreatorPlayback(updateStatus: false, reason: "Adjusted in Animation Creator.");
+                        _animationCreator.SetJointTarget(selectedJointName, nextDegrees);
+                    }
+                }
+            }
+
+            GUILayout.Space(10f);
+            GUILayout.Label("Quick joint access", _titleStyle);
+            for (int i = 0; i < _animationCreator.JointNames.Count; i++)
+            {
+                string jointName = _animationCreator.JointNames[i];
+                if (string.IsNullOrWhiteSpace(jointName))
+                {
+                    continue;
+                }
+
+                bool isSelected = string.Equals(
+                    jointName,
+                    _animationCreator.SelectedJointName,
+                    StringComparison.OrdinalIgnoreCase);
+                string buttonLabel = isSelected
+                    ? $"> {ReachyAnimationCreator.GetDisplayName(jointName)}"
+                    : ReachyAnimationCreator.GetDisplayName(jointName);
+                if (GUILayout.Button(buttonLabel, GUILayout.Height(22f)))
+                {
+                    _animationCreator.SelectJoint(jointName);
+                }
+            }
+
+            GUILayout.EndScrollView();
+            GUILayout.EndArea();
+        }
+
+        private void DrawAnimationCreatorCenterOverlay(Rect area)
+        {
+            bool creatorReady = EnsureAnimationCreator(out string creatorMessage);
+            float overlayWidth = Mathf.Min(area.width, 340f);
+            float overlayHeight = creatorReady ? 62f : 86f;
+            Rect overlayRect = new Rect(
+                area.x + Mathf.Max(0f, (area.width - overlayWidth) * 0.5f),
+                area.y + 8f,
+                overlayWidth,
+                overlayHeight);
+
+            GUILayout.BeginArea(overlayRect, GUI.skin.box);
+            GUILayout.Label("Animate Avatar With Mouse (Work in Progress)", _titleStyle);
+            GUILayout.Label(creatorReady
+                ? "You can move Reachy's joints with mouse in this area. Click a joint and drag to pose Reachy."
+                : creatorMessage);
+            GUILayout.EndArea();
+        }
+
+        private void DrawAnimationCreatorLibraryPanel(Rect area)
+        {
+            bool creatorReady = EnsureAnimationCreator(out _);
+
+            GUILayout.BeginArea(area, GUI.skin.box);
+            GUILayout.Label("Saved Animations", _titleStyle);
+
+            float bodyHeight = Mathf.Max(120f, area.height - 38f);
+            _animationCreatorLibraryScroll = GUILayout.BeginScrollView(
+                _animationCreatorLibraryScroll,
+                false,
+                true,
+                GUILayout.Height(bodyHeight));
+
+            int selectedSavedPoseCount = CountSelectedAnimationCreatorSavedPoses();
+            if (_animationCreatorSavedPoses.Count <= 0)
+            {
+                GUILayout.Label("No saved scene animations yet. When your animations are saved, you can find them here and play them back or delete them.");
+            }
+            else
+            {
+                GUILayout.Label("Tick one or more saved animations, then delete them together.");
+                bool previousGuiEnabled = GUI.enabled;
+                GUI.enabled = selectedSavedPoseCount > 0;
+                if (GUILayout.Button(
+                    selectedSavedPoseCount > 0
+                        ? $"Delete Selected ({selectedSavedPoseCount})"
+                        : "Delete Selected",
+                    GUILayout.Height(24f)))
+                {
+                    DeleteSelectedAnimationCreatorSavedPoses();
+                    selectedSavedPoseCount = CountSelectedAnimationCreatorSavedPoses();
+                }
+
+                GUI.enabled = previousGuiEnabled;
+                GUILayout.Space(8f);
+
+                for (int i = 0; i < _animationCreatorSavedPoses.Count; i++)
+                {
+                    AnimationCreatorSavedPose savedPose = _animationCreatorSavedPoses[i];
+                    if (savedPose == null)
+                    {
+                        continue;
+                    }
+
+                    string buttonLabel = string.Equals(
+                        _animationCreatorActivePoseName,
+                        savedPose.Name,
+                        StringComparison.OrdinalIgnoreCase)
+                        ? $"Playing: {savedPose.Name} ({savedPose.KeyframeCount} frames)"
+                        : $"{savedPose.Name} ({savedPose.KeyframeCount} frames)";
+
+                    bool isSelectedForDeletion = _animationCreatorSelectedPoseNames.Contains(savedPose.Name);
+                    GUILayout.BeginHorizontal();
+                    bool nextSelectedForDeletion = GUILayout.Toggle(
+                        isSelectedForDeletion,
+                        string.Empty,
+                        GUILayout.Width(22f));
+                    if (nextSelectedForDeletion != isSelectedForDeletion)
+                    {
+                        if (nextSelectedForDeletion)
+                        {
+                            _animationCreatorSelectedPoseNames.Add(savedPose.Name);
+                        }
+                        else
+                        {
+                            _animationCreatorSelectedPoseNames.Remove(savedPose.Name);
+                        }
+                    }
+
+                    if (GUILayout.Button(buttonLabel, GUILayout.Height(24f)))
+                    {
+                        PlayAnimationCreatorPose(savedPose);
+                    }
+
+                    GUILayout.EndHorizontal();
+                }
+            }
+
+            GUILayout.Space(10f);
+            GUILayout.Label("Status", _titleStyle);
+            GUILayout.Label(_animationCreatorStatus);
+            if (creatorReady)
+            {
+                GUILayout.Space(6f);
+                GUILayout.Label($"Scene body: {_animationCreator.Status}");
+            }
 
             GUILayout.EndScrollView();
             GUILayout.EndArea();
@@ -15360,10 +15732,12 @@ namespace Reachy.ControlApp
             GUILayout.EndArea();
         }
 
-        private void DrawPoseSpeedSliderSection()
+        private void DrawPoseSpeedSliderSection(string description = null)
         {
             GUILayout.Label("Pose Speed", _titleStyle);
-            GUILayout.Label("Adjust preset pose transition speed and looping animation pacing.");
+            GUILayout.Label(string.IsNullOrWhiteSpace(description)
+                ? "Adjust preset pose transition speed and looping animation pacing."
+                : description);
 
             presetPoseTransitionSpeedScale = GUILayout.HorizontalSlider(presetPoseTransitionSpeedScale, 0.05f, 2.0f);
             presetPoseTransitionSpeedScale = Mathf.Clamp(presetPoseTransitionSpeedScale, 0.05f, 2.0f);
@@ -17093,6 +17467,12 @@ namespace Reachy.ControlApp
         private float GetLoopingAnimationPlaybackSpeedScale()
         {
             return Mathf.Clamp(presetPoseTransitionSpeedScale, 0.05f, 2.0f);
+        }
+
+        private float ScaleAnimationCreatorPlaybackDuration(float baseDurationSeconds)
+        {
+            float speedScale = Mathf.Clamp(presetPoseTransitionSpeedScale, 0.05f, 2.0f);
+            return Mathf.Max(0.01f, baseDurationSeconds / speedScale);
         }
 
         private void SyncPoseMotionSettingsToClient()
@@ -18948,6 +19328,373 @@ namespace Reachy.ControlApp
 
             GUILayout.Label(_cameraPreviewStatus);
             GUILayout.EndArea();
+        }
+
+        private void UpdateAnimationCreator()
+        {
+            if (_activeMenuView != RuntimeMenuView.AnimationCreator || _animationCreator == null)
+            {
+                return;
+            }
+
+            _animationCreator.UpdateInteraction(_animationCreatorEditModeEnabled);
+        }
+
+        private bool EnsureAnimationCreator(out string message)
+        {
+            if (_animationCreator == null)
+            {
+                _animationCreator = new ReachyAnimationCreator();
+            }
+
+            return _animationCreator.EnsureInitialized(out message);
+        }
+
+        private Rect ScaleLogicalRectToScreen(Rect logicalRect)
+        {
+            return new Rect(
+                logicalRect.x * _uiScale,
+                logicalRect.y * _uiScale,
+                logicalRect.width * _uiScale,
+                logicalRect.height * _uiScale);
+        }
+
+        private void BeginAnimationCreatorPoseCapture()
+        {
+            if (!EnsureAnimationCreator(out string message))
+            {
+                _animationCreatorStatus = message;
+                return;
+            }
+
+            StopActedSequence(
+                updateStatus: false,
+                reason: "Entered Animation Creator.",
+                stopLoopingAnimation: false);
+            StopLoopingAnimation(updateStatus: false, reason: "Entered Animation Creator.");
+            StopAnimationCreatorPlayback(updateStatus: false, reason: "Started a new pose.");
+            _animationCreatorDraftKeyframes.Clear();
+            _animationCreatorEditModeEnabled = true;
+            if (string.IsNullOrWhiteSpace(_animationCreatorPoseTitle))
+            {
+                _animationCreatorPoseTitle = $"Custom Pose {_animationCreatorNextPoseNumber}";
+            }
+
+            _animationCreatorStatus =
+                "Pose capture enabled. Click a joint on the original Reachy in the middle and drag with the left mouse button. Use Record Keyframe Animation to add full-body keyframes.";
+        }
+
+        private void ResetAnimationCreatorPose()
+        {
+            if (!EnsureAnimationCreator(out string message))
+            {
+                _animationCreatorStatus = message;
+                return;
+            }
+
+            StopAnimationCreatorPlayback(updateStatus: false, reason: "Reset pose in Animation Creator.");
+            Dictionary<string, float> neutralPose = BuildAnimationCreatorNeutralPose();
+            _animationCreatorPlaybackCoroutine = StartCoroutine(
+                RunAnimationCreatorSingleTransition(
+                    neutralPose,
+                    ScaleAnimationCreatorPlaybackDuration(0.38f),
+                    "Reset pose applied. Reachy returned to Neutral pose using the Animations & Poses speed."));
+            _animationCreatorStatus = "Resetting Reachy to Neutral pose using the Animations & Poses speed.";
+        }
+
+        private void RecordAnimationCreatorKeyframe()
+        {
+            if (!EnsureAnimationCreator(out string message))
+            {
+                _animationCreatorStatus = message;
+                return;
+            }
+
+            StopAnimationCreatorPlayback(updateStatus: false, reason: "Recording Animation Creator keyframe.");
+            Dictionary<string, float> keyframe = _animationCreator.CapturePose();
+            if (keyframe.Count <= 0)
+            {
+                _animationCreatorStatus = "No scene pose was available to record.";
+                return;
+            }
+
+            _animationCreatorDraftKeyframes.Add(
+                new Dictionary<string, float>(keyframe, StringComparer.OrdinalIgnoreCase));
+            _animationCreatorStatus =
+                $"Recorded keyframe {_animationCreatorDraftKeyframes.Count} for '{GetAnimationCreatorPoseTitleOrDefault()}'.";
+        }
+
+        private void SaveAnimationCreatorPose()
+        {
+            if (!EnsureAnimationCreator(out string message))
+            {
+                _animationCreatorStatus = message;
+                return;
+            }
+
+            var keyframes = new List<Dictionary<string, float>>();
+            for (int i = 0; i < _animationCreatorDraftKeyframes.Count; i++)
+            {
+                keyframes.Add(
+                    new Dictionary<string, float>(_animationCreatorDraftKeyframes[i], StringComparer.OrdinalIgnoreCase));
+            }
+
+            if (keyframes.Count <= 0)
+            {
+                Dictionary<string, float> currentPose = _animationCreator.CapturePose();
+                if (currentPose.Count > 0)
+                {
+                    keyframes.Add(currentPose);
+                }
+            }
+
+            if (keyframes.Count <= 0)
+            {
+                _animationCreatorStatus = "No scene pose or recorded animation was available to save.";
+                return;
+            }
+
+            string poseName = GetAnimationCreatorPoseTitleOrDefault();
+            int existingIndex = FindAnimationCreatorSavedPoseIndex(poseName);
+            var savedPose = new AnimationCreatorSavedPose(poseName, keyframes);
+            if (existingIndex >= 0)
+            {
+                _animationCreatorSavedPoses[existingIndex] = savedPose;
+                _animationCreatorStatus =
+                    $"Updated scene animation '{poseName}' with {savedPose.KeyframeCount} frame(s).";
+            }
+            else
+            {
+                _animationCreatorSavedPoses.Add(savedPose);
+                _animationCreatorStatus =
+                    $"Saved scene animation '{poseName}' with {savedPose.KeyframeCount} frame(s).";
+            }
+
+            _animationCreatorEditModeEnabled = false;
+            _animationCreatorDraftKeyframes.Clear();
+            _animationCreatorNextPoseNumber++;
+            _animationCreatorPoseTitle = $"Custom Pose {_animationCreatorNextPoseNumber}";
+        }
+
+        private string GetAnimationCreatorPoseTitleOrDefault()
+        {
+            string trimmed = (_animationCreatorPoseTitle ?? string.Empty).Trim();
+            if (!string.IsNullOrWhiteSpace(trimmed))
+            {
+                return trimmed;
+            }
+
+            return $"Custom Pose {_animationCreatorNextPoseNumber}";
+        }
+
+        private int FindAnimationCreatorSavedPoseIndex(string poseName)
+        {
+            if (string.IsNullOrWhiteSpace(poseName))
+            {
+                return -1;
+            }
+
+            for (int i = 0; i < _animationCreatorSavedPoses.Count; i++)
+            {
+                AnimationCreatorSavedPose savedPose = _animationCreatorSavedPoses[i];
+                if (savedPose != null &&
+                    string.Equals(savedPose.Name, poseName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        private int CountSelectedAnimationCreatorSavedPoses()
+        {
+            int count = 0;
+            for (int i = 0; i < _animationCreatorSavedPoses.Count; i++)
+            {
+                AnimationCreatorSavedPose savedPose = _animationCreatorSavedPoses[i];
+                if (savedPose != null && _animationCreatorSelectedPoseNames.Contains(savedPose.Name))
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private void DeleteSelectedAnimationCreatorSavedPoses()
+        {
+            int deletedCount = 0;
+            bool removedActivePose = false;
+            for (int i = _animationCreatorSavedPoses.Count - 1; i >= 0; i--)
+            {
+                AnimationCreatorSavedPose savedPose = _animationCreatorSavedPoses[i];
+                if (savedPose == null || !_animationCreatorSelectedPoseNames.Contains(savedPose.Name))
+                {
+                    continue;
+                }
+
+                if (string.Equals(
+                    _animationCreatorActivePoseName,
+                    savedPose.Name,
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    removedActivePose = true;
+                }
+
+                _animationCreatorSavedPoses.RemoveAt(i);
+                deletedCount++;
+            }
+
+            _animationCreatorSelectedPoseNames.Clear();
+
+            if (removedActivePose)
+            {
+                StopAnimationCreatorPlayback(
+                    updateStatus: false,
+                    reason: "Deleted selected Animation Creator animations.");
+            }
+
+            _animationCreatorStatus = deletedCount == 1
+                ? "Deleted 1 saved scene animation."
+                : $"Deleted {deletedCount} saved scene animations.";
+        }
+
+        private void PlayAnimationCreatorPose(AnimationCreatorSavedPose savedPose)
+        {
+            if (savedPose == null)
+            {
+                return;
+            }
+
+            if (!EnsureAnimationCreator(out string message))
+            {
+                _animationCreatorStatus = message;
+                return;
+            }
+
+            StopActedSequence(
+                updateStatus: false,
+                reason: "Entered Animation Creator.",
+                stopLoopingAnimation: false);
+            StopLoopingAnimation(updateStatus: false, reason: "Entered Animation Creator.");
+            StopAnimationCreatorPlayback(updateStatus: false, reason: "Restarting Animation Creator playback.");
+            _animationCreatorEditModeEnabled = false;
+            _animationCreatorPlaybackCoroutine = StartCoroutine(RunAnimationCreatorPoseLoop(savedPose));
+            _animationCreatorActivePoseName = savedPose.Name;
+            _animationCreatorStatus =
+                $"Playing looping animation '{savedPose.Name}' on the scene Reachy ({savedPose.KeyframeCount} frame(s)).";
+        }
+
+        private IEnumerator RunAnimationCreatorPoseLoop(AnimationCreatorSavedPose savedPose)
+        {
+            if (savedPose == null || savedPose.Keyframes == null || savedPose.Keyframes.Count <= 0)
+            {
+                yield break;
+            }
+
+            Dictionary<string, float> neutralPose = BuildAnimationCreatorNeutralPose();
+            while (true)
+            {
+                for (int i = 0; i < savedPose.Keyframes.Count; i++)
+                {
+                    Dictionary<string, float> keyframe = savedPose.Keyframes[i];
+                    if (keyframe == null || keyframe.Count <= 0)
+                    {
+                        continue;
+                    }
+
+                    yield return AnimateAnimationCreatorPose(
+                        keyframe,
+                        ScaleAnimationCreatorPlaybackDuration(0.42f));
+                    yield return new WaitForSecondsRealtime(
+                        ScaleAnimationCreatorPlaybackDuration(0.32f));
+                }
+
+                yield return AnimateAnimationCreatorPose(
+                    neutralPose,
+                    ScaleAnimationCreatorPlaybackDuration(0.38f));
+                yield return new WaitForSecondsRealtime(
+                    ScaleAnimationCreatorPlaybackDuration(0.35f));
+            }
+        }
+
+        private IEnumerator RunAnimationCreatorSingleTransition(
+            IReadOnlyDictionary<string, float> targetPose,
+            float durationSeconds,
+            string completedStatus)
+        {
+            yield return AnimateAnimationCreatorPose(targetPose, durationSeconds);
+            _animationCreatorPlaybackCoroutine = null;
+            _animationCreatorActivePoseName = string.Empty;
+            if (!string.IsNullOrWhiteSpace(completedStatus))
+            {
+                _animationCreatorStatus = completedStatus;
+            }
+        }
+
+        private IEnumerator AnimateAnimationCreatorPose(
+            IReadOnlyDictionary<string, float> targetPose,
+            float durationSeconds)
+        {
+            if (_animationCreator == null || targetPose == null)
+            {
+                yield break;
+            }
+
+            Dictionary<string, float> startPose = _animationCreator.CapturePose();
+            float duration = Mathf.Max(0.01f, durationSeconds);
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                var blendedPose = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+                for (int i = 0; i < _animationCreator.JointNames.Count; i++)
+                {
+                    string jointName = _animationCreator.JointNames[i];
+                    float startDegrees = startPose.TryGetValue(jointName, out float startValue) ? startValue : 0f;
+                    float endDegrees = targetPose.TryGetValue(jointName, out float endValue) ? endValue : 0f;
+                    blendedPose[jointName] = Mathf.Lerp(startDegrees, endDegrees, t);
+                }
+
+                _animationCreator.SetPose(blendedPose);
+                yield return null;
+            }
+
+            _animationCreator.SetPose(targetPose);
+        }
+
+        private Dictionary<string, float> BuildAnimationCreatorNeutralPose()
+        {
+            var neutralPose = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+            if (_animationCreator == null)
+            {
+                return neutralPose;
+            }
+
+            for (int i = 0; i < _animationCreator.JointNames.Count; i++)
+            {
+                string jointName = _animationCreator.JointNames[i];
+                neutralPose[jointName] = 0f;
+            }
+
+            return neutralPose;
+        }
+
+        private void StopAnimationCreatorPlayback(bool updateStatus, string reason)
+        {
+            if (_animationCreatorPlaybackCoroutine != null)
+            {
+                StopCoroutine(_animationCreatorPlaybackCoroutine);
+                _animationCreatorPlaybackCoroutine = null;
+            }
+
+            _animationCreatorActivePoseName = string.Empty;
+            if (updateStatus && !string.IsNullOrWhiteSpace(reason))
+            {
+                _animationCreatorStatus = reason;
+            }
         }
 
         private void DrawLocalAgentPanel(
