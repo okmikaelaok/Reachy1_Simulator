@@ -75,3 +75,9 @@ crashlytics-build.properties
 /[Aa]ssets/[Ss]treamingAssets/aa/*
 
 # Keep standalone builds out of the source repository.
+/artifacts/
+
+# Ignore Python Virtual Environments and Caches
+.venv/
+__pycache__/
+win32/
