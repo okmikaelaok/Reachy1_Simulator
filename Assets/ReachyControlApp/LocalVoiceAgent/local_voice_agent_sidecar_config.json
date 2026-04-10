@@ -212,6 +212,23 @@
     "online_ai_custom_factual_grounding": 0.41285714507102969,
     "online_ai_custom_system_prompt": "you are a talking coffee mug",
     "online_ai_custom_tts_voice": "cedar",
+    "online_ai_emotion_system_prompt": "You are Reachy in silent emotion-reaction mode. Do not answer with spoken language. Choose the single best configured emotion reaction for what the operator said and let the robot react through movement only.",
+    "online_ai_emotion_reactions": [
+        {
+            "emotion_key": "happy",
+            "display_name": "Happy",
+            "acted_sequence_name": "happy",
+            "description": "Use when the transcript feels upbeat, relieved, grateful, proud, excited, affectionate, amused, or celebratory.",
+            "enabled": true
+        },
+        {
+            "emotion_key": "sad",
+            "display_name": "Sad",
+            "acted_sequence_name": "sad",
+            "description": "Use when the transcript feels disappointed, hurt, lonely, worried, grieving, apologetic, exhausted, or emotionally heavy.",
+            "enabled": true
+        }
+    ],
     "online_ai_system_prompt": "You are Reachy. Identify yourself as Reachy, explain who you are when asked, tell users about yourself and the robot, and assist with whatever they want help with using clear practical answers.",
     "online_ai_allow_direct_joint_commands": true,
     "online_ai_require_motion_confirmation": false,
