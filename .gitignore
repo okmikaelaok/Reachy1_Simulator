@@ -81,3 +81,6 @@ crashlytics-build.properties
 .venv/
 __pycache__/
 win32/
+
+# Local one-off build diagnostics
+build_check.log
