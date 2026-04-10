@@ -24,9 +24,10 @@ namespace Reachy.ControlApp
             AiModes = 2,
             AnimationsAndPoses = 3,
             AnimationCreator = 4,
-            ManualControl = 5,
-            Teleoperation = 6,
-            Connections = 7
+            ChitChat = 5,
+            ManualControl = 6,
+            Teleoperation = 7,
+            Connections = 8
         }
 
         private static readonly string[] RuntimeMenuViewLabels =
@@ -36,6 +37,7 @@ namespace Reachy.ControlApp
             "AI Modes",
             "Animations & Poses",
             "Animation Creator",
+            "Chit Chat",
             "Manual Control",
             "Teleoperation",
             "Connections"
@@ -78,6 +80,46 @@ namespace Reachy.ControlApp
             public string description = string.Empty;
             public bool enabled = true;
         }
+
+        private sealed class ChitChatHistoryEntry
+        {
+            public ChitChatHistoryEntry(string speaker, string text)
+            {
+                Speaker = string.IsNullOrWhiteSpace(speaker) ? "Reachy" : speaker.Trim();
+                Text = string.IsNullOrWhiteSpace(text) ? string.Empty : text.Trim();
+            }
+
+            public string Speaker { get; }
+            public string Text { get; }
+        }
+
+        private sealed class ChitChatTopicDefinition
+        {
+            public ChitChatTopicDefinition(string label, string prompt)
+            {
+                Label = string.IsNullOrWhiteSpace(label) ? string.Empty : label.Trim();
+                Prompt = string.IsNullOrWhiteSpace(prompt) ? string.Empty : prompt.Trim();
+            }
+
+            public string Label { get; }
+            public string Prompt { get; }
+        }
+
+        private static readonly ChitChatTopicDefinition[] ChitChatTopics =
+        {
+            new ChitChatTopicDefinition(
+                "the future of robots in education",
+                "Can you tell me more about the future of robots in education?"),
+            new ChitChatTopicDefinition(
+                "the future of robots in jobs",
+                "Can you tell me more about the future of robots in jobs?"),
+            new ChitChatTopicDefinition(
+                "the future of robots at home",
+                "Can you tell me more about the future of robots at home?"),
+            new ChitChatTopicDefinition(
+                "the future of robots' roles",
+                "Can you tell me more about the future of robots' roles?")
+        };
 
         private static readonly string[] OnlineAiTtsVoiceOptions =
         {
@@ -221,6 +263,11 @@ namespace Reachy.ControlApp
         private const string SidecarOnlineReplyAudioPath = "/online-reply-audio";
         private const string SidecarOnlineAiModePath = "/online-ai-mode";
         private const string SidecarOnlineAiCustomPersonaPath = "/online-ai-custom-persona";
+        private const string SidecarInjectTranscriptPath = "/inject_transcript";
+        private const int ChitChatHistoryMaxEntries = 24;
+        private const string ChitChatInputControlName = "chit_chat_input";
+        private const string DefaultChitChatStatus =
+            "Ask Reachy a question or try one of the topic prompts.";
         private const string LocalAiAgentActivationAnnouncement =
             "Local AI agent is now active. Use voice commands to control Reachy or ask for help.";
         private const string DefaultAssistantOnlineAiSystemPrompt =
@@ -1167,6 +1214,7 @@ namespace Reachy.ControlApp
         private Vector2 _animationsAndPosesRightPanelScroll;
         private Vector2 _animationCreatorControlsScroll;
         private Vector2 _animationCreatorLibraryScroll;
+        private Vector2 _chitChatConversationScroll;
         private Vector2 _aiPrimaryScroll;
         private Vector2 _aiRuntimeScroll;
         private readonly List<AnimationCreatorSavedPose> _animationCreatorSavedPoses =
@@ -1213,6 +1261,13 @@ namespace Reachy.ControlApp
         private VoiceCommandRouter _voiceCommandRouter;
         private VoiceTranscriptIntentParser _voiceTranscriptParser;
         private VoiceAgentStatusPanel.State _voiceAgentStatusState;
+        private readonly List<ChitChatHistoryEntry> _chitChatHistory = new List<ChitChatHistoryEntry>();
+        private string _chitChatInput = string.Empty;
+        private string _chitChatStatus = DefaultChitChatStatus;
+        private bool _chitChatAwaitingResponse;
+        private string _chitChatPendingPrompt = string.Empty;
+        private bool _chitChatSuppressNextResponse;
+        private Task<ChitChatTranscriptRequestResult> _chitChatInjectionTask;
         private bool _voiceHasPendingAction;
         private VoiceCommandRouter.RoutedAction _voicePendingAction;
         private string _voiceLastTranscript = "No transcripts yet.";
@@ -1435,6 +1490,13 @@ namespace Reachy.ControlApp
             public string Error;
         }
 
+        private struct ChitChatTranscriptRequestResult
+        {
+            public bool Success;
+            public string Message;
+            public string Error;
+        }
+
         private struct OnlineAiCustomPersonaResult
         {
             public bool Success;
@@ -1600,6 +1662,14 @@ namespace Reachy.ControlApp
         }
 
         [Serializable]
+        private sealed class ChitChatTranscriptPayload
+        {
+            public string text = string.Empty;
+            public bool final = true;
+            public float confidence = 0.98f;
+        }
+
+        [Serializable]
         private sealed class TtsModeUpdateResponseEnvelope
         {
             public bool ok;
@@ -1623,6 +1693,13 @@ namespace Reachy.ControlApp
             public bool ok;
             public string requested_mode = string.Empty;
             public string effective_mode = string.Empty;
+            public string message = string.Empty;
+        }
+
+        [Serializable]
+        private sealed class ChitChatTranscriptResponseEnvelope
+        {
+            public bool ok;
             public string message = string.Empty;
         }
 
@@ -3900,6 +3977,261 @@ namespace Reachy.ControlApp
             };
         }
 
+        private void AppendChitChatHistory(string speaker, string text)
+        {
+            string trimmedText = string.IsNullOrWhiteSpace(text) ? string.Empty : text.Trim();
+            if (string.IsNullOrWhiteSpace(trimmedText))
+            {
+                return;
+            }
+
+            _chitChatHistory.Add(new ChitChatHistoryEntry(speaker, trimmedText));
+            if (_chitChatHistory.Count > ChitChatHistoryMaxEntries)
+            {
+                _chitChatHistory.RemoveAt(0);
+            }
+        }
+
+        private void CompleteChitChatRequest(
+            string responseText,
+            string statusText = "",
+            bool resetStatusToDefault = false)
+        {
+            if (!_chitChatAwaitingResponse)
+            {
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(responseText))
+            {
+                AppendChitChatHistory("Reachy", responseText);
+            }
+
+            _chitChatAwaitingResponse = false;
+            _chitChatPendingPrompt = string.Empty;
+            _chitChatStatus = resetStatusToDefault
+                ? DefaultChitChatStatus
+                : (string.IsNullOrWhiteSpace(statusText)
+                    ? (string.IsNullOrWhiteSpace(responseText) ? "Reachy replied." : responseText)
+                    : statusText.Trim());
+        }
+
+        private void KeepWaitingForChitChatResponse(string statusText)
+        {
+            if (!_chitChatAwaitingResponse)
+            {
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(statusText))
+            {
+                _chitChatStatus = statusText.Trim();
+            }
+        }
+
+        private void InterruptChitChatResponse()
+        {
+            bool hadPendingResponse = _chitChatAwaitingResponse || _chitChatInjectionTask != null;
+            if (hadPendingResponse)
+            {
+                _chitChatSuppressNextResponse = true;
+            }
+
+            _voiceAgentBridge?.InterruptTtsFeedback("Interrupted from Chit Chat stop button.");
+            ClearSpeechDrivenVoiceTracking(clearLastSpokenFeedback: false);
+            StopVoiceMotionSequence(updateStatus: false, reason: "Interrupted from Chit Chat stop button.");
+            _client?.CancelActivePoseMotion();
+
+            if (_voiceHasPendingAction)
+            {
+                RejectPendingVoiceAction(queueFeedback: false);
+            }
+
+            _chitChatAwaitingResponse = false;
+            _chitChatPendingPrompt = string.Empty;
+            _chitChatStatus = hadPendingResponse
+                ? "Reachy interrupted. The current reply was canceled."
+                : "Reachy interrupted.";
+            _voiceLastActionResult = "Chit Chat interrupted by operator.";
+        }
+
+        private void HandleChitChatKeyboardSubmit()
+        {
+            Event currentEvent = Event.current;
+            if (currentEvent == null || currentEvent.type != EventType.KeyDown)
+            {
+                return;
+            }
+
+            bool isEnterKey = currentEvent.keyCode == KeyCode.Return || currentEvent.keyCode == KeyCode.KeypadEnter;
+            bool allowSubmit = isEnterKey &&
+                               !currentEvent.shift &&
+                               !currentEvent.control &&
+                               !currentEvent.alt &&
+                               !currentEvent.command;
+            if (!allowSubmit)
+            {
+                return;
+            }
+
+            if (!string.Equals(GUI.GetNameOfFocusedControl(), ChitChatInputControlName, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            currentEvent.Use();
+            SubmitChitChatPrompt(_chitChatInput, clearInputAfterQueue: true);
+        }
+
+        private string GetChitChatAvailabilitySummary()
+        {
+            if (!IsCurrentAiModeEnabled())
+            {
+                return "Enable Local AI or Online AI in the AI tab to start a text conversation.";
+            }
+
+            if (IsOnlineAiModeSelected())
+            {
+                return IsEmotionReactionPersonaModeSelected()
+                    ? "Online AI is currently in Emotion Reactions mode. Switch to Assistant, Fortune Teller, or Custom for spoken dialogue."
+                    : $"Current AI Mode chosen: {GetCurrentAiModeLabel()}.";
+            }
+
+            return localAiAgentEnableLocalHelpModel
+                ? "Current AI Mode chosen: Local AI help model."
+                : "Local AI help model is disabled. Enable it in the AI tab or switch to Online AI for open-ended chit chat.";
+        }
+
+        private void SubmitChitChatPrompt(string prompt, bool clearInputAfterQueue)
+        {
+            string trimmedPrompt = string.IsNullOrWhiteSpace(prompt) ? string.Empty : prompt.Trim();
+            if (string.IsNullOrWhiteSpace(trimmedPrompt))
+            {
+                _chitChatStatus = "Type a question for Reachy first.";
+                return;
+            }
+
+            if (_chitChatAwaitingResponse || _chitChatInjectionTask != null)
+            {
+                _chitChatStatus = "Reachy is still replying to the previous message.";
+                return;
+            }
+
+            if (!IsCurrentAiModeEnabled())
+            {
+                _chitChatStatus = "Enable Local AI or Online AI in the AI tab before using Chit Chat.";
+                return;
+            }
+
+            if (IsOnlineAiModeSelected() && IsEmotionReactionPersonaModeSelected())
+            {
+                _chitChatStatus =
+                    "Emotion Reactions mode stays silent. Switch AI Modes to Assistant, Fortune Teller, or Custom for dialogue.";
+                return;
+            }
+
+            if (!IsOnlineAiModeSelected() && !localAiAgentEnableLocalHelpModel)
+            {
+                _chitChatStatus =
+                    "Local AI help model is disabled. Enable it in the AI tab or switch to Online AI for Chit Chat.";
+                return;
+            }
+
+            string intentEndpoint = string.IsNullOrWhiteSpace(localAiAgentEndpoint)
+                ? VoiceAgentBridge.DefaultEndpoint
+                : localAiAgentEndpoint.Trim();
+            if (!TryBuildSiblingEndpoint(intentEndpoint, SidecarInjectTranscriptPath, out string endpoint))
+            {
+                _chitChatStatus = "Could not build the sidecar text-chat endpoint.";
+                return;
+            }
+
+            AppendChitChatHistory("You", trimmedPrompt);
+            _chitChatAwaitingResponse = true;
+            _chitChatPendingPrompt = trimmedPrompt;
+            _chitChatStatus = $"Sent via {GetCurrentAiModeLabel()}. Waiting for Reachy...";
+            if (clearInputAfterQueue)
+            {
+                _chitChatInput = string.Empty;
+            }
+            else
+            {
+                _chitChatInput = trimmedPrompt;
+            }
+
+            int timeoutMs = Mathf.Clamp(localAiAgentSidecarHealthTimeoutMs, 700, 15000);
+            if (IsOnlineAiModeSelected())
+            {
+                timeoutMs = Mathf.Max(
+                    timeoutMs,
+                    Mathf.RoundToInt((Mathf.Max(onlineAiTimeoutSeconds, 10f) + 10f) * 1000f));
+            }
+            else if (localAiAgentEnableLocalHelpModel)
+            {
+                timeoutMs = Mathf.Max(
+                    timeoutMs,
+                    string.Equals(
+                        NormalizeHelpModelBackend(localAiAgentHelpModelBackend),
+                        "llama_cpp",
+                        StringComparison.Ordinal)
+                        ? 9000
+                        : 2500);
+            }
+
+            _chitChatInjectionTask = Task.Run(() => SendChitChatTranscriptRequest(
+                endpoint,
+                timeoutMs,
+                new ChitChatTranscriptPayload
+                {
+                    text = trimmedPrompt,
+                    final = true,
+                    confidence = Mathf.Clamp01(Mathf.Max(0.01f, localAiAgentTranscriptConfidence))
+                }));
+        }
+
+        private void ConsumeChitChatInjectionTaskIfReady()
+        {
+            if (_chitChatInjectionTask == null || !_chitChatInjectionTask.IsCompleted)
+            {
+                return;
+            }
+
+            try
+            {
+                ChitChatTranscriptRequestResult result = _chitChatInjectionTask.Result;
+                if (result.Success)
+                {
+                    KeepWaitingForChitChatResponse(
+                        string.IsNullOrWhiteSpace(result.Message)
+                            ? "Prompt accepted. Waiting for Reachy..."
+                            : result.Message);
+                    _voiceAgentBridge?.RequestImmediatePoll(Time.unscaledTime);
+                }
+                else
+                {
+                    string failure = string.IsNullOrWhiteSpace(result.Error)
+                        ? "Chit Chat request failed."
+                        : $"Chit Chat request failed: {result.Error}";
+                    AppendChitChatHistory("Reachy", failure);
+                    _chitChatAwaitingResponse = false;
+                    _chitChatPendingPrompt = string.Empty;
+                    _chitChatStatus = failure;
+                }
+            }
+            catch (Exception ex)
+            {
+                string failure = $"Chit Chat request crashed: {ex.Message}";
+                AppendChitChatHistory("Reachy", failure);
+                _chitChatAwaitingResponse = false;
+                _chitChatPendingPrompt = string.Empty;
+                _chitChatStatus = failure;
+            }
+            finally
+            {
+                _chitChatInjectionTask = null;
+            }
+        }
+
         private void UpdateLocalAiAgent()
         {
             if (_voiceAgentBridge == null || _voiceCommandRouter == null || _voiceTranscriptParser == null)
@@ -4052,6 +4384,7 @@ namespace Reachy.ControlApp
             UpdateRemoteOnlineReplyAudio();
             ConsumeOnlineAiStatusTaskIfReady();
             ConsumeOnlineAiTestTaskIfReady();
+            ConsumeChitChatInjectionTaskIfReady();
 
             if (_localAiAgentActivationAnnouncementPending && bridgeShouldBeEnabled)
             {
@@ -4089,6 +4422,13 @@ namespace Reachy.ControlApp
 
             if (!aiEnabledNow)
             {
+                if (_chitChatAwaitingResponse)
+                {
+                    _chitChatAwaitingResponse = false;
+                    _chitChatPendingPrompt = string.Empty;
+                    _chitChatStatus = "Chit Chat paused because AI is disabled.";
+                }
+
                 UpdateSpeechDrivenVoiceLoopingAnimation(speechOutputActive: false);
                 _voiceHasPendingAction = false;
                 ClearSpeechDrivenVoiceTracking(clearLastSpokenFeedback: true);
@@ -4158,12 +4498,24 @@ namespace Reachy.ControlApp
                 _voiceLastHandledHelpSuccessCount = bridgeSnapshot.SuccessfulHelpCount;
                 if (!string.IsNullOrWhiteSpace(bridgeSnapshot.LastHelpAnswer))
                 {
-                    _voiceLastHelpAnswer = bridgeSnapshot.LastHelpAnswer;
-                    _voiceLastActionResult = $"Local help answer: {bridgeSnapshot.LastHelpAnswer}";
+                    if (_chitChatSuppressNextResponse)
+                    {
+                        _chitChatSuppressNextResponse = false;
+                        _voiceLastActionResult = "Ignored one pending Chit Chat help answer after Stop.";
+                        _chitChatStatus = "Stopped the previous Reachy reply.";
+                    }
+                    else
+                    {
+                        _voiceLastHelpAnswer = bridgeSnapshot.LastHelpAnswer;
+                        _voiceLastActionResult = $"Local help answer: {bridgeSnapshot.LastHelpAnswer}";
                     QueueVoiceFeedback(
                         bridgeSnapshot.LastHelpAnswer,
                         interrupt: false,
                         bypassRateLimit: true);
+                    CompleteChitChatRequest(
+                        bridgeSnapshot.LastHelpAnswer,
+                        resetStatusToDefault: true);
+                    }
                 }
             }
 
@@ -4769,6 +5121,15 @@ namespace Reachy.ControlApp
             if (incomingIntent == null)
             {
                 _voiceLastActionResult = "Voice bridge delivered a null intent.";
+                CompleteChitChatRequest(_voiceLastActionResult);
+                return;
+            }
+
+            if (_chitChatSuppressNextResponse)
+            {
+                _chitChatSuppressNextResponse = false;
+                _voiceLastActionResult = "Ignored one pending Chit Chat response after Stop.";
+                _chitChatStatus = "Stopped the previous Reachy reply.";
                 return;
             }
 
@@ -4826,11 +5187,13 @@ namespace Reachy.ControlApp
 
             if (TryHandleOnlineAiPersonaVoiceSwitch(incomingIntent, isOnlineIntent))
             {
+                CompleteChitChatRequest(_voiceLastActionResult);
                 return;
             }
 
             if (TryHandleOnlineAiEmotionReactionIntent(incomingIntent, isOnlineIntent))
             {
+                CompleteChitChatRequest(_voiceLastActionResult);
                 return;
             }
 
@@ -4853,6 +5216,7 @@ namespace Reachy.ControlApp
                     _voiceLastParserMessage = disabledMessage;
                     _voiceLastIntentSummary = disabledMessage;
                     _voiceLastActionResult = disabledMessage;
+                    CompleteChitChatRequest(disabledMessage);
                     return;
                 }
 
@@ -4868,6 +5232,7 @@ namespace Reachy.ControlApp
                 {
                     _voiceLastIntentSummary = parserMessage;
                     _voiceLastActionResult = parserMessage;
+                    CompleteChitChatRequest(parserMessage);
                     return;
                 }
 
@@ -4889,12 +5254,14 @@ namespace Reachy.ControlApp
             if (!routed)
             {
                 _voiceLastActionResult = routeMessage;
+                CompleteChitChatRequest(routeMessage);
                 return;
             }
 
             if (IsDuplicateVoiceCommand(routedAction))
             {
                 _voiceLastActionResult = $"Duplicate voice command ignored: {routedAction.Summary}";
+                CompleteChitChatRequest(_voiceLastActionResult);
                 return;
             }
 
@@ -4905,6 +5272,7 @@ namespace Reachy.ControlApp
                 !onlineAiAllowDirectJointCommands)
             {
                 _voiceLastActionResult = "Online AI joint-based commands are disabled in the operator settings.";
+                CompleteChitChatRequest(_voiceLastActionResult);
                 return;
             }
 
@@ -4930,6 +5298,7 @@ namespace Reachy.ControlApp
                 routedAction.Kind != VoiceCommandRouter.VoiceActionKind.RejectPending)
             {
                 _voiceLastActionResult = "Pending voice action waiting for Confirm/Reject. Say 'cancel' to clear it.";
+                CompleteChitChatRequest(_voiceLastActionResult);
                 return;
             }
 
@@ -4941,6 +5310,7 @@ namespace Reachy.ControlApp
                     _voiceLastActionResult = $"Motion blocked: {bridgeHealthReason}.";
                     _voiceLastIntentSummary = routeMessage;
                     QueueVoiceFeedback("Motion command blocked while voice bridge is unhealthy.");
+                    CompleteChitChatRequest(_voiceLastActionResult);
                     return;
                 }
             }
@@ -4951,6 +5321,7 @@ namespace Reachy.ControlApp
                 _voicePendingAction = routedAction;
                 _voiceLastActionResult = $"Awaiting confirmation: {routedAction.Summary}";
                 QueueVoiceFeedback($"{routedAction.Summary} Should I execute it?", interrupt: false);
+                CompleteChitChatRequest(_voiceLastActionResult);
                 return;
             }
 
@@ -4963,6 +5334,11 @@ namespace Reachy.ControlApp
                 {
                     QueueVoiceFeedback(incomingIntent.reply_text, interrupt: false);
                 }
+                CompleteChitChatRequest(
+                    string.IsNullOrWhiteSpace(incomingIntent.reply_text)
+                        ? _voiceLastActionResult
+                        : incomingIntent.reply_text,
+                    resetStatusToDefault: true);
                 return;
             }
 
@@ -4982,6 +5358,19 @@ namespace Reachy.ControlApp
                     feedbackText,
                     interrupt: routedAction.Kind == VoiceCommandRouter.VoiceActionKind.StopMotion);
             }
+
+            if (routedAction.Kind == VoiceCommandRouter.VoiceActionKind.Help &&
+                localAiAgentEnableLocalHelpModel &&
+                actionMessage.IndexOf("Requested local help response", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                !isOnlineIntent)
+            {
+                KeepWaitingForChitChatResponse("Reachy is preparing a local help answer...");
+                return;
+            }
+
+            CompleteChitChatRequest(
+                string.IsNullOrWhiteSpace(feedbackText) ? actionMessage : feedbackText,
+                resetStatusToDefault: true);
         }
 
         private bool TryHandleOnlineAiEmotionReactionIntent(VoiceAgentIntent incomingIntent, bool isOnlineIntent)
@@ -5686,6 +6075,81 @@ namespace Reachy.ControlApp
             finally
             {
                 _onlineReplyAudioUpdateTask = null;
+            }
+        }
+
+        private static ChitChatTranscriptRequestResult SendChitChatTranscriptRequest(
+            string endpoint,
+            int timeoutMs,
+            ChitChatTranscriptPayload payload)
+        {
+            try
+            {
+                string jsonBody = JsonUtility.ToJson(payload);
+                byte[] bodyBytes = Encoding.UTF8.GetBytes(jsonBody);
+                HttpWebRequest request = WebRequest.CreateHttp(endpoint);
+                request.Method = "POST";
+                request.Timeout = timeoutMs;
+                request.ReadWriteTimeout = timeoutMs;
+                request.ContentType = "application/json; charset=utf-8";
+                request.Accept = "application/json";
+                request.ContentLength = bodyBytes.Length;
+                request.Proxy = null;
+
+                using (Stream requestStream = request.GetRequestStream())
+                {
+                    requestStream.Write(bodyBytes, 0, bodyBytes.Length);
+                }
+
+                using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                using (Stream responseStream = response.GetResponseStream())
+                using (var reader = new StreamReader(responseStream ?? Stream.Null, Encoding.UTF8))
+                {
+                    string responseText = reader.ReadToEnd();
+                    ChitChatTranscriptResponseEnvelope parsed =
+                        string.IsNullOrWhiteSpace(responseText)
+                            ? null
+                            : JsonUtility.FromJson<ChitChatTranscriptResponseEnvelope>(responseText);
+                    bool ok = parsed == null || parsed.ok;
+                    return new ChitChatTranscriptRequestResult
+                    {
+                        Success = ok,
+                        Message = parsed?.message ?? "Text chat request accepted.",
+                        Error = ok ? string.Empty : (parsed?.message ?? "Text chat request was rejected.")
+                    };
+                }
+            }
+            catch (WebException webEx)
+            {
+                string detail = webEx.Message;
+                if (webEx.Response != null)
+                {
+                    using (Stream responseStream = webEx.Response.GetResponseStream())
+                    using (var reader = new StreamReader(responseStream ?? Stream.Null, Encoding.UTF8))
+                    {
+                        string responseText = reader.ReadToEnd();
+                        if (!string.IsNullOrWhiteSpace(responseText))
+                        {
+                            detail = $"{detail} ({responseText})";
+                        }
+                    }
+                }
+
+                return new ChitChatTranscriptRequestResult
+                {
+                    Success = false,
+                    Message = "Text chat request failed.",
+                    Error = detail
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ChitChatTranscriptRequestResult
+                {
+                    Success = false,
+                    Message = "Text chat request failed.",
+                    Error = ex.Message
+                };
             }
         }
 
@@ -14981,6 +15445,13 @@ namespace Reachy.ControlApp
                     return;
                 }
 
+                if (_activeMenuView == RuntimeMenuView.ChitChat)
+                {
+                    DrawChitChatView(topY, logicalMargin, logicalScreenWidth, logicalScreenHeight);
+                    GUI.matrix = previousMatrix;
+                    return;
+                }
+
                 if (_activeMenuView == RuntimeMenuView.ManualControl)
                 {
                     DrawManualControlView(topY, logicalMargin, logicalScreenWidth, logicalScreenHeight);
@@ -15637,6 +16108,147 @@ namespace Reachy.ControlApp
             }
 
             GUILayout.EndScrollView();
+            GUILayout.EndArea();
+        }
+
+        private void DrawChitChatView(
+            float topY,
+            float logicalMargin,
+            float logicalScreenWidth,
+            float logicalScreenHeight)
+        {
+            float usableWidth = Mathf.Max(320f, logicalScreenWidth - (2f * logicalMargin));
+            float usableHeight = Mathf.Max(220f, logicalScreenHeight - topY - logicalMargin);
+            float stackedGap = Mathf.Max(12f, DesignPanelGap);
+            float wideGap = Mathf.Max(12f, DesignPanelGap);
+
+            if (usableWidth < 920f)
+            {
+                float topPanelHeight = Mathf.Max(180f, (usableHeight - stackedGap) * 0.68f);
+                float bottomPanelY = topY + topPanelHeight + stackedGap;
+                float bottomPanelHeight = Mathf.Max(140f, usableHeight - topPanelHeight - stackedGap);
+                DrawChitChatConversationPanel(new Rect(logicalMargin, topY, usableWidth, topPanelHeight));
+                DrawChitChatTopicsPanel(new Rect(logicalMargin, bottomPanelY, usableWidth, bottomPanelHeight));
+                return;
+            }
+
+            float minimumRightPanelWidth = 220f;
+            float leftPanelWidth = Mathf.Clamp(
+                usableWidth * 0.74f,
+                520f,
+                Mathf.Max(520f, usableWidth - wideGap - minimumRightPanelWidth));
+            float rightPanelWidth = Mathf.Max(minimumRightPanelWidth, usableWidth - leftPanelWidth - wideGap);
+            float leftPanelX = logicalMargin;
+            float rightPanelX = leftPanelX + leftPanelWidth + wideGap;
+
+            DrawChitChatConversationPanel(new Rect(leftPanelX, topY, leftPanelWidth, usableHeight));
+            DrawChitChatTopicsPanel(new Rect(rightPanelX, topY, rightPanelWidth, usableHeight));
+        }
+
+        private void DrawChitChatConversationPanel(Rect area)
+        {
+            GUILayout.BeginArea(area, GUI.skin.box);
+            GUILayout.Label("Chit Chat", _titleStyle);
+            GUILayout.Label("Type a question for Reachy and send it through the current AI pipeline.");
+            GUILayout.Label(GetChitChatAvailabilitySummary());
+
+            float composerHeight = Mathf.Max(108f, area.height * 0.22f);
+            float historyHeight = Mathf.Max(140f, area.height - composerHeight - 76f);
+            _chitChatConversationScroll = GUILayout.BeginScrollView(
+                _chitChatConversationScroll,
+                false,
+                true,
+                GUILayout.Height(historyHeight));
+
+            if (_chitChatHistory.Count <= 0)
+            {
+                GUILayout.Label("No messages yet. Ask Reachy something to start the conversation.");
+            }
+            else
+            {
+                for (int i = 0; i < _chitChatHistory.Count; i++)
+                {
+                    ChitChatHistoryEntry entry = _chitChatHistory[i];
+                    if (entry == null)
+                    {
+                        continue;
+                    }
+
+                    GUILayout.BeginVertical(GUI.skin.box);
+                    GUILayout.Label(entry.Speaker, _titleStyle);
+                    GUILayout.Label(entry.Text);
+                    GUILayout.EndVertical();
+                }
+            }
+
+            GUILayout.EndScrollView();
+
+            GUILayout.Space(6f);
+            GUILayout.Label("Text Chat");
+            GUI.SetNextControlName(ChitChatInputControlName);
+            _chitChatInput = GUILayout.TextArea(
+                _chitChatInput ?? string.Empty,
+                GUILayout.MinHeight(Mathf.Max(42f, composerHeight - 60f)),
+                GUILayout.MaxHeight(64f));
+            HandleChitChatKeyboardSubmit();
+
+            bool previousEnabled = GUI.enabled;
+            GUILayout.BeginHorizontal();
+            GUI.enabled = !_chitChatAwaitingResponse && _chitChatInjectionTask == null;
+            if (GUILayout.Button("Enter", GUILayout.Width(76f), GUILayout.Height(26f)))
+            {
+                SubmitChitChatPrompt(_chitChatInput, clearInputAfterQueue: true);
+            }
+            GUI.enabled = IsCurrentAiModeEnabled();
+            if (GUILayout.Button("Stop", GUILayout.Width(92f), GUILayout.Height(26f)))
+            {
+                InterruptChitChatResponse();
+            }
+
+            GUILayout.EndHorizontal();
+            GUI.enabled = previousEnabled;
+            GUILayout.Space(4f);
+            GUILayout.Label($"Status: {_chitChatStatus}");
+            if (_chitChatAwaitingResponse && !string.IsNullOrWhiteSpace(_chitChatPendingPrompt))
+            {
+                GUILayout.Label($"Pending: {_chitChatPendingPrompt}");
+            }
+            GUILayout.EndArea();
+        }
+
+        private void DrawChitChatTopicsPanel(Rect area)
+        {
+            GUILayout.BeginArea(area, GUI.skin.box);
+            GUILayout.Label("Topics", _titleStyle);
+            GUILayout.Label("Can you tell me more about...");
+
+            bool previousEnabled = GUI.enabled;
+            GUI.enabled = !_chitChatAwaitingResponse && _chitChatInjectionTask == null;
+            for (int i = 0; i < ChitChatTopics.Length; i++)
+            {
+                ChitChatTopicDefinition topic = ChitChatTopics[i];
+                if (topic == null)
+                {
+                    continue;
+                }
+
+                if (GUILayout.Button(topic.Label, GUILayout.Height(28f), GUILayout.ExpandWidth(true)))
+                {
+                    SubmitChitChatPrompt(topic.Prompt, clearInputAfterQueue: false);
+                }
+
+                if (i < ChitChatTopics.Length - 1)
+                {
+                    GUILayout.Space(6f);
+                }
+            }
+
+            GUI.enabled = previousEnabled;
+            GUILayout.Space(10f);
+            GUILayout.Label("Notes", _titleStyle);
+            GUILayout.Label(
+                "This view uses the same Local AI or Online AI configuration as the main AI tab. " +
+                "If Reachy is still replying, sending new text is paused until that answer finishes.");
             GUILayout.EndArea();
         }
 
