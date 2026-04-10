@@ -678,4 +678,7 @@ namespace Reachy.ControlApp
         }
     }
 }
+<<<<<<< HEAD
 
+=======
+>>>>>>> upstream/main
