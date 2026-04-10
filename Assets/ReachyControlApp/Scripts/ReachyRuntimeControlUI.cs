@@ -57,23 +57,14 @@ namespace Reachy.ControlApp
         {
             Assistant = 0,
             FortuneTeller = 1,
-<<<<<<< HEAD
-            Custom = 2
-=======
             Custom = 2,
             EmotionReactions = 3
->>>>>>> upstream/main
         }
 
         private static readonly string[] OnlineAiPersonaModeLabels =
         {
             "Assistant",
             "Fortune Teller",
-<<<<<<< HEAD
-            "Custom"
-        };
-
-=======
             "Custom",
             "Emotion Reactions"
         };
@@ -88,7 +79,6 @@ namespace Reachy.ControlApp
             public bool enabled = true;
         }
 
->>>>>>> upstream/main
         private static readonly string[] OnlineAiTtsVoiceOptions =
         {
             "alloy",
@@ -145,14 +135,9 @@ namespace Reachy.ControlApp
             AssistantPersonaSelected = 2,
             FortuneTellerPersonaSelected = 3,
             CustomPersonaSelected = 4,
-<<<<<<< HEAD
-            OnlineAiEnabled = 5,
-            OnlineAiDisabled = 6
-=======
             EmotionPersonaSelected = 5,
             OnlineAiEnabled = 6,
             OnlineAiDisabled = 7
->>>>>>> upstream/main
         }
 
         private const float DesignMarginPixels = 10f;
@@ -192,16 +177,6 @@ namespace Reachy.ControlApp
         private const string SpeechLoopingAnimationBName = "Speech B";
         private const string SpeechLoopingAnimationCName = "Speech C";
         private const string BenderSleepActedSequenceName = "bender sleep";
-<<<<<<< HEAD
-        private const string JoyEmotionActedSequenceName = "emotion joy";
-        private const string FocusedEmotionActedSequenceName = "emotion focused";
-        private const string CrabDanceActedSequenceName = "crab dance";
-        private const string BenderSleepLoopingAnimationName = "Bender Sleep";
-        private const string JoyEmotionLoopingAnimationName = "Emotion Joy";
-        private const string FocusedEmotionLoopingAnimationName = "Emotion Focused";
-        private const string CrabDanceLoopingAnimationName = "Crab Dance";
-        private const string BenderSleepAudioFileName = "bender_sleep.mp3";
-=======
         private const string BenderSleepLoopingAnimationName = "Bender Sleep";
         private const string BenderSleepAudioFileName = "bender_sleep.mp3";
         private const string HappyAudioFileName = "happy_robotic_small.mp3";
@@ -209,7 +184,6 @@ namespace Reachy.ControlApp
         private const string HappyActedSequenceName = "happy";
         private const string Sad1ActedSequenceName = "sad";
         private const float EmotionPoseHoldSeconds = 2.5f;
->>>>>>> upstream/main
         private const string RobotSpeakerTtsMirrorPath = "speak";
         private const string RobotSpeakerAudioMirrorPath = "play-audio";
         private const string RobotSpeakerStopPath = "stop";
@@ -276,21 +250,15 @@ namespace Reachy.ControlApp
             "You are Reachy performing with a configurable custom persona. Stay helpful, expressive, and operator-friendly, " +
             "while remaining honest about uncertainty and real robot limitations. Do not proactively bring up Reachy assistance, " +
             "robot embodiment, or movement/control help unless the operator asks for it or the persona itself explicitly calls for it.";
-<<<<<<< HEAD
-=======
         private const string DefaultEmotionReactionsOnlineAiSystemPrompt =
             "You are Reachy in silent emotion-reaction mode. Do not answer with spoken language. " +
             "Choose the single best configured emotion reaction for what the operator said and let the robot react through movement only.";
->>>>>>> upstream/main
         private const int SavedOnlineAiCustomPersonalitySchemaVersion = 1;
         private const float OnlineAiModesLiveApplyDebounceSeconds = 0.45f;
         private const string DefaultOnlineAiModel = "gpt-5.4";
         private const int DefaultOnlineAiMaxOutputTokens = 480;
-<<<<<<< HEAD
-=======
         private const int DefaultOnlineAiLocalUserMemoryMessages = 3;
         private const int DefaultOnlineAiLocalAssistantMemoryMessages = 3;
->>>>>>> upstream/main
         private const string DefaultOnlineAiTranscriptionModel = "gpt-4o-mini-transcribe";
         private const string DefaultOnlineTtsModel = "gpt-4o-mini-tts";
         private const string DefaultOnlineTtsVoice = "alloy";
@@ -370,8 +338,6 @@ namespace Reachy.ControlApp
             "do random motion",
             "surprise me"
         };
-<<<<<<< HEAD
-=======
         private static readonly string[] DefaultTtsBargeInPhrases =
         {
             "ei kun",
@@ -424,7 +390,6 @@ namespace Reachy.ControlApp
             "not that",
             "interrupt that"
         };
->>>>>>> upstream/main
         private static readonly string[] DefaultSidecarHelpSynonyms =
         {
             "help",
@@ -505,8 +470,6 @@ namespace Reachy.ControlApp
             "introduce yourself",
             "tell me about yourself"
         };
-<<<<<<< HEAD
-=======
         private static readonly string[] EmotionReactionModeSwitchPhrases =
         {
             "emotion mode",
@@ -518,7 +481,6 @@ namespace Reachy.ControlApp
         };
         private static readonly OnlineAiEmotionReactionProfile[] DefaultOnlineAiEmotionReactionProfiles =
             CreateDefaultOnlineAiEmotionReactionProfiles();
->>>>>>> upstream/main
         private const string ManualControllerRightStickXAxis = "Gamepad Right Stick X";
         private const string ManualControllerRightStickYAxis = "Gamepad Right Stick Y";
         private const string ManualControllerDPadXAxis = "Gamepad DPad X";
@@ -968,12 +930,9 @@ namespace Reachy.ControlApp
         [SerializeField] private float grpcConnectTimeoutSeconds = 3.0f;
         [SerializeField] private float presetPoseTransitionSpeedScale = 0.6f;
         [SerializeField] private bool useKeyframePoseSpeedLimit = true;
-<<<<<<< HEAD
-=======
         [SerializeField] private bool animationCreatorMirrorToRealRobot = true;
         [SerializeField] private float animationCreatorLivePreviewSpeedPercent = 35.0f;
         [SerializeField] private float animationCreatorLivePreviewSendIntervalSeconds = 0.12f;
->>>>>>> upstream/main
         [SerializeField] private float postRestartWaitSeconds = 2.5f;
         [SerializeField] private float healthCheckIntervalSeconds = 2.0f;
         [SerializeField] private float reconnectCooldownSeconds = 4.0f;
@@ -982,11 +941,7 @@ namespace Reachy.ControlApp
         [SerializeField] private bool precheckRobotEndpointReachability = true;
         [SerializeField] private float precheckTimeoutSeconds = 1.5f;
 
-<<<<<<< HEAD
-        [Header("Sequences and Emotions")]
-=======
         [Header("Acted Sequences")]
->>>>>>> upstream/main
         [SerializeField]
         [TextArea(5, 12)]
         private string reachyIntroductionSequenceText = ReachyIntroductionDefaultSpeechText;
@@ -1078,11 +1033,8 @@ namespace Reachy.ControlApp
         [SerializeField] private float onlineAiTimeoutSeconds = 15f;
         [SerializeField] private float onlineAiTemperature = 0.2f;
         [SerializeField] private int onlineAiMaxOutputTokens = DefaultOnlineAiMaxOutputTokens;
-<<<<<<< HEAD
-=======
         [SerializeField] private int onlineAiLocalUserMemoryMessages = DefaultOnlineAiLocalUserMemoryMessages;
         [SerializeField] private int onlineAiLocalAssistantMemoryMessages = DefaultOnlineAiLocalAssistantMemoryMessages;
->>>>>>> upstream/main
         [SerializeField] private OnlineAiPersonaMode onlineAiPersonaMode = OnlineAiPersonaMode.Assistant;
         [SerializeField]
         [TextArea(3, 8)]
@@ -1110,14 +1062,11 @@ namespace Reachy.ControlApp
         [TextArea(4, 10)]
         private string onlineAiCustomSystemPrompt = DefaultCustomOnlineAiSystemPrompt;
         [SerializeField] private string onlineAiCustomTtsVoice = DefaultOnlineTtsVoice;
-<<<<<<< HEAD
-=======
         [SerializeField]
         [TextArea(3, 8)]
         private string onlineAiEmotionSystemPrompt = DefaultEmotionReactionsOnlineAiSystemPrompt;
         [SerializeField] private OnlineAiEmotionReactionProfile[] onlineAiEmotionReactionProfiles =
             CreateDefaultOnlineAiEmotionReactionProfiles();
->>>>>>> upstream/main
         [SerializeField] private bool onlineAiAllowVoicePersonaSwitch = true;
         [SerializeField]
         [TextArea(2, 6)]
@@ -1226,22 +1175,13 @@ namespace Reachy.ControlApp
             new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly List<Dictionary<string, float>> _animationCreatorDraftKeyframes =
             new List<Dictionary<string, float>>();
-<<<<<<< HEAD
-=======
         private readonly Dictionary<string, float> _animationCreatorLastLivePreviewPose =
             new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
->>>>>>> upstream/main
         private readonly Dictionary<string, float> _manualControllerTargets =
             new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
         private ReachyAnimationCreator _animationCreator;
         private Coroutine _animationCreatorPlaybackCoroutine;
         private bool _animationCreatorEditModeEnabled;
-<<<<<<< HEAD
-        private string _animationCreatorActivePoseName = string.Empty;
-        private string _animationCreatorPoseTitle = "Custom Pose 1";
-        private string _animationCreatorStatus =
-            "Create New Pose to enable the editor on the original scene Reachy in the middle.";
-=======
         private bool _animationCreatorLastTransitionFailed;
         private string _animationCreatorLastTransitionFailureMessage = string.Empty;
         private float _nextAnimationCreatorLivePreviewAt;
@@ -1250,7 +1190,6 @@ namespace Reachy.ControlApp
         private string _animationCreatorStatus =
             "Create New Pose to enable the editor on the original scene Reachy in the middle. " +
             "When a Real Robot session is connected, Animation Creator can also mirror edits to hardware.";
->>>>>>> upstream/main
         private int _animationCreatorNextPoseNumber = 1;
         private string _manualControllerStatus = "Controller inactive.";
         private string _manualControllerDetectedDevice = "No gamepad detected.";
@@ -1301,11 +1240,8 @@ namespace Reachy.ControlApp
         private AudioSource _uiModeFeedbackAudioSource;
         private AudioClip _localAiMicTestRecordClip;
         private AudioClip _benderSleepAudioClip;
-<<<<<<< HEAD
-=======
         private AudioClip _happyAudioClip;
         private AudioClip _sadAudioClip;
->>>>>>> upstream/main
         private readonly Dictionary<UiModeAudioCue, AudioClip> _uiModeAudioClips =
             new Dictionary<UiModeAudioCue, AudioClip>();
         private int _robotSpeakerAudioMirrorRequestVersion;
@@ -1658,11 +1594,8 @@ namespace Reachy.ControlApp
             public string online_ai_persona_mode = "assistant";
             public string online_ai_system_prompt = DefaultAssistantOnlineAiSystemPrompt;
             public string online_tts_voice = DefaultOnlineTtsVoice;
-<<<<<<< HEAD
-=======
             public OnlineAiEmotionReactionProfile[] online_ai_emotion_reactions =
                 CreateDefaultOnlineAiEmotionReactionProfiles();
->>>>>>> upstream/main
             public bool online_ai_allow_voice_persona_switch = true;
         }
 
@@ -1797,12 +1730,9 @@ namespace Reachy.ControlApp
             public float online_ai_timeout_seconds = 15f;
             public float online_ai_temperature = 0.2f;
             public int online_ai_max_output_tokens = DefaultOnlineAiMaxOutputTokens;
-<<<<<<< HEAD
-=======
             public int online_ai_local_user_memory_messages = DefaultOnlineAiLocalUserMemoryMessages;
             public int online_ai_local_assistant_memory_messages = DefaultOnlineAiLocalAssistantMemoryMessages;
             public string online_tts_voice = DefaultOnlineTtsVoice;
->>>>>>> upstream/main
             public string online_ai_persona_mode = "assistant";
             public string online_ai_assistant_system_prompt = DefaultAssistantOnlineAiSystemPrompt;
             public string online_ai_assistant_tts_voice = DefaultOnlineTtsVoice;
@@ -1824,19 +1754,14 @@ namespace Reachy.ControlApp
             public float online_ai_custom_factual_grounding = DefaultCustomOnlineAiFactualGrounding;
             public string online_ai_custom_system_prompt = DefaultCustomOnlineAiSystemPrompt;
             public string online_ai_custom_tts_voice = DefaultOnlineTtsVoice;
-<<<<<<< HEAD
-=======
             public string online_ai_emotion_system_prompt = DefaultEmotionReactionsOnlineAiSystemPrompt;
             public OnlineAiEmotionReactionProfile[] online_ai_emotion_reactions =
                 CreateDefaultOnlineAiEmotionReactionProfiles();
->>>>>>> upstream/main
             public string online_ai_system_prompt = DefaultAssistantOnlineAiSystemPrompt;
             public bool online_ai_allow_direct_joint_commands = true;
             public bool online_ai_require_motion_confirmation = false;
             public bool online_ai_show_api_key_help_on_first_open = true;
             public bool online_ai_last_api_key_check_ok = false;
-<<<<<<< HEAD
-=======
             public bool tts_barge_in_enabled = true;
             public string[] tts_barge_in_phrases = DefaultTtsBargeInPhrases;
             public bool tts_barge_in_loudness_enabled = true;
@@ -1854,7 +1779,6 @@ namespace Reachy.ControlApp
             public float tts_barge_in_transcribe_pre_roll_seconds = 0.12f;
             public float tts_barge_in_transcribe_rms_threshold = 400f;
             public float tts_barge_in_transcribe_timeout_seconds = 4f;
->>>>>>> upstream/main
             public string ipc_endpoint = VoiceAgentBridge.DefaultEndpoint;
         }
 
@@ -1920,11 +1844,8 @@ namespace Reachy.ControlApp
             public string[] openai_transcribe_language_hints = { "en", "fi" };
             public float online_ai_temperature = 0.2f;
             public int online_ai_max_output_tokens = DefaultOnlineAiMaxOutputTokens;
-<<<<<<< HEAD
-=======
             public int online_ai_local_user_memory_messages = DefaultOnlineAiLocalUserMemoryMessages;
             public int online_ai_local_assistant_memory_messages = DefaultOnlineAiLocalAssistantMemoryMessages;
->>>>>>> upstream/main
             public string online_ai_persona_mode = "assistant";
             public string online_ai_assistant_system_prompt = DefaultAssistantOnlineAiSystemPrompt;
             public string online_ai_assistant_tts_voice = DefaultOnlineTtsVoice;
@@ -1946,11 +1867,6 @@ namespace Reachy.ControlApp
             public float online_ai_custom_factual_grounding = DefaultCustomOnlineAiFactualGrounding;
             public string online_ai_custom_system_prompt = DefaultCustomOnlineAiSystemPrompt;
             public string online_ai_custom_tts_voice = DefaultOnlineTtsVoice;
-<<<<<<< HEAD
-            public string online_ai_system_prompt = DefaultAssistantOnlineAiSystemPrompt;
-            public bool online_ai_allow_direct_joint_commands = true;
-            public bool online_ai_require_motion_confirmation = false;
-=======
             public string online_ai_emotion_system_prompt = DefaultEmotionReactionsOnlineAiSystemPrompt;
             public OnlineAiEmotionReactionProfile[] online_ai_emotion_reactions =
                 CreateDefaultOnlineAiEmotionReactionProfiles();
@@ -1974,7 +1890,6 @@ namespace Reachy.ControlApp
             public float tts_barge_in_transcribe_pre_roll_seconds = 0.12f;
             public float tts_barge_in_transcribe_rms_threshold = 400f;
             public float tts_barge_in_transcribe_timeout_seconds = 4f;
->>>>>>> upstream/main
         }
 
         [Serializable]
@@ -2022,13 +1937,10 @@ namespace Reachy.ControlApp
             simulationCameraPort = Mathf.Clamp(simulationCameraPort, 1, 65535);
             robotCameraPort = Mathf.Clamp(robotCameraPort, 1, 65535);
             presetPoseTransitionSpeedScale = Mathf.Clamp(presetPoseTransitionSpeedScale, 0.05f, 2.0f);
-<<<<<<< HEAD
-=======
             animationCreatorLivePreviewSpeedPercent =
                 Mathf.Clamp(animationCreatorLivePreviewSpeedPercent, 5f, 100f);
             animationCreatorLivePreviewSendIntervalSeconds =
                 Mathf.Max(0.05f, animationCreatorLivePreviewSendIntervalSeconds);
->>>>>>> upstream/main
             SyncPoseMotionSettingsToClient();
             cameraRefreshIntervalSeconds = Mathf.Max(0.05f, cameraRefreshIntervalSeconds);
             cameraRpcTimeoutSeconds = Mathf.Max(0.2f, cameraRpcTimeoutSeconds);
@@ -2117,9 +2029,6 @@ namespace Reachy.ControlApp
             bool loadedVoiceConfig = TryLoadVoiceAgentConfigFromDisk(out string startupVoiceConfigMessage);
             if (loadedVoiceConfig)
             {
-<<<<<<< HEAD
-                _voiceLastActionResult = startupVoiceConfigMessage;
-=======
                 ApplyStartupOnlineAiSessionDefaults();
                 bool startupConsistencyOk = TryConfirmSelectedOnlineAiModeConsistency(
                     "Startup AI mode verification",
@@ -2132,7 +2041,6 @@ namespace Reachy.ControlApp
                 {
                     _voiceLastParserMessage = startupConsistencyMessage;
                 }
->>>>>>> upstream/main
             }
             else if (!string.IsNullOrWhiteSpace(startupVoiceConfigMessage) &&
                 startupVoiceConfigMessage.IndexOf("not found", StringComparison.OrdinalIgnoreCase) < 0)
@@ -2263,13 +2171,9 @@ namespace Reachy.ControlApp
                         _client.Disconnect();
                         StopActedSequence(updateStatus: false, reason: "Connection lost.", stopLoopingAnimation: false);
                         StopLoopingAnimation(updateStatus: false, reason: "Connection lost.");
-<<<<<<< HEAD
-                        StopVoiceMotionSequence(updateStatus: false, reason: "Connection lost.");
-=======
                         StopAnimationCreatorPlayback(updateStatus: false, reason: "Connection lost.");
                         StopVoiceMotionSequence(updateStatus: false, reason: "Connection lost.");
                         ResetAnimationCreatorLivePreviewState();
->>>>>>> upstream/main
                         ReachyControlMode reconnectMode = _connectedMode ?? mode;
                         _connectedMode = null;
                         if (!_manualDisconnect)
@@ -3915,222 +3819,6 @@ namespace Reachy.ControlApp
                         new LoopingAnimationJointGoal("l_wrist_pitch", 20f),
                         new LoopingAnimationJointGoal("l_wrist_roll", 8f))),
                 new LoopingAnimationDefinition(
-<<<<<<< HEAD
-                    JoyEmotionLoopingAnimationName,
-                    "Cheerful emotion loop with side-to-side head motion and both arms fully raised in a celebratory pose.",
-                    new LoopingAnimationKeyframe(
-                        0.72f,
-                        new LoopingAnimationJointGoal("neck_yaw", -14f),
-                        new LoopingAnimationJointGoal("neck_pitch", 1f),
-                        new LoopingAnimationJointGoal("neck_roll", -3f),
-                        new LoopingAnimationJointGoal("r_shoulder_pitch", -86f),
-                        new LoopingAnimationJointGoal("r_shoulder_roll", -30f),
-                        new LoopingAnimationJointGoal("r_arm_yaw", -10f),
-                        new LoopingAnimationJointGoal("r_elbow_pitch", -82f),
-                        new LoopingAnimationJointGoal("r_forearm_yaw", -34f),
-                        new LoopingAnimationJointGoal("r_wrist_pitch", 24f),
-                        new LoopingAnimationJointGoal("r_wrist_roll", -22f),
-                        new LoopingAnimationJointGoal("r_gripper", -16f),
-                        new LoopingAnimationJointGoal("l_shoulder_pitch", -86f),
-                        new LoopingAnimationJointGoal("l_shoulder_roll", 30f),
-                        new LoopingAnimationJointGoal("l_arm_yaw", 10f),
-                        new LoopingAnimationJointGoal("l_elbow_pitch", -82f),
-                        new LoopingAnimationJointGoal("l_forearm_yaw", 34f),
-                        new LoopingAnimationJointGoal("l_wrist_pitch", 24f),
-                        new LoopingAnimationJointGoal("l_wrist_roll", 22f),
-                        new LoopingAnimationJointGoal("l_gripper", -16f)),
-                    new LoopingAnimationKeyframe(
-                        0.64f,
-                        new LoopingAnimationJointGoal("neck_yaw", 0f),
-                        new LoopingAnimationJointGoal("neck_pitch", 1f),
-                        new LoopingAnimationJointGoal("neck_roll", 0f),
-                        new LoopingAnimationJointGoal("r_shoulder_pitch", -84f),
-                        new LoopingAnimationJointGoal("r_shoulder_roll", -28f),
-                        new LoopingAnimationJointGoal("r_arm_yaw", -12f),
-                        new LoopingAnimationJointGoal("r_elbow_pitch", -88f),
-                        new LoopingAnimationJointGoal("r_forearm_yaw", 10f),
-                        new LoopingAnimationJointGoal("r_wrist_pitch", 12f),
-                        new LoopingAnimationJointGoal("r_wrist_roll", 12f),
-                        new LoopingAnimationJointGoal("r_gripper", 8f),
-                        new LoopingAnimationJointGoal("l_shoulder_pitch", -84f),
-                        new LoopingAnimationJointGoal("l_shoulder_roll", 28f),
-                        new LoopingAnimationJointGoal("l_arm_yaw", 12f),
-                        new LoopingAnimationJointGoal("l_elbow_pitch", -88f),
-                        new LoopingAnimationJointGoal("l_forearm_yaw", -10f),
-                        new LoopingAnimationJointGoal("l_wrist_pitch", 12f),
-                        new LoopingAnimationJointGoal("l_wrist_roll", -12f),
-                        new LoopingAnimationJointGoal("l_gripper", 8f)),
-                    new LoopingAnimationKeyframe(
-                        0.72f,
-                        new LoopingAnimationJointGoal("neck_yaw", 14f),
-                        new LoopingAnimationJointGoal("neck_pitch", 1f),
-                        new LoopingAnimationJointGoal("neck_roll", 3f),
-                        new LoopingAnimationJointGoal("r_shoulder_pitch", -86f),
-                        new LoopingAnimationJointGoal("r_shoulder_roll", -30f),
-                        new LoopingAnimationJointGoal("r_arm_yaw", -10f),
-                        new LoopingAnimationJointGoal("r_elbow_pitch", -82f),
-                        new LoopingAnimationJointGoal("r_forearm_yaw", 34f),
-                        new LoopingAnimationJointGoal("r_wrist_pitch", 24f),
-                        new LoopingAnimationJointGoal("r_wrist_roll", 22f),
-                        new LoopingAnimationJointGoal("r_gripper", -16f),
-                        new LoopingAnimationJointGoal("l_shoulder_pitch", -86f),
-                        new LoopingAnimationJointGoal("l_shoulder_roll", 30f),
-                        new LoopingAnimationJointGoal("l_arm_yaw", 10f),
-                        new LoopingAnimationJointGoal("l_elbow_pitch", -82f),
-                        new LoopingAnimationJointGoal("l_forearm_yaw", -34f),
-                        new LoopingAnimationJointGoal("l_wrist_pitch", 24f),
-                        new LoopingAnimationJointGoal("l_wrist_roll", -22f),
-                        new LoopingAnimationJointGoal("l_gripper", -16f))),
-                new LoopingAnimationDefinition(
-                    FocusedEmotionLoopingAnimationName,
-                    "Focused emotion loop with compact posture, steady head checks, and precise hand framing.",
-                    new LoopingAnimationKeyframe(
-                        0.95f,
-                        new LoopingAnimationJointGoal("neck_yaw", -5f),
-                        new LoopingAnimationJointGoal("neck_pitch", 7f),
-                        new LoopingAnimationJointGoal("neck_roll", -1f),
-                        new LoopingAnimationJointGoal("r_shoulder_pitch", -14f),
-                        new LoopingAnimationJointGoal("r_shoulder_roll", -12f),
-                        new LoopingAnimationJointGoal("r_arm_yaw", -14f),
-                        new LoopingAnimationJointGoal("r_elbow_pitch", -96f),
-                        new LoopingAnimationJointGoal("r_forearm_yaw", -8f),
-                        new LoopingAnimationJointGoal("r_wrist_pitch", 10f),
-                        new LoopingAnimationJointGoal("r_wrist_roll", 4f),
-                        new LoopingAnimationJointGoal("l_shoulder_pitch", -14f),
-                        new LoopingAnimationJointGoal("l_shoulder_roll", 12f),
-                        new LoopingAnimationJointGoal("l_arm_yaw", 14f),
-                        new LoopingAnimationJointGoal("l_elbow_pitch", -96f),
-                        new LoopingAnimationJointGoal("l_forearm_yaw", 8f),
-                        new LoopingAnimationJointGoal("l_wrist_pitch", 10f),
-                        new LoopingAnimationJointGoal("l_wrist_roll", -4f)),
-                    new LoopingAnimationKeyframe(
-                        0.82f,
-                        new LoopingAnimationJointGoal("neck_yaw", 6f),
-                        new LoopingAnimationJointGoal("neck_pitch", 5f),
-                        new LoopingAnimationJointGoal("neck_roll", 1f),
-                        new LoopingAnimationJointGoal("r_shoulder_pitch", -18f),
-                        new LoopingAnimationJointGoal("r_shoulder_roll", -9f),
-                        new LoopingAnimationJointGoal("r_arm_yaw", -18f),
-                        new LoopingAnimationJointGoal("r_elbow_pitch", -88f),
-                        new LoopingAnimationJointGoal("r_forearm_yaw", -16f),
-                        new LoopingAnimationJointGoal("r_wrist_pitch", 14f),
-                        new LoopingAnimationJointGoal("r_wrist_roll", 8f),
-                        new LoopingAnimationJointGoal("l_shoulder_pitch", -10f),
-                        new LoopingAnimationJointGoal("l_shoulder_roll", 9f),
-                        new LoopingAnimationJointGoal("l_arm_yaw", 10f),
-                        new LoopingAnimationJointGoal("l_elbow_pitch", -102f),
-                        new LoopingAnimationJointGoal("l_forearm_yaw", 4f),
-                        new LoopingAnimationJointGoal("l_wrist_pitch", 8f),
-                        new LoopingAnimationJointGoal("l_wrist_roll", -2f)),
-                    new LoopingAnimationKeyframe(
-                        0.90f,
-                        new LoopingAnimationJointGoal("neck_yaw", 0f),
-                        new LoopingAnimationJointGoal("neck_pitch", 6f),
-                        new LoopingAnimationJointGoal("neck_roll", 0f),
-                        new LoopingAnimationJointGoal("r_shoulder_pitch", -16f),
-                        new LoopingAnimationJointGoal("r_shoulder_roll", -11f),
-                        new LoopingAnimationJointGoal("r_arm_yaw", -15f),
-                        new LoopingAnimationJointGoal("r_elbow_pitch", -92f),
-                        new LoopingAnimationJointGoal("r_forearm_yaw", -10f),
-                        new LoopingAnimationJointGoal("r_wrist_pitch", 11f),
-                        new LoopingAnimationJointGoal("r_wrist_roll", 5f),
-                        new LoopingAnimationJointGoal("l_shoulder_pitch", -13f),
-                        new LoopingAnimationJointGoal("l_shoulder_roll", 11f),
-                        new LoopingAnimationJointGoal("l_arm_yaw", 13f),
-                        new LoopingAnimationJointGoal("l_elbow_pitch", -98f),
-                        new LoopingAnimationJointGoal("l_forearm_yaw", 7f),
-                        new LoopingAnimationJointGoal("l_wrist_pitch", 9f),
-                        new LoopingAnimationJointGoal("l_wrist_roll", -3f))),
-                new LoopingAnimationDefinition(
-                    CrabDanceLoopingAnimationName,
-                    "Crab-like dance loop with pinched hands held high while both shoulders bounce the arms up and down.",
-                    new LoopingAnimationKeyframe(
-                        0.46f,
-                        new LoopingAnimationJointGoal("neck_yaw", -7f),
-                        new LoopingAnimationJointGoal("neck_pitch", 2f),
-                        new LoopingAnimationJointGoal("neck_roll", -4f),
-                        new LoopingAnimationJointGoal("r_shoulder_pitch", -92f),
-                        new LoopingAnimationJointGoal("r_shoulder_roll", -34f),
-                        new LoopingAnimationJointGoal("r_arm_yaw", -18f),
-                        new LoopingAnimationJointGoal("r_elbow_pitch", -66f),
-                        new LoopingAnimationJointGoal("r_forearm_yaw", -38f),
-                        new LoopingAnimationJointGoal("r_wrist_pitch", 22f),
-                        new LoopingAnimationJointGoal("r_wrist_roll", -28f),
-                        new LoopingAnimationJointGoal("r_gripper", -22f),
-                        new LoopingAnimationJointGoal("l_shoulder_pitch", -92f),
-                        new LoopingAnimationJointGoal("l_shoulder_roll", 34f),
-                        new LoopingAnimationJointGoal("l_arm_yaw", 18f),
-                        new LoopingAnimationJointGoal("l_elbow_pitch", -66f),
-                        new LoopingAnimationJointGoal("l_forearm_yaw", 38f),
-                        new LoopingAnimationJointGoal("l_wrist_pitch", 22f),
-                        new LoopingAnimationJointGoal("l_wrist_roll", 28f),
-                        new LoopingAnimationJointGoal("l_gripper", -22f)),
-                    new LoopingAnimationKeyframe(
-                        0.42f,
-                        new LoopingAnimationJointGoal("neck_yaw", 5f),
-                        new LoopingAnimationJointGoal("neck_pitch", 1f),
-                        new LoopingAnimationJointGoal("neck_roll", 3f),
-                        new LoopingAnimationJointGoal("r_shoulder_pitch", -74f),
-                        new LoopingAnimationJointGoal("r_shoulder_roll", -27f),
-                        new LoopingAnimationJointGoal("r_arm_yaw", -10f),
-                        new LoopingAnimationJointGoal("r_elbow_pitch", -84f),
-                        new LoopingAnimationJointGoal("r_forearm_yaw", -24f),
-                        new LoopingAnimationJointGoal("r_wrist_pitch", 16f),
-                        new LoopingAnimationJointGoal("r_wrist_roll", -16f),
-                        new LoopingAnimationJointGoal("r_gripper", -22f),
-                        new LoopingAnimationJointGoal("l_shoulder_pitch", -74f),
-                        new LoopingAnimationJointGoal("l_shoulder_roll", 27f),
-                        new LoopingAnimationJointGoal("l_arm_yaw", 10f),
-                        new LoopingAnimationJointGoal("l_elbow_pitch", -84f),
-                        new LoopingAnimationJointGoal("l_forearm_yaw", 24f),
-                        new LoopingAnimationJointGoal("l_wrist_pitch", 16f),
-                        new LoopingAnimationJointGoal("l_wrist_roll", 16f),
-                        new LoopingAnimationJointGoal("l_gripper", -22f)),
-                    new LoopingAnimationKeyframe(
-                        0.46f,
-                        new LoopingAnimationJointGoal("neck_yaw", 7f),
-                        new LoopingAnimationJointGoal("neck_pitch", 2f),
-                        new LoopingAnimationJointGoal("neck_roll", 4f),
-                        new LoopingAnimationJointGoal("r_shoulder_pitch", -88f),
-                        new LoopingAnimationJointGoal("r_shoulder_roll", -40f),
-                        new LoopingAnimationJointGoal("r_arm_yaw", -14f),
-                        new LoopingAnimationJointGoal("r_elbow_pitch", -60f),
-                        new LoopingAnimationJointGoal("r_forearm_yaw", 34f),
-                        new LoopingAnimationJointGoal("r_wrist_pitch", 24f),
-                        new LoopingAnimationJointGoal("r_wrist_roll", 26f),
-                        new LoopingAnimationJointGoal("r_gripper", -22f),
-                        new LoopingAnimationJointGoal("l_shoulder_pitch", -88f),
-                        new LoopingAnimationJointGoal("l_shoulder_roll", 40f),
-                        new LoopingAnimationJointGoal("l_arm_yaw", 14f),
-                        new LoopingAnimationJointGoal("l_elbow_pitch", -60f),
-                        new LoopingAnimationJointGoal("l_forearm_yaw", -34f),
-                        new LoopingAnimationJointGoal("l_wrist_pitch", 24f),
-                        new LoopingAnimationJointGoal("l_wrist_roll", -26f),
-                        new LoopingAnimationJointGoal("l_gripper", -22f)),
-                    new LoopingAnimationKeyframe(
-                        0.42f,
-                        new LoopingAnimationJointGoal("neck_yaw", -4f),
-                        new LoopingAnimationJointGoal("neck_pitch", 1f),
-                        new LoopingAnimationJointGoal("neck_roll", -2f),
-                        new LoopingAnimationJointGoal("r_shoulder_pitch", -70f),
-                        new LoopingAnimationJointGoal("r_shoulder_roll", -30f),
-                        new LoopingAnimationJointGoal("r_arm_yaw", -8f),
-                        new LoopingAnimationJointGoal("r_elbow_pitch", -86f),
-                        new LoopingAnimationJointGoal("r_forearm_yaw", 18f),
-                        new LoopingAnimationJointGoal("r_wrist_pitch", 18f),
-                        new LoopingAnimationJointGoal("r_wrist_roll", 12f),
-                        new LoopingAnimationJointGoal("r_gripper", -22f),
-                        new LoopingAnimationJointGoal("l_shoulder_pitch", -70f),
-                        new LoopingAnimationJointGoal("l_shoulder_roll", 30f),
-                        new LoopingAnimationJointGoal("l_arm_yaw", 8f),
-                        new LoopingAnimationJointGoal("l_elbow_pitch", -86f),
-                        new LoopingAnimationJointGoal("l_forearm_yaw", -18f),
-                        new LoopingAnimationJointGoal("l_wrist_pitch", 18f),
-                        new LoopingAnimationJointGoal("l_wrist_roll", -12f),
-                        new LoopingAnimationJointGoal("l_gripper", -22f))),
-                new LoopingAnimationDefinition(
-=======
->>>>>>> upstream/main
                     BenderSleepLoopingAnimationName,
                     "Standing sleep sway with a bowed head and slow left-right drifting.",
                     new LoopingAnimationKeyframe(
@@ -4262,11 +3950,8 @@ namespace Reachy.ControlApp
             onlineAiTimeoutSeconds = Mathf.Clamp(onlineAiTimeoutSeconds, 3f, 120f);
             onlineAiTemperature = Mathf.Clamp(onlineAiTemperature, 0f, 2f);
             onlineAiMaxOutputTokens = Mathf.Clamp(onlineAiMaxOutputTokens, 32, 2048);
-<<<<<<< HEAD
-=======
             onlineAiLocalUserMemoryMessages = Mathf.Clamp(onlineAiLocalUserMemoryMessages, 0, 20);
             onlineAiLocalAssistantMemoryMessages = Mathf.Clamp(onlineAiLocalAssistantMemoryMessages, 0, 20);
->>>>>>> upstream/main
             if (string.IsNullOrWhiteSpace(onlineAiModel))
             {
                 onlineAiModel = DefaultOnlineAiModel;
@@ -5144,14 +4829,11 @@ namespace Reachy.ControlApp
                 return;
             }
 
-<<<<<<< HEAD
-=======
             if (TryHandleOnlineAiEmotionReactionIntent(incomingIntent, isOnlineIntent))
             {
                 return;
             }
 
->>>>>>> upstream/main
             VoiceAgentIntent intentToRoute = incomingIntent;
             bool missingStructuredIntent = string.IsNullOrWhiteSpace(incomingIntent.intent);
             if (missingStructuredIntent)
@@ -5302,8 +4984,6 @@ namespace Reachy.ControlApp
             }
         }
 
-<<<<<<< HEAD
-=======
         private bool TryHandleOnlineAiEmotionReactionIntent(VoiceAgentIntent incomingIntent, bool isOnlineIntent)
         {
             if (!isOnlineIntent ||
@@ -5395,7 +5075,6 @@ namespace Reachy.ControlApp
             return false;
         }
 
->>>>>>> upstream/main
         private bool IsDuplicateVoiceCommand(VoiceCommandRouter.RoutedAction action)
         {
             if (!localAiAgentSuppressDuplicateCommands)
@@ -5535,14 +5214,11 @@ namespace Reachy.ControlApp
                 return;
             }
 
-<<<<<<< HEAD
-=======
             if (ShouldSuppressSpeechForCurrentAiContext())
             {
                 return;
             }
 
->>>>>>> upstream/main
             if (string.IsNullOrWhiteSpace(message))
             {
                 return;
@@ -5648,24 +5324,17 @@ namespace Reachy.ControlApp
 
         private bool ShouldEnableSidecarOnlinePartialReplyStreaming()
         {
-<<<<<<< HEAD
-            return !ShouldSuppressOnlinePartialReplyStreamingForRobotMirror();
-=======
             return !IsEmotionReactionPersonaModeSelected() &&
                    !ShouldSuppressOnlinePartialReplyStreamingForRobotMirror();
->>>>>>> upstream/main
         }
 
         private string GetOnlinePartialReplyStreamingReason()
         {
-<<<<<<< HEAD
-=======
             if (IsEmotionReactionPersonaModeSelected())
             {
                 return "emotion-reaction-mode";
             }
 
->>>>>>> upstream/main
             return ShouldSuppressOnlinePartialReplyStreamingForRobotMirror()
                 ? "robot-speaker-mirror-active"
                 : "default";
@@ -7596,8 +7265,6 @@ namespace Reachy.ControlApp
                         new ToneStep(932.33f, 0.12f, 0.01f, 0.92f));
                     break;
 
-<<<<<<< HEAD
-=======
                 case UiModeAudioCue.EmotionPersonaSelected:
                     createdClip = CreateUiModeAudioCueClip(
                         "ui_emotion_mode_selected",
@@ -7606,7 +7273,6 @@ namespace Reachy.ControlApp
                         new ToneStep(659.25f, 0.13f, 0.01f, 0.9f));
                     break;
 
->>>>>>> upstream/main
                 case UiModeAudioCue.OnlineAiEnabled:
                     createdClip = CreateUiModeAudioCueClip(
                         "ui_online_ai_enabled",
@@ -8667,8 +8333,6 @@ namespace Reachy.ControlApp
                 return "custom";
             }
 
-<<<<<<< HEAD
-=======
             if (normalized == "emotion_reactions" ||
                 normalized == "emotion-reactions" ||
                 normalized == "emotion reactions" ||
@@ -8682,7 +8346,6 @@ namespace Reachy.ControlApp
                 return "emotion_reactions";
             }
 
->>>>>>> upstream/main
             return "assistant";
         }
 
@@ -9102,14 +8765,11 @@ namespace Reachy.ControlApp
                 return OnlineAiPersonaMode.Custom;
             }
 
-<<<<<<< HEAD
-=======
             if (normalized == "emotion_reactions")
             {
                 return OnlineAiPersonaMode.EmotionReactions;
             }
 
->>>>>>> upstream/main
             return OnlineAiPersonaMode.Assistant;
         }
 
@@ -9130,14 +8790,11 @@ namespace Reachy.ControlApp
                 return "custom";
             }
 
-<<<<<<< HEAD
-=======
             if (onlineAiPersonaMode == OnlineAiPersonaMode.EmotionReactions)
             {
                 return "emotion_reactions";
             }
 
->>>>>>> upstream/main
             return "assistant";
         }
 
@@ -9163,14 +8820,11 @@ namespace Reachy.ControlApp
                 return GetOnlineAiCustomPersonaName();
             }
 
-<<<<<<< HEAD
-=======
             if (onlineAiPersonaMode == OnlineAiPersonaMode.EmotionReactions)
             {
                 return "Emotion Reactions";
             }
 
->>>>>>> upstream/main
             return "Assistant";
         }
 
@@ -9180,8 +8834,6 @@ namespace Reachy.ControlApp
             return string.IsNullOrWhiteSpace(normalized) ? fallback : normalized;
         }
 
-<<<<<<< HEAD
-=======
         private static string GetStoredOnlineAiSystemPromptFallback(
             string storedPrompt,
             OnlineAiPersonaMode loadedMode,
@@ -9210,7 +8862,6 @@ namespace Reachy.ControlApp
             return NormalizeOnlineAiTtsVoiceValue(storedTtsVoice, fallback);
         }
 
->>>>>>> upstream/main
         private string GetOnlineAiTtsVoiceForMode(OnlineAiPersonaMode mode)
         {
             if (mode == OnlineAiPersonaMode.FortuneTeller)
@@ -9249,8 +8900,6 @@ namespace Reachy.ControlApp
             return char.ToUpperInvariant(normalized[0]) + normalized.Substring(1);
         }
 
-<<<<<<< HEAD
-=======
         private static OnlineAiEmotionReactionProfile[] CreateDefaultOnlineAiEmotionReactionProfiles()
         {
             return new[]
@@ -9415,7 +9064,6 @@ namespace Reachy.ControlApp
             return builder.ToString();
         }
 
->>>>>>> upstream/main
         private static string SanitizeOnlineAiCustomPersonalityFileStem(string value)
         {
             string trimmed = (value ?? string.Empty).Trim().ToLowerInvariant();
@@ -9863,23 +9511,17 @@ namespace Reachy.ControlApp
                 onlineAiCustomSystemPrompt = DefaultCustomOnlineAiSystemPrompt;
             }
 
-<<<<<<< HEAD
-=======
             if (string.IsNullOrWhiteSpace(onlineAiEmotionSystemPrompt))
             {
                 onlineAiEmotionSystemPrompt = DefaultEmotionReactionsOnlineAiSystemPrompt;
             }
 
->>>>>>> upstream/main
             onlineAiAssistantTtsVoice = NormalizeOnlineAiTtsVoiceValue(onlineAiAssistantTtsVoice, DefaultOnlineTtsVoice);
             onlineAiFortuneTellerTtsVoice =
                 NormalizeOnlineAiTtsVoiceValue(onlineAiFortuneTellerTtsVoice, DefaultFortuneTellerOnlineTtsVoice);
             onlineAiCustomTtsVoice = NormalizeOnlineAiTtsVoiceValue(onlineAiCustomTtsVoice, DefaultOnlineTtsVoice);
-<<<<<<< HEAD
-=======
             onlineAiEmotionReactionProfiles =
                 NormalizeOnlineAiEmotionReactionProfiles(onlineAiEmotionReactionProfiles);
->>>>>>> upstream/main
             onlineAiCustomPersonaName = onlineAiCustomPersonaName ?? string.Empty;
             onlineAiCustomPersonaSummary = onlineAiCustomPersonaSummary ?? string.Empty;
             onlineAiSharedModeInstructions = onlineAiSharedModeInstructions ?? string.Empty;
@@ -9917,11 +9559,8 @@ namespace Reachy.ControlApp
             builder.Append(onlineAiCustomFactualGrounding.ToString("F3", CultureInfo.InvariantCulture)).Append('\n');
             builder.Append(onlineAiCustomSystemPrompt ?? string.Empty).Append('\n');
             builder.Append(onlineAiCustomTtsVoice ?? string.Empty).Append('\n');
-<<<<<<< HEAD
-=======
             builder.Append(onlineAiEmotionSystemPrompt ?? string.Empty).Append('\n');
             builder.Append(BuildOnlineAiEmotionReactionProfilesFingerprint(onlineAiEmotionReactionProfiles)).Append('\n');
->>>>>>> upstream/main
             builder.Append(onlineAiSystemPrompt ?? string.Empty);
             return builder.ToString();
         }
@@ -10035,13 +9674,10 @@ namespace Reachy.ControlApp
             {
                 basePrompt = BuildCustomOnlineAiSystemPrompt();
             }
-<<<<<<< HEAD
-=======
             else if (onlineAiPersonaMode == OnlineAiPersonaMode.EmotionReactions)
             {
                 basePrompt = BuildEmotionReactionsOnlineAiSystemPrompt();
             }
->>>>>>> upstream/main
             else
             {
                 basePrompt = string.IsNullOrWhiteSpace(onlineAiAssistantSystemPrompt)
@@ -10119,8 +9755,6 @@ namespace Reachy.ControlApp
                 "- If the persona calls for speculation or fictional framing, mark it clearly instead of presenting it as fact.";
         }
 
-<<<<<<< HEAD
-=======
         private string BuildEmotionReactionsOnlineAiSystemPrompt()
         {
             string basePrompt = string.IsNullOrWhiteSpace(onlineAiEmotionSystemPrompt)
@@ -10162,7 +9796,6 @@ namespace Reachy.ControlApp
             return builder.ToString().TrimEnd();
         }
 
->>>>>>> upstream/main
         private string GetOnlineAiCustomPersonaName()
         {
             return string.IsNullOrWhiteSpace(onlineAiCustomPersonaName)
@@ -10195,8 +9828,6 @@ namespace Reachy.ControlApp
                     $"{GetOnlineAiCustomPersonaSummary()}";
             }
 
-<<<<<<< HEAD
-=======
             if (onlineAiPersonaMode == OnlineAiPersonaMode.EmotionReactions)
             {
                 OnlineAiEmotionReactionProfile[] reactions =
@@ -10206,7 +9837,6 @@ namespace Reachy.ControlApp
                     $"Configured reactions: {BuildEmotionReactionProfileSummary(reactions)}";
             }
 
->>>>>>> upstream/main
             return "Default Reachy assistant behavior. Reachy identifies as itself, can explain the robot, and helps with whatever the user wants assistance with.";
         }
 
@@ -10227,8 +9857,6 @@ namespace Reachy.ControlApp
                     $"{GetOnlineAiCustomPersonaName()}: {GetOnlineAiCustomPersonaSummary()}";
             }
 
-<<<<<<< HEAD
-=======
             if (onlineAiPersonaMode == OnlineAiPersonaMode.EmotionReactions)
             {
                 return
@@ -10236,13 +9864,10 @@ namespace Reachy.ControlApp
                     "and trigger the closest configured acted sequence instead of speaking.";
             }
 
->>>>>>> upstream/main
             return
                 "Assistant: I am Reachy. I can tell you about myself, explain the robot, help with Reachy control, and assist with whatever you want help with.";
         }
 
-<<<<<<< HEAD
-=======
         private static string BuildEmotionReactionProfileSummary(OnlineAiEmotionReactionProfile[] reactions)
         {
             OnlineAiEmotionReactionProfile[] normalizedReactions =
@@ -10320,7 +9945,6 @@ namespace Reachy.ControlApp
                    IsEmotionReactionPersonaModeSelected();
         }
 
->>>>>>> upstream/main
         private static string NormalizeVoiceModeSwitchTranscript(string value)
         {
             if (string.IsNullOrWhiteSpace(value))
@@ -10406,9 +10030,6 @@ namespace Reachy.ControlApp
                 "oracle mode",
                 "madam circuit",
                 "madame circuit");
-<<<<<<< HEAD
-            if (targetsAssistant == targetsFortuneTeller)
-=======
             bool targetsEmotionReactions = ContainsAnyNormalizedPhrase(
                 normalizedTranscript,
                 "emotion mode",
@@ -10422,7 +10043,6 @@ namespace Reachy.ControlApp
                 (targetsFortuneTeller ? 1 : 0) +
                 (targetsEmotionReactions ? 1 : 0);
             if (targetedModeCount != 1)
->>>>>>> upstream/main
             {
                 return false;
             }
@@ -10435,9 +10055,6 @@ namespace Reachy.ControlApp
                 "fortune mode",
                 "oracle mode",
                 "madam circuit",
-<<<<<<< HEAD
-                "madame circuit");
-=======
                 "madame circuit",
                 "emotion mode",
                 "emotion reaction mode",
@@ -10445,7 +10062,6 @@ namespace Reachy.ControlApp
                 "reaction mode",
                 "silent emotion mode",
                 "happy sad mode");
->>>>>>> upstream/main
             bool explicitSwitchVerb = ContainsAnyNormalizedPhrase(
                 normalizedTranscript,
                 "switch",
@@ -10475,13 +10091,9 @@ namespace Reachy.ControlApp
 
             requestedMode = targetsFortuneTeller
                 ? OnlineAiPersonaMode.FortuneTeller
-<<<<<<< HEAD
-                : OnlineAiPersonaMode.Assistant;
-=======
                 : (targetsEmotionReactions
                     ? OnlineAiPersonaMode.EmotionReactions
                     : OnlineAiPersonaMode.Assistant);
->>>>>>> upstream/main
             return true;
         }
 
@@ -10638,11 +10250,8 @@ namespace Reachy.ControlApp
                     ? DefaultAssistantOnlineAiSystemPrompt
                     : onlineAiSystemPrompt,
                 online_tts_voice = GetSelectedOnlineAiTtsVoice(),
-<<<<<<< HEAD
-=======
                 online_ai_emotion_reactions =
                     NormalizeOnlineAiEmotionReactionProfiles(onlineAiEmotionReactionProfiles),
->>>>>>> upstream/main
                 online_ai_allow_voice_persona_switch = onlineAiAllowVoicePersonaSwitch
             };
         }
@@ -10707,8 +10316,6 @@ namespace Reachy.ControlApp
             return result.Success;
         }
 
-<<<<<<< HEAD
-=======
         private bool TryConfirmSelectedOnlineAiModeConsistency(
             string sourceLabel,
             bool updateRunningSidecar,
@@ -10771,7 +10378,6 @@ namespace Reachy.ControlApp
             RefreshEffectiveOnlineAiSystemPrompt();
         }
 
->>>>>>> upstream/main
         private void HandleOnlineAiEnabledToggleChanged()
         {
             bool savedVoiceConfig = TrySaveVoiceAgentConfigToDisk(out string saveMessage);
@@ -10984,14 +10590,11 @@ namespace Reachy.ControlApp
                 onlineAiCustomSystemPrompt = DefaultCustomOnlineAiSystemPrompt;
                 onlineAiCustomTtsVoice = DefaultOnlineTtsVoice;
             }
-<<<<<<< HEAD
-=======
             else if (modeToReset == OnlineAiPersonaMode.EmotionReactions)
             {
                 onlineAiEmotionSystemPrompt = DefaultEmotionReactionsOnlineAiSystemPrompt;
                 onlineAiEmotionReactionProfiles = CreateDefaultOnlineAiEmotionReactionProfiles();
             }
->>>>>>> upstream/main
             else
             {
                 onlineAiAssistantSystemPrompt = DefaultAssistantOnlineAiSystemPrompt;
@@ -11563,10 +11166,7 @@ namespace Reachy.ControlApp
                         reason: "Disconnected by voice command.",
                         stopLoopingAnimation: false);
                     StopLoopingAnimation(updateStatus: false, reason: "Disconnected by voice command.");
-<<<<<<< HEAD
-=======
                     StopAnimationCreatorPlayback(updateStatus: false, reason: "Disconnected by voice command.");
->>>>>>> upstream/main
                     StopVoiceShowMovementSequence(updateStatus: false, reason: "Disconnected by voice command.");
                     StopVoiceMotionSequence(updateStatus: false, reason: "Disconnected by voice command.");
                     StopVoiceHelloReturnTimer(updateStatus: false, reason: "Disconnected by voice command.");
@@ -11574,10 +11174,7 @@ namespace Reachy.ControlApp
                     _manualDisconnect = true;
                     _autoReconnectScheduled = false;
                     _client.Disconnect();
-<<<<<<< HEAD
-=======
                     ResetAnimationCreatorLivePreviewState();
->>>>>>> upstream/main
                     _connectedMode = null;
                     message = "Disconnected by voice command.";
                     LogConnectionEvent(disconnectedMode, "voice-disconnect", message);
@@ -14208,15 +13805,12 @@ namespace Reachy.ControlApp
                 bool hasOnlinePersonaModeField = json.IndexOf(
                     "\"online_ai_persona_mode\"",
                     StringComparison.OrdinalIgnoreCase) >= 0;
-<<<<<<< HEAD
-=======
                 bool hasOnlineLocalUserMemoryMessagesField = json.IndexOf(
                     "\"online_ai_local_user_memory_messages\"",
                     StringComparison.OrdinalIgnoreCase) >= 0;
                 bool hasOnlineLocalAssistantMemoryMessagesField = json.IndexOf(
                     "\"online_ai_local_assistant_memory_messages\"",
                     StringComparison.OrdinalIgnoreCase) >= 0;
->>>>>>> upstream/main
                 bool hasOnlineAssistantSystemPromptField = json.IndexOf(
                     "\"online_ai_assistant_system_prompt\"",
                     StringComparison.OrdinalIgnoreCase) >= 0;
@@ -14277,15 +13871,12 @@ namespace Reachy.ControlApp
                 bool hasOnlineCustomTtsVoiceField = json.IndexOf(
                     "\"online_ai_custom_tts_voice\"",
                     StringComparison.OrdinalIgnoreCase) >= 0;
-<<<<<<< HEAD
-=======
                 bool hasOnlineEmotionSystemPromptField = json.IndexOf(
                     "\"online_ai_emotion_system_prompt\"",
                     StringComparison.OrdinalIgnoreCase) >= 0;
                 bool hasOnlineEmotionReactionsField = json.IndexOf(
                     "\"online_ai_emotion_reactions\"",
                     StringComparison.OrdinalIgnoreCase) >= 0;
->>>>>>> upstream/main
 
                 VoiceAgentConfig config = JsonUtility.FromJson<VoiceAgentConfig>(json);
                 if (config == null)
@@ -14443,15 +14034,12 @@ namespace Reachy.ControlApp
                 }
                 onlineAiTemperature = Mathf.Clamp(config.online_ai_temperature, 0f, 2f);
                 onlineAiMaxOutputTokens = Mathf.Clamp(config.online_ai_max_output_tokens, 32, 2048);
-<<<<<<< HEAD
-=======
                 onlineAiLocalUserMemoryMessages = hasOnlineLocalUserMemoryMessagesField
                     ? Mathf.Clamp(config.online_ai_local_user_memory_messages, 0, 20)
                     : DefaultOnlineAiLocalUserMemoryMessages;
                 onlineAiLocalAssistantMemoryMessages = hasOnlineLocalAssistantMemoryMessagesField
                     ? Mathf.Clamp(config.online_ai_local_assistant_memory_messages, 0, 20)
                     : DefaultOnlineAiLocalAssistantMemoryMessages;
->>>>>>> upstream/main
                 onlineAiPersonaMode = hasOnlinePersonaModeField
                     ? ParseOnlineAiPersonaMode(config.online_ai_persona_mode)
                     : OnlineAiPersonaMode.Assistant;
@@ -14459,14 +14047,6 @@ namespace Reachy.ControlApp
                     ? (string.IsNullOrWhiteSpace(config.online_ai_assistant_system_prompt)
                         ? DefaultAssistantOnlineAiSystemPrompt
                         : config.online_ai_assistant_system_prompt)
-<<<<<<< HEAD
-                    : (string.IsNullOrWhiteSpace(config.online_ai_system_prompt)
-                        ? DefaultAssistantOnlineAiSystemPrompt
-                        : config.online_ai_system_prompt);
-                onlineAiAssistantTtsVoice = hasOnlineAssistantTtsVoiceField
-                    ? NormalizeOnlineAiTtsVoiceValue(config.online_ai_assistant_tts_voice, DefaultOnlineTtsVoice)
-                    : DefaultOnlineTtsVoice;
-=======
                     : GetStoredOnlineAiSystemPromptFallback(
                         config.online_ai_system_prompt,
                         onlineAiPersonaMode,
@@ -14479,7 +14059,6 @@ namespace Reachy.ControlApp
                         onlineAiPersonaMode,
                         OnlineAiPersonaMode.Assistant,
                         DefaultOnlineTtsVoice);
->>>>>>> upstream/main
                 onlineAiSharedModeInstructions = hasOnlineSharedModeInstructionsField
                     ? (config.online_ai_shared_mode_instructions ?? string.Empty)
                     : string.Empty;
@@ -14505,28 +14084,20 @@ namespace Reachy.ControlApp
                 onlineAiFortuneTellerSystemPrompt = hasOnlineFortuneTellerSystemPromptField &&
                                                     !string.IsNullOrWhiteSpace(config.online_ai_fortune_teller_system_prompt)
                     ? config.online_ai_fortune_teller_system_prompt
-<<<<<<< HEAD
-                    : DefaultFortuneTellerOnlineAiSystemPrompt;
-=======
                     : GetStoredOnlineAiSystemPromptFallback(
                         config.online_ai_system_prompt,
                         onlineAiPersonaMode,
                         OnlineAiPersonaMode.FortuneTeller,
                         DefaultFortuneTellerOnlineAiSystemPrompt);
->>>>>>> upstream/main
                 onlineAiFortuneTellerTtsVoice = hasOnlineFortuneTellerTtsVoiceField
                     ? NormalizeOnlineAiTtsVoiceValue(
                         config.online_ai_fortune_teller_tts_voice,
                         DefaultFortuneTellerOnlineTtsVoice)
-<<<<<<< HEAD
-                    : DefaultFortuneTellerOnlineTtsVoice;
-=======
                     : GetStoredOnlineAiTtsVoiceFallback(
                         config.online_tts_voice,
                         onlineAiPersonaMode,
                         OnlineAiPersonaMode.FortuneTeller,
                         DefaultFortuneTellerOnlineTtsVoice);
->>>>>>> upstream/main
                 onlineAiCustomPersonaName = hasOnlineCustomPersonaNameField &&
                                             !string.IsNullOrWhiteSpace(config.online_ai_custom_persona_name)
                     ? config.online_ai_custom_persona_name.Trim()
@@ -14553,22 +14124,15 @@ namespace Reachy.ControlApp
                 onlineAiCustomSystemPrompt = hasOnlineCustomSystemPromptField &&
                                              !string.IsNullOrWhiteSpace(config.online_ai_custom_system_prompt)
                     ? config.online_ai_custom_system_prompt
-<<<<<<< HEAD
-                    : DefaultCustomOnlineAiSystemPrompt;
-=======
                     : GetStoredOnlineAiSystemPromptFallback(
                         config.online_ai_system_prompt,
                         onlineAiPersonaMode,
                         OnlineAiPersonaMode.Custom,
                         DefaultCustomOnlineAiSystemPrompt);
->>>>>>> upstream/main
                 onlineAiCustomTtsVoice = hasOnlineCustomTtsVoiceField
                     ? NormalizeOnlineAiTtsVoiceValue(
                         config.online_ai_custom_tts_voice,
                         DefaultOnlineTtsVoice)
-<<<<<<< HEAD
-                    : DefaultOnlineTtsVoice;
-=======
                     : GetStoredOnlineAiTtsVoiceFallback(
                         config.online_tts_voice,
                         onlineAiPersonaMode,
@@ -14585,7 +14149,6 @@ namespace Reachy.ControlApp
                 onlineAiEmotionReactionProfiles = hasOnlineEmotionReactionsField
                     ? NormalizeOnlineAiEmotionReactionProfiles(config.online_ai_emotion_reactions)
                     : CreateDefaultOnlineAiEmotionReactionProfiles();
->>>>>>> upstream/main
                 RefreshEffectiveOnlineAiSystemPrompt();
                 ResetOnlineAiPersonaLiveApplyTracking();
                 ResolveSavedOnlineAiCustomPersonalitySelection();
@@ -14623,10 +14186,7 @@ namespace Reachy.ControlApp
 
             try
             {
-<<<<<<< HEAD
-=======
                 RefreshEffectiveOnlineAiSystemPrompt();
->>>>>>> upstream/main
                 VoiceAgentConfig config = new VoiceAgentConfig();
                 if (File.Exists(configPath))
                 {
@@ -14641,14 +14201,11 @@ namespace Reachy.ControlApp
                     }
                 }
 
-<<<<<<< HEAD
-=======
                 if (config.tts_barge_in_phrases == null || config.tts_barge_in_phrases.Length == 0)
                 {
                     config.tts_barge_in_phrases = DefaultTtsBargeInPhrases;
                 }
 
->>>>>>> upstream/main
                 float normalizedJointMin = Mathf.Min(localAiAgentJointMinDegrees, localAiAgentJointMaxDegrees);
                 float normalizedJointMax = Mathf.Max(localAiAgentJointMinDegrees, localAiAgentJointMaxDegrees);
                 localAiAgentJointMinDegrees = normalizedJointMin;
@@ -14741,13 +14298,10 @@ namespace Reachy.ControlApp
                 config.online_ai_timeout_seconds = onlineAiTimeoutSeconds;
                 config.online_ai_temperature = onlineAiTemperature;
                 config.online_ai_max_output_tokens = onlineAiMaxOutputTokens;
-<<<<<<< HEAD
-=======
                 config.online_ai_local_user_memory_messages = Mathf.Clamp(onlineAiLocalUserMemoryMessages, 0, 20);
                 config.online_ai_local_assistant_memory_messages =
                     Mathf.Clamp(onlineAiLocalAssistantMemoryMessages, 0, 20);
                 config.online_tts_voice = GetSelectedOnlineAiTtsVoice();
->>>>>>> upstream/main
                 config.online_ai_persona_mode = GetOnlineAiPersonaModeConfigValue();
                 config.online_ai_assistant_system_prompt = string.IsNullOrWhiteSpace(onlineAiAssistantSystemPrompt)
                     ? DefaultAssistantOnlineAiSystemPrompt
@@ -14790,15 +14344,12 @@ namespace Reachy.ControlApp
                 config.online_ai_custom_tts_voice = NormalizeOnlineAiTtsVoiceValue(
                     onlineAiCustomTtsVoice,
                     DefaultOnlineTtsVoice);
-<<<<<<< HEAD
-=======
                 config.online_ai_emotion_system_prompt =
                     string.IsNullOrWhiteSpace(onlineAiEmotionSystemPrompt)
                         ? DefaultEmotionReactionsOnlineAiSystemPrompt
                         : onlineAiEmotionSystemPrompt.Trim();
                 config.online_ai_emotion_reactions =
                     NormalizeOnlineAiEmotionReactionProfiles(onlineAiEmotionReactionProfiles);
->>>>>>> upstream/main
                 config.online_ai_system_prompt = string.IsNullOrWhiteSpace(onlineAiSystemPrompt)
                     ? DefaultAssistantOnlineAiSystemPrompt
                     : onlineAiSystemPrompt;
@@ -14840,10 +14391,7 @@ namespace Reachy.ControlApp
 
             try
             {
-<<<<<<< HEAD
-=======
                 RefreshEffectiveOnlineAiSystemPrompt();
->>>>>>> upstream/main
                 LocalVoiceAgentSidecarConfig config = new LocalVoiceAgentSidecarConfig();
                 if (File.Exists(sidecarConfigPath))
                 {
@@ -14868,14 +14416,11 @@ namespace Reachy.ControlApp
                 {
                     config.known_joints = DefaultSidecarKnownJoints;
                 }
-<<<<<<< HEAD
-=======
 
                 if (config.tts_barge_in_phrases == null || config.tts_barge_in_phrases.Length == 0)
                 {
                     config.tts_barge_in_phrases = DefaultTtsBargeInPhrases;
                 }
->>>>>>> upstream/main
                 if (config.show_movement_synonyms == null || config.show_movement_synonyms.Length == 0)
                 {
                     config.show_movement_synonyms = DefaultSidecarShowMovementSynonyms;
@@ -14985,12 +14530,9 @@ namespace Reachy.ControlApp
                 }
                 config.online_ai_temperature = Mathf.Clamp(onlineAiTemperature, 0f, 2f);
                 config.online_ai_max_output_tokens = Mathf.Clamp(onlineAiMaxOutputTokens, 32, 2048);
-<<<<<<< HEAD
-=======
                 config.online_ai_local_user_memory_messages = Mathf.Clamp(onlineAiLocalUserMemoryMessages, 0, 20);
                 config.online_ai_local_assistant_memory_messages =
                     Mathf.Clamp(onlineAiLocalAssistantMemoryMessages, 0, 20);
->>>>>>> upstream/main
                 config.online_ai_persona_mode = GetOnlineAiPersonaModeConfigValue();
                 config.online_ai_assistant_system_prompt = string.IsNullOrWhiteSpace(onlineAiAssistantSystemPrompt)
                     ? DefaultAssistantOnlineAiSystemPrompt
@@ -15033,15 +14575,12 @@ namespace Reachy.ControlApp
                 config.online_ai_custom_tts_voice = NormalizeOnlineAiTtsVoiceValue(
                     onlineAiCustomTtsVoice,
                     DefaultOnlineTtsVoice);
-<<<<<<< HEAD
-=======
                 config.online_ai_emotion_system_prompt =
                     string.IsNullOrWhiteSpace(onlineAiEmotionSystemPrompt)
                         ? DefaultEmotionReactionsOnlineAiSystemPrompt
                         : onlineAiEmotionSystemPrompt.Trim();
                 config.online_ai_emotion_reactions =
                     NormalizeOnlineAiEmotionReactionProfiles(onlineAiEmotionReactionProfiles);
->>>>>>> upstream/main
                 config.online_ai_system_prompt = string.IsNullOrWhiteSpace(onlineAiSystemPrompt)
                     ? DefaultAssistantOnlineAiSystemPrompt
                     : onlineAiSystemPrompt;
@@ -15102,15 +14641,12 @@ namespace Reachy.ControlApp
                 bool hasOnlinePersonaModeField = json.IndexOf(
                     "\"online_ai_persona_mode\"",
                     StringComparison.OrdinalIgnoreCase) >= 0;
-<<<<<<< HEAD
-=======
                 bool hasOnlineLocalUserMemoryMessagesField = json.IndexOf(
                     "\"online_ai_local_user_memory_messages\"",
                     StringComparison.OrdinalIgnoreCase) >= 0;
                 bool hasOnlineLocalAssistantMemoryMessagesField = json.IndexOf(
                     "\"online_ai_local_assistant_memory_messages\"",
                     StringComparison.OrdinalIgnoreCase) >= 0;
->>>>>>> upstream/main
                 bool hasOnlineAssistantSystemPromptField = json.IndexOf(
                     "\"online_ai_assistant_system_prompt\"",
                     StringComparison.OrdinalIgnoreCase) >= 0;
@@ -15171,15 +14707,12 @@ namespace Reachy.ControlApp
                 bool hasOnlineCustomTtsVoiceField = json.IndexOf(
                     "\"online_ai_custom_tts_voice\"",
                     StringComparison.OrdinalIgnoreCase) >= 0;
-<<<<<<< HEAD
-=======
                 bool hasOnlineEmotionSystemPromptField = json.IndexOf(
                     "\"online_ai_emotion_system_prompt\"",
                     StringComparison.OrdinalIgnoreCase) >= 0;
                 bool hasOnlineEmotionReactionsField = json.IndexOf(
                     "\"online_ai_emotion_reactions\"",
                     StringComparison.OrdinalIgnoreCase) >= 0;
->>>>>>> upstream/main
 
                 LocalVoiceAgentSidecarConfig config =
                     JsonUtility.FromJson<LocalVoiceAgentSidecarConfig>(json);
@@ -15236,15 +14769,12 @@ namespace Reachy.ControlApp
                 onlineAiTimeoutSeconds = Mathf.Clamp(config.online_ai_timeout_seconds, 3f, 120f);
                 onlineAiTemperature = Mathf.Clamp(config.online_ai_temperature, 0f, 2f);
                 onlineAiMaxOutputTokens = Mathf.Clamp(config.online_ai_max_output_tokens, 32, 2048);
-<<<<<<< HEAD
-=======
                 onlineAiLocalUserMemoryMessages = hasOnlineLocalUserMemoryMessagesField
                     ? Mathf.Clamp(config.online_ai_local_user_memory_messages, 0, 20)
                     : DefaultOnlineAiLocalUserMemoryMessages;
                 onlineAiLocalAssistantMemoryMessages = hasOnlineLocalAssistantMemoryMessagesField
                     ? Mathf.Clamp(config.online_ai_local_assistant_memory_messages, 0, 20)
                     : DefaultOnlineAiLocalAssistantMemoryMessages;
->>>>>>> upstream/main
                 onlineAiPersonaMode = hasOnlinePersonaModeField
                     ? ParseOnlineAiPersonaMode(config.online_ai_persona_mode)
                     : OnlineAiPersonaMode.Assistant;
@@ -15252,14 +14782,6 @@ namespace Reachy.ControlApp
                     ? (string.IsNullOrWhiteSpace(config.online_ai_assistant_system_prompt)
                         ? DefaultAssistantOnlineAiSystemPrompt
                         : config.online_ai_assistant_system_prompt)
-<<<<<<< HEAD
-                    : (string.IsNullOrWhiteSpace(config.online_ai_system_prompt)
-                        ? DefaultAssistantOnlineAiSystemPrompt
-                        : config.online_ai_system_prompt);
-                onlineAiAssistantTtsVoice = hasOnlineAssistantTtsVoiceField
-                    ? NormalizeOnlineAiTtsVoiceValue(config.online_ai_assistant_tts_voice, DefaultOnlineTtsVoice)
-                    : NormalizeOnlineAiTtsVoiceValue(config.online_tts_voice, DefaultOnlineTtsVoice);
-=======
                     : GetStoredOnlineAiSystemPromptFallback(
                         config.online_ai_system_prompt,
                         onlineAiPersonaMode,
@@ -15272,7 +14794,6 @@ namespace Reachy.ControlApp
                         onlineAiPersonaMode,
                         OnlineAiPersonaMode.Assistant,
                         DefaultOnlineTtsVoice);
->>>>>>> upstream/main
                 onlineAiSharedModeInstructions = hasOnlineSharedModeInstructionsField
                     ? (config.online_ai_shared_mode_instructions ?? string.Empty)
                     : string.Empty;
@@ -15298,28 +14819,20 @@ namespace Reachy.ControlApp
                 onlineAiFortuneTellerSystemPrompt = hasOnlineFortuneTellerSystemPromptField &&
                                                     !string.IsNullOrWhiteSpace(config.online_ai_fortune_teller_system_prompt)
                     ? config.online_ai_fortune_teller_system_prompt
-<<<<<<< HEAD
-                    : DefaultFortuneTellerOnlineAiSystemPrompt;
-=======
                     : GetStoredOnlineAiSystemPromptFallback(
                         config.online_ai_system_prompt,
                         onlineAiPersonaMode,
                         OnlineAiPersonaMode.FortuneTeller,
                         DefaultFortuneTellerOnlineAiSystemPrompt);
->>>>>>> upstream/main
                 onlineAiFortuneTellerTtsVoice = hasOnlineFortuneTellerTtsVoiceField
                     ? NormalizeOnlineAiTtsVoiceValue(
                         config.online_ai_fortune_teller_tts_voice,
                         DefaultFortuneTellerOnlineTtsVoice)
-<<<<<<< HEAD
-                    : DefaultFortuneTellerOnlineTtsVoice;
-=======
                     : GetStoredOnlineAiTtsVoiceFallback(
                         config.online_tts_voice,
                         onlineAiPersonaMode,
                         OnlineAiPersonaMode.FortuneTeller,
                         DefaultFortuneTellerOnlineTtsVoice);
->>>>>>> upstream/main
                 onlineAiCustomPersonaName = hasOnlineCustomPersonaNameField &&
                                             !string.IsNullOrWhiteSpace(config.online_ai_custom_persona_name)
                     ? config.online_ai_custom_persona_name.Trim()
@@ -15346,22 +14859,15 @@ namespace Reachy.ControlApp
                 onlineAiCustomSystemPrompt = hasOnlineCustomSystemPromptField &&
                                              !string.IsNullOrWhiteSpace(config.online_ai_custom_system_prompt)
                     ? config.online_ai_custom_system_prompt
-<<<<<<< HEAD
-                    : DefaultCustomOnlineAiSystemPrompt;
-=======
                     : GetStoredOnlineAiSystemPromptFallback(
                         config.online_ai_system_prompt,
                         onlineAiPersonaMode,
                         OnlineAiPersonaMode.Custom,
                         DefaultCustomOnlineAiSystemPrompt);
->>>>>>> upstream/main
                 onlineAiCustomTtsVoice = hasOnlineCustomTtsVoiceField
                     ? NormalizeOnlineAiTtsVoiceValue(
                         config.online_ai_custom_tts_voice,
                         DefaultOnlineTtsVoice)
-<<<<<<< HEAD
-                    : DefaultOnlineTtsVoice;
-=======
                     : GetStoredOnlineAiTtsVoiceFallback(
                         config.online_tts_voice,
                         onlineAiPersonaMode,
@@ -15378,7 +14884,6 @@ namespace Reachy.ControlApp
                 onlineAiEmotionReactionProfiles = hasOnlineEmotionReactionsField
                     ? NormalizeOnlineAiEmotionReactionProfiles(config.online_ai_emotion_reactions)
                     : CreateDefaultOnlineAiEmotionReactionProfiles();
->>>>>>> upstream/main
                 RefreshEffectiveOnlineAiSystemPrompt();
                 ResetOnlineAiPersonaLiveApplyTracking();
                 ResolveSavedOnlineAiCustomPersonalitySelection();
@@ -15860,22 +15365,16 @@ namespace Reachy.ControlApp
                 true,
                 GUILayout.Height(bodyHeight));
 
-<<<<<<< HEAD
-            GUILayout.Label("This tab allows you to create custom Animation Poses for Reachy keyframe by keyframe. You can create a new pose, move the joints by dragging the sliders below or by moving his joints in the middle area. To finalise, you can then save all the animation key frames you created.");
-=======
             GUILayout.Label(
                 "This tab lets you create custom Reachy animations keyframe by keyframe. " +
                 "Pose the scene Reachy with the sliders below or by dragging joints in the middle area, " +
                 "record full-body keyframes, and save the result for looping playback. " +
                 "When a Real Robot session is active, the creator can also mirror those edits and playbacks to hardware.");
->>>>>>> upstream/main
             GUILayout.Space(6f);
             DrawPoseSpeedSliderSection(
                 "Adjust shared pose transition speed for preset poses, looping animations, and Animation Creator playback.");
             GUILayout.Space(10f);
 
-<<<<<<< HEAD
-=======
             bool previousMirrorToRealRobot = animationCreatorMirrorToRealRobot;
             animationCreatorMirrorToRealRobot = GUILayout.Toggle(
                 animationCreatorMirrorToRealRobot,
@@ -15905,7 +15404,6 @@ namespace Reachy.ControlApp
             GUILayout.EndHorizontal();
             GUILayout.Space(8f);
 
->>>>>>> upstream/main
             GUILayout.Label("Pose title");
             _animationCreatorPoseTitle = GUILayout.TextField(_animationCreatorPoseTitle ?? string.Empty);
 
@@ -15975,13 +15473,7 @@ namespace Reachy.ControlApp
             }
 
             GUILayout.Space(8f);
-<<<<<<< HEAD
-            GUILayout.Label(_animationCreatorEditModeEnabled
-                ? "Pose capture is active. Click a joint on Reachy in the middle scene and drag with the left mouse button."
-                : "Pose capture is idle. Use Create New Pose to enable body editing.");
-=======
             GUILayout.Label(GetAnimationCreatorPoseCaptureSummary());
->>>>>>> upstream/main
             GUILayout.Label(_animationCreatorDraftKeyframes.Count > 0
                 ? $"Draft animation frames recorded: {_animationCreatorDraftKeyframes.Count}"
                 : "Draft animation frames recorded: 0");
@@ -16046,17 +15538,11 @@ namespace Reachy.ControlApp
                 overlayHeight);
 
             GUILayout.BeginArea(overlayRect, GUI.skin.box);
-<<<<<<< HEAD
-            GUILayout.Label("Animate Avatar With Mouse (Work in Progress)", _titleStyle);
-            GUILayout.Label(creatorReady
-                ? "You can move Reachy's joints with mouse in this area. Click a joint and drag to pose Reachy."
-=======
             GUILayout.Label("Animate Reachy With Mouse", _titleStyle);
             GUILayout.Label(creatorReady
                 ? ShouldAnimationCreatorMirrorToRealRobot()
                     ? "You can move Reachy's joints with the mouse here. Click a joint and drag to pose Reachy; the connected live robot will mirror your edits."
                     : "You can move Reachy's joints with the mouse here. Click a joint and drag to pose Reachy."
->>>>>>> upstream/main
                 : creatorMessage);
             GUILayout.EndArea();
         }
@@ -16078,11 +15564,7 @@ namespace Reachy.ControlApp
             int selectedSavedPoseCount = CountSelectedAnimationCreatorSavedPoses();
             if (_animationCreatorSavedPoses.Count <= 0)
             {
-<<<<<<< HEAD
-                GUILayout.Label("No saved scene animations yet. When your animations are saved, you can find them here and play them back or delete them.");
-=======
                 GUILayout.Label("No saved animations yet. When your animations are saved, you can find them here and play them back or delete them.");
->>>>>>> upstream/main
             }
             else
             {
@@ -16151,10 +15633,7 @@ namespace Reachy.ControlApp
             {
                 GUILayout.Space(6f);
                 GUILayout.Label($"Scene body: {_animationCreator.Status}");
-<<<<<<< HEAD
-=======
                 GUILayout.Label($"Motion route: {GetAnimationCreatorRoutingSummary()}");
->>>>>>> upstream/main
             }
 
             GUILayout.EndScrollView();
@@ -16970,11 +16449,7 @@ namespace Reachy.ControlApp
 
         private void DrawActedSequencesSection()
         {
-<<<<<<< HEAD
-            GUILayout.Label("Sequences and Emotions", _titleStyle);
-=======
             GUILayout.Label("Acted Sequences", _titleStyle);
->>>>>>> upstream/main
             GUILayout.Label("Scripted beats can chain preset poses, looping animations, and TTS speech.");
             GUILayout.Label(
                 _actedSequenceCoroutine != null
@@ -16984,14 +16459,8 @@ namespace Reachy.ControlApp
             bool previousEnabled = GUI.enabled;
             bool isReachyIntroductionActive = IsActedSequenceActive(ReachyIntroductionActedSequenceName);
             bool isBenderSleepActive = IsActedSequenceActive(BenderSleepActedSequenceName);
-<<<<<<< HEAD
-            bool isJoyEmotionActive = IsActedSequenceActive(JoyEmotionActedSequenceName);
-            bool isFocusedEmotionActive = IsActedSequenceActive(FocusedEmotionActedSequenceName);
-            bool isCrabDanceActive = IsActedSequenceActive(CrabDanceActedSequenceName);
-=======
             bool isHappyActive = IsActedSequenceActive(HappyActedSequenceName);
             bool isSadActive = IsActedSequenceActive(Sad1ActedSequenceName);
->>>>>>> upstream/main
 
             GUILayout.BeginVertical(GUI.skin.box);
             GUILayout.Label(ReachyIntroductionActedSequenceName, _titleStyle);
@@ -17015,10 +16484,6 @@ namespace Reachy.ControlApp
             GUILayout.EndVertical();
 
             GUILayout.BeginVertical(GUI.skin.box);
-<<<<<<< HEAD
-            GUILayout.Label(BenderSleepActedSequenceName, _titleStyle);
-            GUILayout.Label("Loops a pose emotion sequence and plays an audio.");
-=======
             GUILayout.Label(HappyActedSequenceName, _titleStyle);
             GUILayout.Label(
                 $"Plays '{HappyAudioFileName}' once while moving through Happy1 and Happy2 before returning to Neutral Arms.");
@@ -17058,7 +16523,6 @@ namespace Reachy.ControlApp
             GUILayout.Label(BenderSleepActedSequenceName, _titleStyle);
             GUILayout.Label(
                 $"Loops the {BenderSleepLoopingAnimationName} motion and plays '{BenderSleepAudioFileName}' until interrupted.");
->>>>>>> upstream/main
 
             GUI.enabled = previousEnabled && !_isConnectAttemptInProgress && !isBenderSleepActive;
             if (GUILayout.Button(isBenderSleepActive ? "Running" : "Start", GUILayout.Height(26f)))
@@ -17073,60 +16537,6 @@ namespace Reachy.ControlApp
             GUI.enabled = previousEnabled;
             GUILayout.EndVertical();
 
-<<<<<<< HEAD
-            GUILayout.BeginVertical(GUI.skin.box);
-            GUILayout.Label(JoyEmotionActedSequenceName, _titleStyle);
-            GUILayout.Label("Loops a positive emotion pose sequence and plays an audio.");
-
-            GUI.enabled = previousEnabled && !_isConnectAttemptInProgress && !isJoyEmotionActive;
-            if (GUILayout.Button(isJoyEmotionActive ? "Running" : "Start", GUILayout.Height(26f)))
-            {
-                bool ok = TryStartJoyEmotionActedSequence(out string message);
-                if (!ok)
-                {
-                    SetStatus("Acted sequence failed", message);
-                }
-            }
-
-            GUI.enabled = previousEnabled;
-            GUILayout.EndVertical();
-
-            GUILayout.BeginVertical(GUI.skin.box);
-            GUILayout.Label(CrabDanceActedSequenceName, _titleStyle);
-            GUILayout.Label("Loops the Crab Dance motion as a playful crab-like emotion sequence.");
-
-            GUI.enabled = previousEnabled && !_isConnectAttemptInProgress && !isCrabDanceActive;
-            if (GUILayout.Button(isCrabDanceActive ? "Running" : "Start", GUILayout.Height(26f)))
-            {
-                bool ok = TryStartCrabDanceActedSequence(out string message);
-                if (!ok)
-                {
-                    SetStatus("Acted sequence failed", message);
-                }
-            }
-
-            GUI.enabled = previousEnabled;
-            GUILayout.EndVertical();
-
-            GUILayout.BeginVertical(GUI.skin.box);
-            GUILayout.Label(FocusedEmotionActedSequenceName, _titleStyle);
-            GUILayout.Label("Loops a focused emotion pose sequence and plays an audio.");
-
-            GUI.enabled = previousEnabled && !_isConnectAttemptInProgress && !isFocusedEmotionActive;
-            if (GUILayout.Button(isFocusedEmotionActive ? "Running" : "Start", GUILayout.Height(26f)))
-            {
-                bool ok = TryStartFocusedEmotionActedSequence(out string message);
-                if (!ok)
-                {
-                    SetStatus("Acted sequence failed", message);
-                }
-            }
-
-            GUI.enabled = previousEnabled;
-            GUILayout.EndVertical();
-
-=======
->>>>>>> upstream/main
             GUI.enabled = previousEnabled && !_isConnectAttemptInProgress && _actedSequenceCoroutine != null;
             if (GUILayout.Button("Stop Acted Sequence", GUILayout.Height(28f)))
             {
@@ -17266,46 +16676,7 @@ namespace Reachy.ControlApp
             return true;
         }
 
-<<<<<<< HEAD
-        private bool TryStartBenderSleepActedSequence(out string message)
-        {
-            return TryStartLoopingEmotionActedSequence(
-                BenderSleepActedSequenceName,
-                BenderSleepLoopingAnimationName,
-                out message);
-        }
-
-        private bool TryStartJoyEmotionActedSequence(out string message)
-        {
-            return TryStartLoopingEmotionActedSequence(
-                JoyEmotionActedSequenceName,
-                JoyEmotionLoopingAnimationName,
-                out message);
-        }
-
-        private bool TryStartFocusedEmotionActedSequence(out string message)
-        {
-            return TryStartLoopingEmotionActedSequence(
-                FocusedEmotionActedSequenceName,
-                FocusedEmotionLoopingAnimationName,
-                out message);
-        }
-
-        private bool TryStartCrabDanceActedSequence(out string message)
-        {
-            return TryStartLoopingEmotionActedSequence(
-                CrabDanceActedSequenceName,
-                CrabDanceLoopingAnimationName,
-                out message);
-        }
-
-        private bool TryStartLoopingEmotionActedSequence(
-            string sequenceName,
-            string loopingAnimationName,
-            out string message)
-=======
         private bool TryStartSad1ActedSequence(out string message)
->>>>>>> upstream/main
         {
             message = string.Empty;
             if (_isConnectAttemptInProgress)
@@ -17322,23 +16693,6 @@ namespace Reachy.ControlApp
 
             StopVoiceShowMovementSequence(
                 updateStatus: false,
-<<<<<<< HEAD
-                reason: $"Interrupted by acted sequence '{sequenceName}'.");
-            StopVoiceHelloReturnTimer(
-                updateStatus: false,
-                reason: $"Interrupted by acted sequence '{sequenceName}'.");
-            StopActedSequence(
-                updateStatus: false,
-                reason: $"Restarted by acted sequence '{sequenceName}'.",
-                stopLoopingAnimation: false);
-            StopLoopingAnimation(
-                updateStatus: false,
-                reason: $"Restarted by acted sequence '{sequenceName}'.");
-
-            _activeActedSequenceName = sequenceName;
-            _actedSequenceCoroutine = StartCoroutine(
-                RunLoopingEmotionActedSequenceCoroutine(sequenceName, loopingAnimationName));
-=======
                 reason: $"Interrupted by acted sequence '{Sad1ActedSequenceName}'.");
             StopVoiceHelloReturnTimer(
                 updateStatus: false,
@@ -17353,31 +16707,20 @@ namespace Reachy.ControlApp
 
             _activeActedSequenceName = Sad1ActedSequenceName;
             _actedSequenceCoroutine = StartCoroutine(RunSadActedSequenceCoroutine());
->>>>>>> upstream/main
 
             bool targetsRealRobot = IsRealRobotSessionActive();
             LogMotionEvent(
                 "acted-sequence",
                 "start",
-<<<<<<< HEAD
-                $"sequence={sequenceName}; animation={loopingAnimationName}; audio={BenderSleepAudioFileName}; mode={GetConnectedModeLabel()}",
-                success: true,
-                targetsRealRobot: targetsRealRobot);
-
-            message = $"Acted sequence '{sequenceName}' started. It will loop a pose emotion sequence and play an audio.";
-=======
                 $"sequence={Sad1ActedSequenceName}; mode={GetConnectedModeLabel()}",
                 success: true,
                 targetsRealRobot: targetsRealRobot);
 
             message = $"Acted sequence '{Sad1ActedSequenceName}' started.";
->>>>>>> upstream/main
             SetStatus("Acted sequence started", message);
             return true;
         }
 
-<<<<<<< HEAD
-=======
         private bool TryStartHappyActedSequence(out string message)
         {
             message = string.Empty;
@@ -17581,7 +16924,6 @@ namespace Reachy.ControlApp
             SetStatus("Acted sequence complete", doneMessage);
         }
 
->>>>>>> upstream/main
         private IEnumerator RunReachyIntroductionActedSequenceCoroutine(string speechText)
         {
             string sequenceName = ReachyIntroductionActedSequenceName;
@@ -17832,14 +17174,9 @@ namespace Reachy.ControlApp
                 shouldReturnToNeutral: true);
         }
 
-<<<<<<< HEAD
-        private IEnumerator RunLoopingEmotionActedSequenceCoroutine(string sequenceName, string loopingAnimationName)
-        {
-=======
         private IEnumerator RunBenderSleepActedSequenceCoroutine()
         {
             string sequenceName = BenderSleepActedSequenceName;
->>>>>>> upstream/main
             AudioClip sleepClip = _benderSleepAudioClip;
             string audioLoadMessage = string.Empty;
 
@@ -17869,11 +17206,7 @@ namespace Reachy.ControlApp
             }
 
             bool startedLoop = TryStartLoopingAnimation(
-<<<<<<< HEAD
-                loopingAnimationName,
-=======
                 BenderSleepLoopingAnimationName,
->>>>>>> upstream/main
                 out string loopMessage,
                 updateStatus: false,
                 stopActedSequence: false);
@@ -17908,11 +17241,7 @@ namespace Reachy.ControlApp
                 "INFO");
             SetStatus(
                 "Acted sequence started",
-<<<<<<< HEAD
-                $"Acted sequence '{sequenceName}' is looping {loopingAnimationName} with '{BenderSleepAudioFileName}'.");
-=======
                 $"Acted sequence '{sequenceName}' is looping {BenderSleepLoopingAnimationName} with '{BenderSleepAudioFileName}'.");
->>>>>>> upstream/main
 
             while (true)
             {
@@ -17929,11 +17258,7 @@ namespace Reachy.ControlApp
                     yield break;
                 }
 
-<<<<<<< HEAD
-                if (!IsLoopingAnimationActive(loopingAnimationName))
-=======
                 if (!IsLoopingAnimationActive(BenderSleepLoopingAnimationName))
->>>>>>> upstream/main
                 {
                     string stoppedMessage =
                         $"Acted sequence '{sequenceName}' stopped because its looping animation is no longer running.";
@@ -18339,8 +17664,6 @@ namespace Reachy.ControlApp
             }
         }
 
-<<<<<<< HEAD
-=======
         private IEnumerator LoadSadAudioClipCoroutine(Action<AudioClip, string> onComplete)
         {
             if (_sadAudioClip != null)
@@ -18447,7 +17770,6 @@ namespace Reachy.ControlApp
             }
         }
 
->>>>>>> upstream/main
         private void EnsureActedSequenceAudioSource()
         {
             if (_actedSequenceAudioSource != null)
@@ -18749,8 +18071,6 @@ namespace Reachy.ControlApp
             return Path.Combine(Application.dataPath, BenderSleepAudioFileName);
         }
 
-<<<<<<< HEAD
-=======
         private static string GetSadAudioPath()
         {
             string streamingAssetsPath = Path.Combine(Application.streamingAssetsPath, SadAudioFileName);
@@ -18773,7 +18093,6 @@ namespace Reachy.ControlApp
             return Path.Combine(Application.dataPath, HappyAudioFileName);
         }
 
->>>>>>> upstream/main
         private string GetReachyIntroductionSequenceText()
         {
             string trimmed = (reachyIntroductionSequenceText ?? string.Empty).Trim();
@@ -19063,10 +18382,7 @@ namespace Reachy.ControlApp
             string initialFingerprint = BuildOnlineAiPersonaSettingsFingerprint();
             bool applyImmediately = false;
             bool announceSuccess = false;
-<<<<<<< HEAD
-=======
             bool confirmedModeSelection = false;
->>>>>>> upstream/main
 
             GUILayout.BeginArea(area, GUI.skin.box);
             GUILayout.Label("AI Modes", _titleStyle);
@@ -19096,11 +18412,6 @@ namespace Reachy.ControlApp
                     ? UiModeAudioCue.FortuneTellerPersonaSelected
                     : (onlineAiPersonaMode == OnlineAiPersonaMode.Custom
                         ? UiModeAudioCue.CustomPersonaSelected
-<<<<<<< HEAD
-                        : UiModeAudioCue.AssistantPersonaSelected));
-                applyImmediately = true;
-                announceSuccess = true;
-=======
                         : (onlineAiPersonaMode == OnlineAiPersonaMode.EmotionReactions
                             ? UiModeAudioCue.EmotionPersonaSelected
                             : UiModeAudioCue.AssistantPersonaSelected)));
@@ -19124,7 +18435,6 @@ namespace Reachy.ControlApp
                 }
 
                 confirmedModeSelection = true;
->>>>>>> upstream/main
             }
 
             GUILayout.Space(8f);
@@ -19140,20 +18450,12 @@ namespace Reachy.ControlApp
             bool previousAllowVoicePersonaSwitch = onlineAiAllowVoicePersonaSwitch;
             onlineAiAllowVoicePersonaSwitch = GUILayout.Toggle(
                 onlineAiAllowVoicePersonaSwitch,
-<<<<<<< HEAD
-                "Allow spoken switching between Assistant, Fortune Teller, and Custom");
-=======
                 "Allow spoken switching between Assistant, Fortune Teller, Custom, and Emotion Reactions");
->>>>>>> upstream/main
             if (onlineAiAllowVoicePersonaSwitch != previousAllowVoicePersonaSwitch)
             {
                 applyImmediately = true;
             }
-<<<<<<< HEAD
-            GUILayout.Label("Examples: 'switch to fortune teller mode', 'switch to custom mode', or 'Reachy, you are now a pirate captain'.");
-=======
             GUILayout.Label("Examples: 'switch to emotion mode', 'switch to fortune teller mode', 'switch to custom mode', or 'Reachy, you are now a pirate captain'.");
->>>>>>> upstream/main
             onlineAiSharedModeInstructions = DrawTextAreaWithSpaceFallback(
                 "ai_modes_shared_instructions",
                 onlineAiSharedModeInstructions,
@@ -19268,8 +18570,6 @@ namespace Reachy.ControlApp
                     GUILayout.MinHeight(170f));
                 GUILayout.EndVertical();
             }
-<<<<<<< HEAD
-=======
             else if (onlineAiPersonaMode == OnlineAiPersonaMode.EmotionReactions)
             {
                 GUILayout.BeginVertical(GUI.skin.box);
@@ -19298,7 +18598,6 @@ namespace Reachy.ControlApp
                     GUILayout.MinHeight(140f));
                 GUILayout.EndVertical();
             }
->>>>>>> upstream/main
             else
             {
                 GUILayout.BeginVertical(GUI.skin.box);
@@ -19322,12 +18621,8 @@ namespace Reachy.ControlApp
             }
 
             string updatedFingerprint = BuildOnlineAiPersonaSettingsFingerprint();
-<<<<<<< HEAD
-            if (!string.Equals(initialFingerprint, updatedFingerprint, StringComparison.Ordinal))
-=======
             if (!confirmedModeSelection &&
                 !string.Equals(initialFingerprint, updatedFingerprint, StringComparison.Ordinal))
->>>>>>> upstream/main
             {
                 ScheduleOnlineAiPersonaLiveApply(immediate: applyImmediately, announceSuccess: announceSuccess);
             }
@@ -19529,13 +18824,9 @@ namespace Reachy.ControlApp
                 ? "AI Input & Parsing is already using Online AI."
                 : "AI Input & Parsing is currently using Local AI.");
             GUILayout.Label($"Online AI enabled: {(enableOnlineAiAgent ? "yes" : "no")} | Model: {onlineAiModel}");
-<<<<<<< HEAD
-            GUILayout.Label($"Current TTS voice: {GetOnlineAiTtsVoiceDisplayLabel(GetSelectedOnlineAiTtsVoice())}");
-=======
             GUILayout.Label(IsEmotionReactionPersonaModeSelected()
                 ? "Current speech output: disabled in emotion-reaction mode."
                 : $"Current TTS voice: {GetOnlineAiTtsVoiceDisplayLabel(GetSelectedOnlineAiTtsVoice())}");
->>>>>>> upstream/main
             GUILayout.Label($"Spoken mode switching: {(onlineAiAllowVoicePersonaSwitch ? "enabled" : "disabled")}");
             GUILayout.Label(_onlineAiPersonaApplyPending
                 ? "Live apply pending. Changes will save and sync after you pause editing."
@@ -19636,13 +18927,9 @@ namespace Reachy.ControlApp
             }
 
             GUILayout.Label(IsOnlineAiModeSelected()
-<<<<<<< HEAD
-                ? "Online mode uses OpenAI for replies and automatically switches STT to OpenAI Transcribe when an API key is available."
-=======
                 ? (IsEmotionReactionPersonaModeSelected()
                     ? "Online emotion-reaction mode uses OpenAI to classify the transcript and trigger acted sequences without speech."
                     : "Online mode uses OpenAI for replies and automatically switches STT to OpenAI Transcribe when an API key is available.")
->>>>>>> upstream/main
                 : "Voice endpoint, parser safety, listening, and microphone controls.");
 
             float bodyHeight = Mathf.Max(60f, area.height - 80f);
@@ -20674,8 +19961,6 @@ namespace Reachy.ControlApp
             }
             GUILayout.EndHorizontal();
 
-<<<<<<< HEAD
-=======
             GUILayout.BeginHorizontal();
             GUILayout.Label("Mem usr", GUILayout.Width(AiW(62f, aiWidthScale)));
             string userMemoryText = GUILayout.TextField(
@@ -20697,7 +19982,6 @@ namespace Reachy.ControlApp
             GUILayout.EndHorizontal();
             GUILayout.Label("Local conversation memory for online AI. Previous user and assistant messages are injected as context; 0 disables either side.");
 
->>>>>>> upstream/main
             onlineAiAllowDirectJointCommands = GUILayout.Toggle(
                 onlineAiAllowDirectJointCommands,
                 "Allow direct joint commands");
@@ -20893,22 +20177,11 @@ namespace Reachy.ControlApp
             }
 
             _animationCreator.UpdateInteraction(_animationCreatorEditModeEnabled);
-<<<<<<< HEAD
-=======
             UpdateAnimationCreatorLivePreview();
->>>>>>> upstream/main
         }
 
         private bool EnsureAnimationCreator(out string message)
         {
-<<<<<<< HEAD
-            if (_animationCreator == null)
-            {
-                _animationCreator = new ReachyAnimationCreator();
-            }
-
-            return _animationCreator.EnsureInitialized(out message);
-=======
             bool created = false;
             if (_animationCreator == null)
             {
@@ -21089,7 +20362,6 @@ namespace Reachy.ControlApp
             }
 
             CacheAnimationCreatorLivePreviewPose(currentPose);
->>>>>>> upstream/main
         }
 
         private Rect ScaleLogicalRectToScreen(Rect logicalRect)
@@ -21115,10 +20387,7 @@ namespace Reachy.ControlApp
                 stopLoopingAnimation: false);
             StopLoopingAnimation(updateStatus: false, reason: "Entered Animation Creator.");
             StopAnimationCreatorPlayback(updateStatus: false, reason: "Started a new pose.");
-<<<<<<< HEAD
-=======
             _client?.CancelActivePoseMotion();
->>>>>>> upstream/main
             _animationCreatorDraftKeyframes.Clear();
             _animationCreatorEditModeEnabled = true;
             if (string.IsNullOrWhiteSpace(_animationCreatorPoseTitle))
@@ -21126,10 +20395,6 @@ namespace Reachy.ControlApp
                 _animationCreatorPoseTitle = $"Custom Pose {_animationCreatorNextPoseNumber}";
             }
 
-<<<<<<< HEAD
-            _animationCreatorStatus =
-                "Pose capture enabled. Click a joint on the original Reachy in the middle and drag with the left mouse button. Use Record Keyframe Animation to add full-body keyframes.";
-=======
             bool syncedLiveRobot = false;
             string syncMessage = string.Empty;
             if (ShouldAnimationCreatorMirrorToRealRobot())
@@ -21147,7 +20412,6 @@ namespace Reachy.ControlApp
                 : string.IsNullOrWhiteSpace(syncMessage)
                     ? GetAnimationCreatorPoseCaptureSummary()
                     : $"{syncMessage} {GetAnimationCreatorPoseCaptureSummary()}";
->>>>>>> upstream/main
         }
 
         private void ResetAnimationCreatorPose()
@@ -21159,30 +20423,22 @@ namespace Reachy.ControlApp
             }
 
             StopAnimationCreatorPlayback(updateStatus: false, reason: "Reset pose in Animation Creator.");
-<<<<<<< HEAD
-=======
             if (ShouldAnimationCreatorMirrorToRealRobot())
             {
                 TrySyncAnimationCreatorSceneFromRealRobot(out _);
             }
 
->>>>>>> upstream/main
             Dictionary<string, float> neutralPose = BuildAnimationCreatorNeutralPose();
             _animationCreatorPlaybackCoroutine = StartCoroutine(
                 RunAnimationCreatorSingleTransition(
                     neutralPose,
                     ScaleAnimationCreatorPlaybackDuration(0.38f),
-<<<<<<< HEAD
-                    "Reset pose applied. Reachy returned to Neutral pose using the Animations & Poses speed."));
-            _animationCreatorStatus = "Resetting Reachy to Neutral pose using the Animations & Poses speed.";
-=======
                     ShouldAnimationCreatorMirrorToRealRobot()
                         ? "Reset pose applied on the scene Reachy and the live robot using the Animations & Poses speed."
                         : "Reset pose applied. Reachy returned to Neutral pose using the Animations & Poses speed."));
             _animationCreatorStatus = ShouldAnimationCreatorMirrorToRealRobot()
                 ? "Resetting Reachy to Neutral pose on the scene Reachy and the live robot using the Animations & Poses speed."
                 : "Resetting Reachy to Neutral pose using the Animations & Poses speed.";
->>>>>>> upstream/main
         }
 
         private void RecordAnimationCreatorKeyframe()
@@ -21244,21 +20500,13 @@ namespace Reachy.ControlApp
             {
                 _animationCreatorSavedPoses[existingIndex] = savedPose;
                 _animationCreatorStatus =
-<<<<<<< HEAD
-                    $"Updated scene animation '{poseName}' with {savedPose.KeyframeCount} frame(s).";
-=======
                     $"Updated animation '{poseName}' with {savedPose.KeyframeCount} frame(s).";
->>>>>>> upstream/main
             }
             else
             {
                 _animationCreatorSavedPoses.Add(savedPose);
                 _animationCreatorStatus =
-<<<<<<< HEAD
-                    $"Saved scene animation '{poseName}' with {savedPose.KeyframeCount} frame(s).";
-=======
                     $"Saved animation '{poseName}' with {savedPose.KeyframeCount} frame(s).";
->>>>>>> upstream/main
             }
 
             _animationCreatorEditModeEnabled = false;
@@ -21347,13 +20595,8 @@ namespace Reachy.ControlApp
             }
 
             _animationCreatorStatus = deletedCount == 1
-<<<<<<< HEAD
-                ? "Deleted 1 saved scene animation."
-                : $"Deleted {deletedCount} saved scene animations.";
-=======
                 ? "Deleted 1 saved animation."
                 : $"Deleted {deletedCount} saved animations.";
->>>>>>> upstream/main
         }
 
         private void PlayAnimationCreatorPose(AnimationCreatorSavedPose savedPose)
@@ -21375,25 +20618,18 @@ namespace Reachy.ControlApp
                 stopLoopingAnimation: false);
             StopLoopingAnimation(updateStatus: false, reason: "Entered Animation Creator.");
             StopAnimationCreatorPlayback(updateStatus: false, reason: "Restarting Animation Creator playback.");
-<<<<<<< HEAD
-=======
             if (ShouldAnimationCreatorMirrorToRealRobot())
             {
                 TrySyncAnimationCreatorSceneFromRealRobot(out _);
             }
 
->>>>>>> upstream/main
             _animationCreatorEditModeEnabled = false;
             _animationCreatorPlaybackCoroutine = StartCoroutine(RunAnimationCreatorPoseLoop(savedPose));
             _animationCreatorActivePoseName = savedPose.Name;
             _animationCreatorStatus =
-<<<<<<< HEAD
-                $"Playing looping animation '{savedPose.Name}' on the scene Reachy ({savedPose.KeyframeCount} frame(s)).";
-=======
                 ShouldAnimationCreatorMirrorToRealRobot()
                     ? $"Playing looping animation '{savedPose.Name}' on the scene Reachy and the live robot ({savedPose.KeyframeCount} frame(s))."
                     : $"Playing looping animation '{savedPose.Name}' on the scene Reachy ({savedPose.KeyframeCount} frame(s)).";
->>>>>>> upstream/main
         }
 
         private IEnumerator RunAnimationCreatorPoseLoop(AnimationCreatorSavedPose savedPose)
@@ -21417,8 +20653,6 @@ namespace Reachy.ControlApp
                     yield return AnimateAnimationCreatorPose(
                         keyframe,
                         ScaleAnimationCreatorPlaybackDuration(0.42f));
-<<<<<<< HEAD
-=======
                     if (_animationCreatorLastTransitionFailed)
                     {
                         _animationCreatorPlaybackCoroutine = null;
@@ -21429,7 +20663,6 @@ namespace Reachy.ControlApp
                         yield break;
                     }
 
->>>>>>> upstream/main
                     yield return new WaitForSecondsRealtime(
                         ScaleAnimationCreatorPlaybackDuration(0.32f));
                 }
@@ -21437,8 +20670,6 @@ namespace Reachy.ControlApp
                 yield return AnimateAnimationCreatorPose(
                     neutralPose,
                     ScaleAnimationCreatorPlaybackDuration(0.38f));
-<<<<<<< HEAD
-=======
                 if (_animationCreatorLastTransitionFailed)
                 {
                     _animationCreatorPlaybackCoroutine = null;
@@ -21449,7 +20680,6 @@ namespace Reachy.ControlApp
                     yield break;
                 }
 
->>>>>>> upstream/main
                 yield return new WaitForSecondsRealtime(
                     ScaleAnimationCreatorPlaybackDuration(0.35f));
             }
@@ -21463,8 +20693,6 @@ namespace Reachy.ControlApp
             yield return AnimateAnimationCreatorPose(targetPose, durationSeconds);
             _animationCreatorPlaybackCoroutine = null;
             _animationCreatorActivePoseName = string.Empty;
-<<<<<<< HEAD
-=======
             if (_animationCreatorLastTransitionFailed)
             {
                 _animationCreatorStatus = _animationCreatorLastTransitionFailureMessage;
@@ -21473,7 +20701,6 @@ namespace Reachy.ControlApp
                 yield break;
             }
 
->>>>>>> upstream/main
             if (!string.IsNullOrWhiteSpace(completedStatus))
             {
                 _animationCreatorStatus = completedStatus;
@@ -21489,10 +20716,6 @@ namespace Reachy.ControlApp
                 yield break;
             }
 
-<<<<<<< HEAD
-            Dictionary<string, float> startPose = _animationCreator.CapturePose();
-            float duration = Mathf.Max(0.01f, durationSeconds);
-=======
             _animationCreatorLastTransitionFailed = false;
             _animationCreatorLastTransitionFailureMessage = string.Empty;
             Dictionary<string, float> startPose = _animationCreator.CapturePose();
@@ -21523,7 +20746,6 @@ namespace Reachy.ControlApp
                 }
             }
 
->>>>>>> upstream/main
             float elapsed = 0f;
             while (elapsed < duration)
             {
@@ -21570,12 +20792,9 @@ namespace Reachy.ControlApp
                 _animationCreatorPlaybackCoroutine = null;
             }
 
-<<<<<<< HEAD
-=======
             _client?.CancelActivePoseMotion();
             _animationCreatorLastTransitionFailed = false;
             _animationCreatorLastTransitionFailureMessage = string.Empty;
->>>>>>> upstream/main
             _animationCreatorActivePoseName = string.Empty;
             if (updateStatus && !string.IsNullOrWhiteSpace(reason))
             {
@@ -22374,15 +21593,10 @@ namespace Reachy.ControlApp
                         reason: "Disconnected by UI button.",
                         stopLoopingAnimation: false);
                     StopLoopingAnimation(updateStatus: false, reason: "Disconnected by UI button.");
-<<<<<<< HEAD
-                    StopVoiceMotionSequence(updateStatus: false, reason: "Disconnected by UI button.");
-                    _client.Disconnect();
-=======
                     StopAnimationCreatorPlayback(updateStatus: false, reason: "Disconnected by UI button.");
                     StopVoiceMotionSequence(updateStatus: false, reason: "Disconnected by UI button.");
                     _client.Disconnect();
                     ResetAnimationCreatorLivePreviewState();
->>>>>>> upstream/main
                     _connectedMode = null;
                     LogConnectionEvent(disconnectedMode, "manual-disconnect", "Disconnected by UI button.");
                     SetStatus("Disconnected", "Connection closed.");
@@ -23644,21 +22858,15 @@ namespace Reachy.ControlApp
                     _manualDisconnect = false;
                     _autoReconnectScheduled = false;
                     _connectedMode = targetMode;
-<<<<<<< HEAD
-=======
                     ResetAnimationCreatorLivePreviewState();
->>>>>>> upstream/main
                     _nextHealthCheckAt = Time.unscaledTime + Mathf.Max(0.5f, healthCheckIntervalSeconds);
                     if (targetMode == ReachyControlMode.RealRobot)
                     {
                         EnableRuntimeFileLoggingForRealRobotConnection();
-<<<<<<< HEAD
-=======
                         if (_animationCreator != null)
                         {
                             TrySyncAnimationCreatorSceneFromRealRobot(out _);
                         }
->>>>>>> upstream/main
                     }
                     LogMobileBaseAvailabilityProbe(aggregate, targetMode);
                     LogConnectionEvent(
@@ -23678,10 +22886,7 @@ namespace Reachy.ControlApp
             }
 
             _connectedMode = null;
-<<<<<<< HEAD
-=======
             ResetAnimationCreatorLivePreviewState();
->>>>>>> upstream/main
             string failureDetail = aggregate.ToString().Trim();
             if (string.IsNullOrEmpty(failureDetail))
             {
@@ -23781,10 +22986,7 @@ namespace Reachy.ControlApp
             }
 
             ReachyControlMode reconnectMode = _connectedMode ?? mode;
-<<<<<<< HEAD
-=======
             ResetAnimationCreatorLivePreviewState();
->>>>>>> upstream/main
             _connectedMode = null;
             ScheduleAutoReconnect(0.5f, reconnectMode);
             LogConnectionEvent(
@@ -24112,11 +23314,3 @@ namespace Reachy.ControlApp
         }
     }
 }
-<<<<<<< HEAD
-
-
-
-
-
-=======
->>>>>>> upstream/main

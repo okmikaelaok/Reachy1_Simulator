@@ -26,8 +26,6 @@ namespace Reachy.ControlApp
     }
 
     [Serializable]
-<<<<<<< HEAD
-=======
     public sealed class VoiceAgentEmotionReaction
     {
         public string emotion_key = string.Empty;
@@ -37,7 +35,6 @@ namespace Reachy.ControlApp
     }
 
     [Serializable]
->>>>>>> upstream/main
     public sealed class VoiceAgentIntent
     {
         public string type = string.Empty;
@@ -56,10 +53,7 @@ namespace Reachy.ControlApp
         public string source_mode = string.Empty;
         public string validation_status = string.Empty;
         public string validation_message = string.Empty;
-<<<<<<< HEAD
-=======
         public VoiceAgentEmotionReaction emotion_reaction = new VoiceAgentEmotionReaction();
->>>>>>> upstream/main
         public bool reply_already_spoken;
         public bool transcript_is_final = true;
 
@@ -604,8 +598,6 @@ namespace Reachy.ControlApp
                     source_mode = intent.source_mode ?? string.Empty,
                     validation_status = intent.validation_status ?? string.Empty,
                     validation_message = intent.validation_message ?? string.Empty,
-<<<<<<< HEAD
-=======
                     emotion_reaction = intent.emotion_reaction == null
                         ? new VoiceAgentEmotionReaction()
                         : new VoiceAgentEmotionReaction
@@ -615,7 +607,6 @@ namespace Reachy.ControlApp
                             confidence = intent.emotion_reaction.confidence,
                             reason = intent.emotion_reaction.reason ?? string.Empty
                         },
->>>>>>> upstream/main
                     reply_already_spoken = intent.reply_already_spoken,
                     transcript_is_final = intent.transcript_is_final,
                     raw_json = string.IsNullOrWhiteSpace(intent.raw_json) ? "mock_intent" : intent.raw_json

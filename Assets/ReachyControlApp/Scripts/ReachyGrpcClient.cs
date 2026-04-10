@@ -46,13 +46,10 @@ namespace Reachy.ControlApp
         private const string RightHandUpPoseName = "Right Hand Up";
         private const string RightHandWavePoseName = "Right Hand Wave";
         private const string HandsUpPoseName = "Hands Up";
-<<<<<<< HEAD
-=======
         private const string Happy1PoseName = "Happy1";
         private const string Happy2PoseName = "Happy2";
         private const string Sad1PoseName = "Sad1";
         private const string Sad2PoseName = "Sad2";
->>>>>>> upstream/main
         private const float Deg2Rad = (float)(Math.PI / 180.0);
         private const float Rad2Deg = (float)(180.0 / Math.PI);
 
@@ -2262,14 +2259,11 @@ namespace Reachy.ControlApp
                         new PoseJointGoal("l_wrist_pitch", 0.0f),
                         new PoseJointGoal("l_wrist_roll", 0.0f),
                         new PoseJointGoal("l_gripper", 0.0f),
-<<<<<<< HEAD
-=======
                         new PoseJointGoal("neck_roll", 0.0f),
                         new PoseJointGoal("neck_pitch", 0.0f),
                         new PoseJointGoal("neck_yaw", 0.0f),
                         new PoseJointGoal("l_antenna", 0.0f),
                         new PoseJointGoal("r_antenna", 0.0f),
->>>>>>> upstream/main
                     }
                 ),
                 new PosePreset(
@@ -2514,8 +2508,6 @@ namespace Reachy.ControlApp
                         new PoseJointGoal("l_gripper", 0.0f),
                     }
                 ),
-<<<<<<< HEAD
-=======
                 new PosePreset(
                     Happy1PoseName,
                     new List<PoseJointGoal>
@@ -2624,7 +2616,6 @@ namespace Reachy.ControlApp
                         new PoseJointGoal("r_antenna", -130.0f),
                     }
                 ),
->>>>>>> upstream/main
             };
         }
 

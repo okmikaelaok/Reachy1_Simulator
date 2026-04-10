@@ -154,11 +154,7 @@
     "help_model_max_tokens": 96,
     "help_model_temperature": 0.20000000298023225,
     "help_max_answer_chars": 360,
-<<<<<<< HEAD
-    "audio_input_device_name": "Microphone (K68)",
-=======
     "audio_input_device_name": "Mikrofonijono (Intel® Smart Sound -teknologian Digital Microphones)",
->>>>>>> upstream/main
     "prefer_non_virtual_input_device": true,
     "audio_source_mode": "reachy",
     "reachy_mic_robot_connected": false,
@@ -177,19 +173,11 @@
     "reject_out_of_range_joint_commands": true,
     "joint_min_degrees": -180.0,
     "joint_max_degrees": 180.0,
-<<<<<<< HEAD
-    "online_ai_enabled": true,
-    "online_ai_model": "gpt-5.4",
-    "online_ai_transcription_model": "gpt-4o-mini-transcribe",
-    "online_tts_model": "gpt-4o-mini-tts",
-    "online_tts_voice": "cedar",
-=======
     "online_ai_enabled": false,
     "online_ai_model": "gpt-5.4",
     "online_ai_transcription_model": "gpt-4o-mini-transcribe",
     "online_tts_model": "gpt-4o-mini-tts",
     "online_tts_voice": "alloy",
->>>>>>> upstream/main
     "online_tts_stream_partial_replies": true,
     "online_ai_api_key_env_var": "OPENAI_API_KEY",
     "online_ai_api_key_file_path": "",
@@ -201,13 +189,9 @@
     ],
     "online_ai_temperature": 0.20000000298023225,
     "online_ai_max_output_tokens": 480,
-<<<<<<< HEAD
-    "online_ai_persona_mode": "custom",
-=======
     "online_ai_local_user_memory_messages": 3,
     "online_ai_local_assistant_memory_messages": 3,
     "online_ai_persona_mode": "assistant",
->>>>>>> upstream/main
     "online_ai_assistant_system_prompt": "You are Reachy. Identify yourself as Reachy, explain who you are when asked, tell users about yourself and the robot, and assist with whatever they want help with using clear practical answers.",
     "online_ai_assistant_tts_voice": "alloy",
     "online_ai_shared_mode_instructions": "",
@@ -228,11 +212,6 @@
     "online_ai_custom_factual_grounding": 0.41285714507102969,
     "online_ai_custom_system_prompt": "you are a talking coffee mug",
     "online_ai_custom_tts_voice": "cedar",
-<<<<<<< HEAD
-    "online_ai_system_prompt": "you are a talking coffee mug\nPerformance guidance:\n- Persona name: coffeemug.\n- Persona brief: you are a talking coffee mug.\n- Keep warmth, empathy, and social ease at about 87% strength.\n- Keep playfulness, wit, and color at about 100% strength.\n- Keep directness and concision at about 44% strength.\n- Commit to the chosen persona voice at about 100% strength without inventing facts.\n- Keep factual grounding, honesty, and practical usefulness at about 41% strength.\n- Stay recognizably Reachy even when the persona is stylized or theatrical.\n- Do not proactively talk about assisting with Reachy, being a robot, or movement/control help unless the operator explicitly asks for those topics or the configured persona prompt explicitly makes them central.\n- Answer practical or technical requests clearly before adding extra persona flavor when there is a tradeoff.\n- Do not invent capabilities, world knowledge, or certainty just to stay in character.\n- If the persona calls for speculation or fictional framing, mark it clearly instead of presenting it as fact.",
-    "online_ai_allow_direct_joint_commands": true,
-    "online_ai_require_motion_confirmation": false
-=======
     "online_ai_system_prompt": "You are Reachy. Identify yourself as Reachy, explain who you are when asked, tell users about yourself and the robot, and assist with whatever they want help with using clear practical answers.",
     "online_ai_allow_direct_joint_commands": true,
     "online_ai_require_motion_confirmation": false,
@@ -303,5 +282,4 @@
     "tts_barge_in_transcribe_pre_roll_seconds": 0.11999999731779099,
     "tts_barge_in_transcribe_rms_threshold": 400.0,
     "tts_barge_in_transcribe_timeout_seconds": 4.0
->>>>>>> upstream/main
 }

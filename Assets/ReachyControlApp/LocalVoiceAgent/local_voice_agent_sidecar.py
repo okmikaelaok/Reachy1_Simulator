@@ -184,12 +184,9 @@ ONLINE_TTS_VOICE_OPTIONS = (
 DEFAULT_ONLINE_AI_ASSISTANT_TTS_VOICE = DEFAULT_ONLINE_TTS_VOICE
 DEFAULT_ONLINE_AI_FORTUNE_TELLER_TTS_VOICE = "shimmer"
 DEFAULT_ONLINE_AI_MAX_OUTPUT_TOKENS = 480
-<<<<<<< HEAD
-=======
 DEFAULT_ONLINE_AI_LOCAL_USER_MEMORY_MESSAGES = 3
 DEFAULT_ONLINE_AI_LOCAL_ASSISTANT_MEMORY_MESSAGES = 3
 MAX_ONLINE_AI_LOCAL_MEMORY_MESSAGES = 20
->>>>>>> upstream/main
 DEFAULT_ONLINE_AI_PERSONA_MODE = "assistant"
 DEFAULT_ONLINE_AI_ASSISTANT_SYSTEM_PROMPT = (
     "You are Reachy. Identify yourself as Reachy, explain who you are when asked, "
@@ -223,8 +220,6 @@ DEFAULT_ONLINE_AI_CUSTOM_SYSTEM_PROMPT = (
     "while remaining honest about uncertainty and real robot limitations. Do not proactively bring up Reachy assistance, "
     "robot embodiment, or movement/control help unless the operator asks for it or the persona itself explicitly calls for it."
 )
-<<<<<<< HEAD
-=======
 DEFAULT_ONLINE_AI_EMOTION_SYSTEM_PROMPT = (
     "You are Reachy in silent emotion-reaction mode. Do not answer with spoken language. "
     "Choose the single best configured emotion reaction for what the operator said and let the robot react through movement only."
@@ -249,15 +244,12 @@ DEFAULT_ONLINE_AI_EMOTION_REACTIONS = (
         "enabled": True,
     },
 )
->>>>>>> upstream/main
 DEFAULT_OPENAI_TRANSCRIBE_LANGUAGE_HINTS = ["en", "fi"]
 DEFAULT_ONLINE_CUSTOM_POSE_MAX_JOINTS = len(DEFAULT_JOINTS)
 DEFAULT_ONLINE_MOTION_SEQUENCE_MAX_STEPS = 8
 DEFAULT_ONLINE_MOTION_SEQUENCE_MAX_JOINTS_PER_STEP = len(DEFAULT_JOINTS)
 DEFAULT_ONLINE_MOTION_SEQUENCE_MIN_HOLD_SECONDS = 0.15
 DEFAULT_ONLINE_MOTION_SEQUENCE_MAX_HOLD_SECONDS = 4.0
-<<<<<<< HEAD
-=======
 DEFAULT_TTS_BARGE_IN_PHRASES = [
     "ei kun",
     "eikun",
@@ -323,7 +315,6 @@ DEFAULT_TTS_BARGE_IN_TRANSCRIBE_SILENCE_SECONDS = 0.22
 DEFAULT_TTS_BARGE_IN_TRANSCRIBE_PRE_ROLL_SECONDS = 0.12
 DEFAULT_TTS_BARGE_IN_TRANSCRIBE_RMS_THRESHOLD = 400.0
 DEFAULT_TTS_BARGE_IN_TRANSCRIBE_TIMEOUT_SECONDS = 4.0
->>>>>>> upstream/main
 DEFAULT_AUDIO_SOURCE_MODE = "blend"
 DEFAULT_REACHY_MIC_SSH_PORT = 22
 DEFAULT_REACHY_MIC_SSH_USER = "reachy"
@@ -798,10 +789,7 @@ SEMANTIC_RAISE_PHRASE_HINT_SET = build_normalized_hint_set(SEMANTIC_RAISE_PHRASE
 SEMANTIC_WAVE_TOKEN_HINT_SET = build_normalized_hint_set(SEMANTIC_WAVE_TOKEN_HINTS)
 SEMANTIC_WAVE_PHRASE_HINT_SET = build_normalized_hint_set(SEMANTIC_WAVE_PHRASE_HINTS)
 SEMANTIC_QUESTION_TOKEN_HINT_SET = build_normalized_hint_set(SEMANTIC_QUESTION_TOKEN_HINTS)
-<<<<<<< HEAD
-=======
 TTS_BARGE_IN_DEFAULT_TOKEN_SETS = build_token_sets_from_phrases(DEFAULT_TTS_BARGE_IN_PHRASES)
->>>>>>> upstream/main
 
 
 def transcript_mentions_known_joint(compact_transcript: str, known_joints: list[str]) -> bool:
@@ -984,8 +972,6 @@ def normalize_phrase_list(value, fallback: list[str]) -> list[str]:
     return fallback_normalized
 
 
-<<<<<<< HEAD
-=======
 def extract_matching_phrase(words: list[str], sequences: list[list[str]]) -> str:
     if not words or not sequences:
         return ""
@@ -1000,7 +986,6 @@ def extract_matching_phrase(words: list[str], sequences: list[list[str]]) -> str
     return ""
 
 
->>>>>>> upstream/main
 def load_config(path: Path) -> dict:
     config = {
         "bind_host": "127.0.0.1",
@@ -1062,11 +1047,8 @@ def load_config(path: Path) -> dict:
         "openai_transcribe_language_hints": list(DEFAULT_OPENAI_TRANSCRIBE_LANGUAGE_HINTS),
         "online_ai_temperature": 0.2,
         "online_ai_max_output_tokens": DEFAULT_ONLINE_AI_MAX_OUTPUT_TOKENS,
-<<<<<<< HEAD
-=======
         "online_ai_local_user_memory_messages": DEFAULT_ONLINE_AI_LOCAL_USER_MEMORY_MESSAGES,
         "online_ai_local_assistant_memory_messages": DEFAULT_ONLINE_AI_LOCAL_ASSISTANT_MEMORY_MESSAGES,
->>>>>>> upstream/main
         "online_ai_persona_mode": DEFAULT_ONLINE_AI_PERSONA_MODE,
         "online_ai_assistant_system_prompt": DEFAULT_ONLINE_AI_ASSISTANT_SYSTEM_PROMPT,
         "online_ai_assistant_tts_voice": DEFAULT_ONLINE_AI_ASSISTANT_TTS_VOICE,
@@ -1088,11 +1070,8 @@ def load_config(path: Path) -> dict:
         "online_ai_custom_factual_grounding": DEFAULT_ONLINE_AI_CUSTOM_FACTUAL_GROUNDING,
         "online_ai_custom_system_prompt": DEFAULT_ONLINE_AI_CUSTOM_SYSTEM_PROMPT,
         "online_ai_custom_tts_voice": DEFAULT_ONLINE_TTS_VOICE,
-<<<<<<< HEAD
-=======
         "online_ai_emotion_system_prompt": DEFAULT_ONLINE_AI_EMOTION_SYSTEM_PROMPT,
         "online_ai_emotion_reactions": build_default_online_ai_emotion_reactions(),
->>>>>>> upstream/main
         "online_ai_system_prompt": DEFAULT_ONLINE_AI_ASSISTANT_SYSTEM_PROMPT,
         "online_ai_allow_direct_joint_commands": True,
         "online_ai_require_motion_confirmation": False,
@@ -1110,8 +1089,6 @@ def load_config(path: Path) -> dict:
         "openai_transcribe_silence_seconds": 0.8,
         "openai_transcribe_pre_roll_seconds": 0.25,
         "openai_transcribe_rms_threshold": 520,
-<<<<<<< HEAD
-=======
         "tts_barge_in_enabled": True,
         "tts_barge_in_phrases": list(DEFAULT_TTS_BARGE_IN_PHRASES),
         "tts_barge_in_loudness_enabled": True,
@@ -1129,7 +1106,6 @@ def load_config(path: Path) -> dict:
         "tts_barge_in_transcribe_pre_roll_seconds": DEFAULT_TTS_BARGE_IN_TRANSCRIBE_PRE_ROLL_SECONDS,
         "tts_barge_in_transcribe_rms_threshold": DEFAULT_TTS_BARGE_IN_TRANSCRIBE_RMS_THRESHOLD,
         "tts_barge_in_transcribe_timeout_seconds": DEFAULT_TTS_BARGE_IN_TRANSCRIBE_TIMEOUT_SECONDS,
->>>>>>> upstream/main
     }
     config["_config_dir"] = str(path.parent.resolve())
 
@@ -1272,8 +1248,6 @@ def load_config(path: Path) -> dict:
     config["online_ai_max_output_tokens"] = max(
         32,
         min(2048, int(config.get("online_ai_max_output_tokens", DEFAULT_ONLINE_AI_MAX_OUTPUT_TOKENS))))
-<<<<<<< HEAD
-=======
     config["online_ai_local_user_memory_messages"] = max(
         0,
         min(
@@ -1298,7 +1272,6 @@ def load_config(path: Path) -> dict:
             ),
         ),
     )
->>>>>>> upstream/main
     config["online_ai_persona_mode"] = normalize_online_ai_persona_mode(
         config.get("online_ai_persona_mode", DEFAULT_ONLINE_AI_PERSONA_MODE))
     config["online_ai_assistant_tts_voice"] = (
@@ -1412,25 +1385,19 @@ def load_config(path: Path) -> dict:
     config["online_ai_custom_tts_voice"] = (
         str(config.get("online_ai_custom_tts_voice", DEFAULT_ONLINE_TTS_VOICE)).strip().lower()
         or DEFAULT_ONLINE_TTS_VOICE)
-<<<<<<< HEAD
-=======
     config["online_ai_emotion_system_prompt"] = (
         str(config.get("online_ai_emotion_system_prompt", DEFAULT_ONLINE_AI_EMOTION_SYSTEM_PROMPT)).strip()
         or DEFAULT_ONLINE_AI_EMOTION_SYSTEM_PROMPT)
     config["online_ai_emotion_reactions"] = normalize_online_ai_emotion_reactions(
         config.get("online_ai_emotion_reactions", build_default_online_ai_emotion_reactions())
     )
->>>>>>> upstream/main
     effective_prompt_fallback = DEFAULT_ONLINE_AI_ASSISTANT_SYSTEM_PROMPT
     if config["online_ai_persona_mode"] == "fortune_teller":
         effective_prompt_fallback = config["online_ai_fortune_teller_system_prompt"]
     elif config["online_ai_persona_mode"] == "custom":
         effective_prompt_fallback = config["online_ai_custom_system_prompt"]
-<<<<<<< HEAD
-=======
     elif config["online_ai_persona_mode"] == "emotion_reactions":
         effective_prompt_fallback = config["online_ai_emotion_system_prompt"]
->>>>>>> upstream/main
     config["online_ai_system_prompt"] = (
         str(config.get("online_ai_system_prompt", effective_prompt_fallback)).strip()
         or effective_prompt_fallback)
@@ -1482,8 +1449,6 @@ def load_config(path: Path) -> dict:
     config["openai_transcribe_rms_threshold"] = max(
         80,
         min(5000, int(config.get("openai_transcribe_rms_threshold", 520))))
-<<<<<<< HEAD
-=======
     config["tts_barge_in_enabled"] = parse_bool(config.get("tts_barge_in_enabled"), True)
     config["tts_barge_in_phrases"] = normalize_phrase_list(
         config.get("tts_barge_in_phrases", []),
@@ -1590,7 +1555,6 @@ def load_config(path: Path) -> dict:
                 "tts_barge_in_transcribe_timeout_seconds",
                 DEFAULT_TTS_BARGE_IN_TRANSCRIBE_TIMEOUT_SECONDS,
             ))))
->>>>>>> upstream/main
     if config["joint_min_degrees"] > config["joint_max_degrees"]:
         low = config["joint_max_degrees"]
         high = config["joint_min_degrees"]
@@ -1623,11 +1587,6 @@ def normalize_online_ai_persona_mode(value) -> str:
         return "fortune_teller"
     if normalized in ("custom", "custom_mode", "custom mode"):
         return "custom"
-<<<<<<< HEAD
-    return DEFAULT_ONLINE_AI_PERSONA_MODE
-
-
-=======
     if normalized in (
         "emotion_reactions",
         "emotion_reaction",
@@ -1711,7 +1670,6 @@ def normalize_online_ai_emotion_reactions(value) -> list[dict]:
     return build_default_online_ai_emotion_reactions()
 
 
->>>>>>> upstream/main
 def resolve_effective_stt_backend(config: dict, api_key_available: bool) -> str:
     requested = normalize_stt_backend(config.get("stt_backend", "auto"))
     if requested in ("none", "vosk", "openai_transcribe"):
@@ -1893,25 +1851,19 @@ def apply_online_ai_mode_payload(config: dict, payload: dict) -> dict:
         ),
         True,
     )
-<<<<<<< HEAD
-=======
     emotion_reactions = normalize_online_ai_emotion_reactions(
         payload.get(
             "online_ai_emotion_reactions",
             config.get("online_ai_emotion_reactions", build_default_online_ai_emotion_reactions()),
         )
     )
->>>>>>> upstream/main
 
     config["ai_mode"] = requested_ai_mode
     config["online_ai_enabled"] = online_enabled
     config["online_ai_persona_mode"] = requested_mode
     config["online_ai_system_prompt"] = system_prompt
     config["online_tts_voice"] = tts_voice
-<<<<<<< HEAD
-=======
     config["online_ai_emotion_reactions"] = emotion_reactions
->>>>>>> upstream/main
     config["online_ai_allow_voice_persona_switch"] = allow_voice_switch
 
     return {
@@ -2356,8 +2308,6 @@ class State:
         self.online_last_connection_test_result = "Not tested."
         self.online_last_connection_test_ok = False
         self.online_source_backend = "openai_responses"
-<<<<<<< HEAD
-=======
         self.online_conversation_history: deque[dict] = deque()
         self._online_conversation_sequence = 0
         self.last_tts_barge_in_reason = ""
@@ -2365,7 +2315,6 @@ class State:
         self.last_tts_barge_in_detector = ""
         self.last_tts_barge_in_rms = 0.0
         self.last_tts_barge_in_utc = ""
->>>>>>> upstream/main
 
     def log(self, level: str, message: str) -> None:
         msg = (message or "").strip() or "n/a"
@@ -2380,8 +2329,6 @@ class State:
             self.last_message = msg
             if lvl in ("error", "critical"):
                 self.last_error = msg
-<<<<<<< HEAD
-=======
         python_level = {
             "debug": logging.DEBUG,
             "info": logging.INFO,
@@ -2394,7 +2341,6 @@ class State:
             logging.getLogger("reachy.voice_agent.runtime").log(python_level, msg)
         except Exception:
             pass
->>>>>>> upstream/main
 
     @staticmethod
     def _utc_now_text() -> str:
@@ -2462,8 +2408,6 @@ class State:
             if model:
                 self.online_model = str(model).strip()
 
-<<<<<<< HEAD
-=======
     @staticmethod
     def _normalize_online_conversation_text(text: str) -> str:
         return re.sub(r"\s+", " ", str(text or "")).strip()
@@ -2567,7 +2511,6 @@ class State:
             "messages": messages,
         }
 
->>>>>>> upstream/main
     def set_runtime(self, mic_active: bool, listening: bool, backend: str | None = None) -> None:
         with self.lock:
             self.mic_active = bool(mic_active)
@@ -2636,8 +2579,6 @@ class State:
         with self.lock:
             self.pending_partial = None
 
-<<<<<<< HEAD
-=======
     def record_tts_barge_in(
         self,
         *,
@@ -2653,7 +2594,6 @@ class State:
             self.last_tts_barge_in_rms = max(0.0, float(rms or 0.0))
             self.last_tts_barge_in_utc = self._utc_now_text()
 
->>>>>>> upstream/main
     def process_transcript(
         self,
         transcript: str,
@@ -2812,16 +2752,12 @@ class State:
                 "online_ai_model": self.online_model,
                 "online_tts_stream_partial_replies": stream_partial_replies,
                 "online_tts_stream_partial_replies_active": (
-<<<<<<< HEAD
-                    online_tts_mode and stream_partial_replies and api_key_found
-=======
                     online_tts_mode
                     and stream_partial_replies
                     and api_key_found
                     and normalize_online_ai_persona_mode(
                         self.config.get("online_ai_persona_mode", DEFAULT_ONLINE_AI_PERSONA_MODE)
                     ) != "emotion_reactions"
->>>>>>> upstream/main
                 ),
                 "online_ai_api_key_env_var": env_var,
                 "online_ai_api_key_found": api_key_found,
@@ -2836,14 +2772,11 @@ class State:
                 "online_ai_last_connection_test_result": self.online_last_connection_test_result,
                 "online_ai_last_connection_test_ok": self.online_last_connection_test_ok,
                 "online_ai_source_backend": self.online_source_backend,
-<<<<<<< HEAD
-=======
                 "last_tts_barge_in_reason": self.last_tts_barge_in_reason,
                 "last_tts_barge_in_transcript": self.last_tts_barge_in_transcript,
                 "last_tts_barge_in_detector": self.last_tts_barge_in_detector,
                 "last_tts_barge_in_rms": self.last_tts_barge_in_rms,
                 "last_tts_barge_in_utc": self.last_tts_barge_in_utc,
->>>>>>> upstream/main
                 "last_message": self.last_message,
                 "last_error": self.last_error,
             }
@@ -2868,11 +2801,8 @@ class TTS:
         self._active_process_lock = threading.Lock()
         self._active_temp_audio_path = ""
         self._active_temp_audio_path_lock = threading.Lock()
-<<<<<<< HEAD
-=======
         self._interrupt_generation = 0
         self._interrupt_generation_lock = threading.Lock()
->>>>>>> upstream/main
         self.thread = None
         self._pyttsx3_module = None
         self._powershell_executable = resolve_windows_powershell_executable()
@@ -2914,10 +2844,7 @@ class TTS:
         try:
             completion_queue = queue.Queue(maxsize=1) if wait_for_completion else None
             if interrupt:
-<<<<<<< HEAD
-=======
                 self._advance_interrupt_generation()
->>>>>>> upstream/main
                 self.interrupt_event.set()
                 self._clear_queue_nonblocking("TTS request cleared by interrupt.")
                 self._terminate_active_process()
@@ -2938,10 +2865,7 @@ class TTS:
             return False, "TTS queue is full."
 
     def interrupt(self) -> tuple[bool, str]:
-<<<<<<< HEAD
-=======
         self._advance_interrupt_generation()
->>>>>>> upstream/main
         self.interrupt_event.set()
         self._clear_queue_nonblocking("TTS request cleared by interrupt.")
         self._terminate_active_process()
@@ -2949,13 +2873,10 @@ class TTS:
         return True, "TTS playback interrupted."
 
     def should_stream_online_reply_audio(self) -> bool:
-<<<<<<< HEAD
-=======
         if normalize_online_ai_persona_mode(
             self.config.get("online_ai_persona_mode", DEFAULT_ONLINE_AI_PERSONA_MODE)
         ) == "emotion_reactions":
             return False
->>>>>>> upstream/main
         if normalize_tts_mode(self.config.get("tts_mode", DEFAULT_TTS_MODE)) != "online":
             return False
         if not parse_bool(self.config.get("online_tts_stream_partial_replies"), True):
@@ -2992,8 +2913,6 @@ class TTS:
         with self._active_temp_audio_path_lock:
             self._active_temp_audio_path = str(path or "").strip()
 
-<<<<<<< HEAD
-=======
     def _advance_interrupt_generation(self) -> int:
         with self._interrupt_generation_lock:
             self._interrupt_generation += 1
@@ -3003,7 +2922,6 @@ class TTS:
         with self._interrupt_generation_lock:
             return self._interrupt_generation
 
->>>>>>> upstream/main
     def _cleanup_active_temp_audio_path(self) -> None:
         path = ""
         with self._active_temp_audio_path_lock:
@@ -3377,8 +3295,6 @@ class TTS:
             return False, "TTS interrupted."
         return self._play_wav_bytes_with_subprocess(audio_bytes, text)
 
-<<<<<<< HEAD
-=======
     @staticmethod
     def _is_expected_tts_abort_message(message: str) -> bool:
         normalized = str(message or "").strip().lower()
@@ -3386,7 +3302,6 @@ class TTS:
             return False
         return normalized.startswith("tts interrupted") or normalized.startswith("tts stopped")
 
->>>>>>> upstream/main
     def _speak_with_selected_provider(self, text: str, tts_mode_override: str = "") -> tuple[bool, str]:
         preferred_mode = normalize_tts_mode(
             tts_mode_override if str(tts_mode_override or "").strip() else self.config.get("tts_mode", DEFAULT_TTS_MODE)
@@ -3397,11 +3312,8 @@ class TTS:
         ok, message = self._speak_online(text)
         if ok:
             return True, message
-<<<<<<< HEAD
-=======
         if self._is_expected_tts_abort_message(message):
             return False, message
->>>>>>> upstream/main
 
         if not self.local_backend_enabled:
             return False, message
@@ -3458,11 +3370,8 @@ class TTS:
                 ok, message = self._speak_with_selected_provider(text, tts_mode_override)
                 if ok:
                     self.state.log("info", f"TTS spoke: {text}")
-<<<<<<< HEAD
-=======
                 elif self._is_expected_tts_abort_message(message):
                     self.state.log("info", message)
->>>>>>> upstream/main
                 else:
                     self.state.log("error", message)
             finally:
@@ -3492,8 +3401,6 @@ class DisabledSTT:
         pass
 
 
-<<<<<<< HEAD
-=======
 class VoskKeywordSpotter:
     def __init__(self, config: dict, state: State, sample_rate_hz: int) -> None:
         self.config = config
@@ -3550,7 +3457,6 @@ class VoskKeywordSpotter:
             return "", False
 
 
->>>>>>> upstream/main
 class MicrophoneSTTBase:
     def __init__(
         self,
@@ -3558,10 +3464,7 @@ class MicrophoneSTTBase:
         state: State,
         parser: Parser,
         online_orchestrator: "OnlineAIOrchestrator",
-<<<<<<< HEAD
-=======
         tts: TTS,
->>>>>>> upstream/main
         *,
         backend_name: str,
         thread_name: str,
@@ -3570,23 +3473,17 @@ class MicrophoneSTTBase:
         self.state = state
         self.parser = parser
         self.online_orchestrator = online_orchestrator
-<<<<<<< HEAD
-=======
         self.tts = tts
->>>>>>> upstream/main
         self.backend_name = backend_name
         self.thread_name = thread_name
         self.stop_event = threading.Event()
         self.thread = None
-<<<<<<< HEAD
-=======
         self._tts_barge_phrase_token_sets = self._build_tts_barge_phrase_token_sets()
         self._tts_barge_rms_history: deque[tuple[float, float]] = deque()
         self._tts_barge_session_active = False
         self._tts_barge_interrupted_current_session = False
         self._tts_barge_loud_candidate_started_at = 0.0
         self._tts_barge_loud_candidate_reference_rms = 0.0
->>>>>>> upstream/main
 
     def start(self) -> None:
         self.thread = threading.Thread(target=self._run, daemon=True, name=self.thread_name)
@@ -3607,8 +3504,6 @@ class MicrophoneSTTBase:
             except queue.Empty:
                 return drained
 
-<<<<<<< HEAD
-=======
     def _build_tts_barge_phrase_token_sets(self) -> list[list[str]]:
         phrases = normalize_phrase_list(
             self.config.get("tts_barge_in_phrases", []),
@@ -3835,7 +3730,6 @@ class MicrophoneSTTBase:
             return True
         return False
 
->>>>>>> upstream/main
     @staticmethod
     def _is_virtual_input_name(name: str) -> bool:
         lowered = (name or "").strip().lower()
@@ -4715,9 +4609,6 @@ class HybridAudioInput:
             mixed_view[index] = value
         return bytes(mixed)
 class VoskSTT(MicrophoneSTTBase):
-<<<<<<< HEAD
-    def __init__(self, config: dict, state: State, parser: Parser, online_orchestrator: OnlineAIOrchestrator) -> None:
-=======
     def __init__(
         self,
         config: dict,
@@ -4726,16 +4617,12 @@ class VoskSTT(MicrophoneSTTBase):
         online_orchestrator: OnlineAIOrchestrator,
         tts: TTS,
     ) -> None:
->>>>>>> upstream/main
         super().__init__(
             config,
             state,
             parser,
             online_orchestrator,
-<<<<<<< HEAD
-=======
             tts,
->>>>>>> upstream/main
             backend_name="vosk",
             thread_name="vosk-stt",
         )
@@ -4799,11 +4686,8 @@ class VoskSTT(MicrophoneSTTBase):
                         last_listening_state = listening_enabled
                     continue
 
-<<<<<<< HEAD
-=======
                 now = time.time()
                 rms = pcm16_rms(chunk)
->>>>>>> upstream/main
                 tts_speaking = self.state.is_tts_speaking()
                 if tts_speaking:
                     if last_listening_state is not False:
@@ -4811,16 +4695,6 @@ class VoskSTT(MicrophoneSTTBase):
                         last_listening_state = False
                     if not tts_gate_active:
                         tts_gate_active = True
-<<<<<<< HEAD
-                        self.state.clear_pending_partial()
-                        self._reset_recognizer(recognizer)
-                        self.state.log("info", "STT input gated while TTS is speaking.")
-                    continue
-                if tts_gate_active:
-                    tts_gate_active = False
-                    self._reset_recognizer(recognizer)
-                    self.state.log("info", "STT input resumed after TTS completed.")
-=======
                         self._begin_tts_barge_session()
                         self.state.clear_pending_partial()
                         self._reset_recognizer(recognizer)
@@ -4858,7 +4732,6 @@ class VoskSTT(MicrophoneSTTBase):
                     )
 
                 self._record_tts_barge_baseline_rms(rms, now)
->>>>>>> upstream/main
 
                 listening_enabled = self.state.is_listening_enabled()
                 if listening_enabled != last_listening_state:
@@ -4903,9 +4776,6 @@ class VoskSTT(MicrophoneSTTBase):
 
 
 class OpenAITranscribeSTT(MicrophoneSTTBase):
-<<<<<<< HEAD
-    def __init__(self, config: dict, state: State, parser: Parser, online_orchestrator: "OnlineAIOrchestrator") -> None:
-=======
     def __init__(
         self,
         config: dict,
@@ -4914,22 +4784,16 @@ class OpenAITranscribeSTT(MicrophoneSTTBase):
         online_orchestrator: "OnlineAIOrchestrator",
         tts: TTS,
     ) -> None:
->>>>>>> upstream/main
         super().__init__(
             config,
             state,
             parser,
             online_orchestrator,
-<<<<<<< HEAD
-=======
             tts,
->>>>>>> upstream/main
             backend_name="openai_transcribe",
             thread_name="openai-transcribe-stt",
         )
 
-<<<<<<< HEAD
-=======
     def _create_tts_barge_in_transcribe_state(self, chunk_duration_seconds: float) -> dict | None:
         if not parse_bool(self.config.get("tts_barge_in_enabled"), True):
             return None
@@ -5113,7 +4977,6 @@ class OpenAITranscribeSTT(MicrophoneSTTBase):
             ),
         )
 
->>>>>>> upstream/main
     def _run(self) -> None:
         try:
             import sounddevice as sd  # type: ignore
@@ -5154,10 +5017,6 @@ class OpenAITranscribeSTT(MicrophoneSTTBase):
 
         audio_input = None
         audio_input = HybridAudioInput(self, sd, sample_rate, blocksize)
-<<<<<<< HEAD
-        self.state.set_runtime(audio_input.has_active_source(), self.state.is_listening_enabled(), self.backend_name)
-        self.state.log("info", f"OpenAI STT worker started ({audio_input.describe_route()}).")
-=======
         keyword_spotter = (
             VoskKeywordSpotter(self.config, self.state, sample_rate)
             if parse_bool(self.config.get("tts_barge_in_enabled"), True)
@@ -5173,7 +5032,6 @@ class OpenAITranscribeSTT(MicrophoneSTTBase):
             if keyword_spotter is not None and keyword_spotter.available:
                 detectors.append("vosk_keyword_spotter")
             self.state.log("info", f"TTS barge-in detectors active: {', '.join(detectors)}.")
->>>>>>> upstream/main
 
         try:
             last_listening_state = None
@@ -5187,11 +5045,8 @@ class OpenAITranscribeSTT(MicrophoneSTTBase):
                         last_listening_state = listening_enabled
                     continue
 
-<<<<<<< HEAD
-=======
                 now = time.time()
                 rms = pcm16_rms(chunk)
->>>>>>> upstream/main
                 tts_speaking = self.state.is_tts_speaking()
                 if tts_speaking:
                     if last_listening_state is not False:
@@ -5199,18 +5054,6 @@ class OpenAITranscribeSTT(MicrophoneSTTBase):
                         last_listening_state = False
                     if not tts_gate_active:
                         tts_gate_active = True
-<<<<<<< HEAD
-                        self.state.clear_pending_partial()
-                        reset_segment()
-                        audio_input.clear_buffers()
-                        self.state.log("info", "STT input gated while TTS is speaking.")
-                    continue
-                if tts_gate_active:
-                    tts_gate_active = False
-                    reset_segment()
-                    audio_input.clear_buffers()
-                    self.state.log("info", "STT input resumed after TTS completed.")
-=======
                         self._begin_tts_barge_session()
                         self.state.clear_pending_partial()
                         reset_segment()
@@ -5271,7 +5114,6 @@ class OpenAITranscribeSTT(MicrophoneSTTBase):
                     )
 
                 self._record_tts_barge_baseline_rms(rms, now)
->>>>>>> upstream/main
 
                 listening_enabled = self.state.is_listening_enabled()
                 if listening_enabled != last_listening_state:
@@ -5282,10 +5124,6 @@ class OpenAITranscribeSTT(MicrophoneSTTBase):
                     reset_segment()
                     continue
 
-<<<<<<< HEAD
-                rms = pcm16_rms(chunk)
-=======
->>>>>>> upstream/main
                 is_speech_chunk = rms >= rms_threshold
 
                 if speech_active:
@@ -5353,9 +5191,6 @@ class OpenAITranscribeSTT(MicrophoneSTTBase):
             return "", env_var
         return os.environ.get(env_var, "").strip(), env_var
 
-<<<<<<< HEAD
-    def _transcribe_clip(self, pcm_audio: bytes, sample_rate_hz: int) -> str:
-=======
     def _transcribe_clip(
         self,
         pcm_audio: bytes,
@@ -5364,7 +5199,6 @@ class OpenAITranscribeSTT(MicrophoneSTTBase):
         prompt_override: str = "",
         timeout_override_seconds: float = 0.0,
     ) -> str:
->>>>>>> upstream/main
         api_key, env_var = self._read_openai_api_key()
         if not api_key:
             raise RuntimeError(build_missing_online_api_key_message(env_var))
@@ -5381,11 +5215,7 @@ class OpenAITranscribeSTT(MicrophoneSTTBase):
             ).strip()
             or DEFAULT_ONLINE_AI_TRANSCRIBE_MODEL
         )
-<<<<<<< HEAD
-        prompt = self._build_transcription_prompt()
-=======
         prompt = str(prompt_override or "").strip() or self._build_transcription_prompt()
->>>>>>> upstream/main
         request_fields = {
             "model": model,
             "response_format": "json",
@@ -5400,15 +5230,11 @@ class OpenAITranscribeSTT(MicrophoneSTTBase):
             file_bytes=wav_audio,
             file_content_type="audio/wav",
         )
-<<<<<<< HEAD
-        timeout_seconds = float(self.config.get("online_ai_timeout_seconds", 15.0))
-=======
         timeout_seconds = (
             max(0.8, float(timeout_override_seconds))
             if float(timeout_override_seconds or 0.0) > 0.0
             else float(self.config.get("online_ai_timeout_seconds", 15.0))
         )
->>>>>>> upstream/main
         request = urllib_request.Request(
             endpoint,
             data=body,
@@ -5521,10 +5347,7 @@ def build_stt_runtime(
     state: State,
     parser: Parser,
     online_orchestrator: "OnlineAIOrchestrator",
-<<<<<<< HEAD
-=======
     tts: TTS,
->>>>>>> upstream/main
 ):
     requested_backend = normalize_stt_backend(config.get("stt_backend", "auto"))
     api_key_available, env_var = state.refresh_online_key_status()
@@ -5540,25 +5363,16 @@ def build_stt_runtime(
         state.log("info", f"STT backend auto-resolved to '{effective_backend}' because {resolution_reason}.")
 
     if effective_backend == "vosk":
-<<<<<<< HEAD
-        return VoskSTT(config, state, parser, online_orchestrator)
-    if effective_backend == "openai_transcribe":
-        return OpenAITranscribeSTT(config, state, parser, online_orchestrator)
-=======
         return VoskSTT(config, state, parser, online_orchestrator, tts)
     if effective_backend == "openai_transcribe":
         return OpenAITranscribeSTT(config, state, parser, online_orchestrator, tts)
->>>>>>> upstream/main
     return DisabledSTT(config, state, requested_backend)
 
 
 class OnlineReplySpeechStreamer:
     def __init__(self, tts: TTS) -> None:
         self.tts = tts
-<<<<<<< HEAD
-=======
         self._interrupt_generation = tts.get_interrupt_generation()
->>>>>>> upstream/main
         self._preface_buffer = ""
         self._capturing_reply = False
         self._reply_complete = False
@@ -5567,11 +5381,6 @@ class OnlineReplySpeechStreamer:
         self._pending_segment_buffer = ""
         self.reply_already_spoken = False
         self.failure_message = ""
-<<<<<<< HEAD
-
-    def consume_delta(self, delta_text: str) -> None:
-        if self.failure_message or self._reply_complete:
-=======
         self._cancelled = False
 
     def _is_cancelled(self) -> bool:
@@ -5583,7 +5392,6 @@ class OnlineReplySpeechStreamer:
 
     def consume_delta(self, delta_text: str) -> None:
         if self.failure_message or self._reply_complete or self._is_cancelled():
->>>>>>> upstream/main
             return
 
         text = str(delta_text or "")
@@ -5607,11 +5415,7 @@ class OnlineReplySpeechStreamer:
         self._consume_reply_chars(text)
 
     def finish(self) -> None:
-<<<<<<< HEAD
-        if self.failure_message:
-=======
         if self.failure_message or self._is_cancelled():
->>>>>>> upstream/main
             return
         self._flush_pending_segments(final=True)
 
@@ -5662,22 +5466,12 @@ class OnlineReplySpeechStreamer:
             self._append_decoded_reply_text(ch)
 
     def _append_decoded_reply_text(self, text: str) -> None:
-<<<<<<< HEAD
-        if not text or self.failure_message:
-=======
         if not text or self.failure_message or self._is_cancelled():
->>>>>>> upstream/main
             return
         self._pending_segment_buffer += text
         self._flush_pending_segments(final=False)
 
     def _flush_pending_segments(self, final: bool) -> None:
-<<<<<<< HEAD
-        if self.failure_message:
-            return
-
-        while True:
-=======
         if self.failure_message or self._is_cancelled():
             return
 
@@ -5685,7 +5479,6 @@ class OnlineReplySpeechStreamer:
             if self._is_cancelled():
                 self._pending_segment_buffer = ""
                 return
->>>>>>> upstream/main
             segment, remainder = self._extract_ready_segment(self._pending_segment_buffer, final)
             if not segment:
                 self._pending_segment_buffer = remainder
@@ -5740,33 +5533,25 @@ class OnlineAIOrchestrator:
         self.source_backend = "openai_responses"
         self._streaming_online_reply_ready = False
 
-<<<<<<< HEAD
-=======
     def _remember_local_conversation_turn(self, transcript: str, reply_text: str) -> None:
         self.state.record_online_conversation_turn(transcript, reply_text)
 
->>>>>>> upstream/main
     def is_selected_mode(self) -> bool:
         return str(self.config.get("ai_mode", "local")).strip().lower() == "online"
 
     def _build_reply_streamer(self, *, connection_test: bool) -> OnlineReplySpeechStreamer | None:
         if connection_test or self.tts is None:
             return None
-<<<<<<< HEAD
-=======
         if normalize_online_ai_persona_mode(
             self.config.get("online_ai_persona_mode", DEFAULT_ONLINE_AI_PERSONA_MODE)
         ) == "emotion_reactions":
             return None
->>>>>>> upstream/main
         if not self._streaming_online_reply_ready:
             return None
         if not self.tts.should_stream_online_reply_audio():
             return None
         return OnlineReplySpeechStreamer(self.tts)
 
-<<<<<<< HEAD
-=======
     def _get_enabled_online_ai_emotion_reactions(self) -> list[dict]:
         normalized_reactions = normalize_online_ai_emotion_reactions(
             self.config.get("online_ai_emotion_reactions", build_default_online_ai_emotion_reactions())
@@ -5839,7 +5624,6 @@ class OnlineAIOrchestrator:
             "reason": reason,
         }, ""
 
->>>>>>> upstream/main
     def _try_build_persona_switch_suppression(
         self,
         transcript: str,
@@ -5937,9 +5721,6 @@ class OnlineAIOrchestrator:
             "madam circuit",
             "madame circuit",
         )
-<<<<<<< HEAD
-        if targets_assistant == targets_fortune_teller:
-=======
         targets_emotion_reactions = cls._contains_any_normalized_phrase(
             normalized_transcript,
             "emotion mode",
@@ -5954,7 +5735,6 @@ class OnlineAIOrchestrator:
             + int(bool(targets_fortune_teller))
             + int(bool(targets_emotion_reactions))
         ) != 1:
->>>>>>> upstream/main
             return False
 
         explicit_mode_phrase = cls._contains_any_normalized_phrase(
@@ -5966,15 +5746,12 @@ class OnlineAIOrchestrator:
             "oracle mode",
             "madam circuit",
             "madame circuit",
-<<<<<<< HEAD
-=======
             "emotion mode",
             "emotion reaction mode",
             "emotion reactions mode",
             "reaction mode",
             "silent emotion mode",
             "happy sad mode",
->>>>>>> upstream/main
         )
         explicit_switch_verb = cls._contains_any_normalized_phrase(
             normalized_transcript,
@@ -6108,27 +5885,19 @@ class OnlineAIOrchestrator:
             resolved_confidence,
         )
         if suppressed_intent is not None:
-<<<<<<< HEAD
-=======
             self._remember_local_conversation_turn(
                 transcript,
                 str(suppressed_intent.get("reply_text", "")).strip(),
             )
->>>>>>> upstream/main
             return suppressed_intent, suppression_message
 
         if not parse_bool(self.config.get("online_ai_enabled"), False):
             message = "Online AI mode is selected, but the online backend is disabled."
-<<<<<<< HEAD
-            self.state.record_online_response(
-                reply_text="Online AI is currently disabled. Switch back to Local AI or enable the online backend.",
-=======
             reply_text = (
                 "Online AI is currently disabled. Switch back to Local AI or enable the online backend."
             )
             self.state.record_online_response(
                 reply_text=reply_text,
->>>>>>> upstream/main
                 validation_result="disabled",
                 validation_failure=message,
                 response_summary=message,
@@ -6136,15 +5905,6 @@ class OnlineAIOrchestrator:
                 latency_ms=-1.0,
                 source_backend=self.source_backend,
             )
-<<<<<<< HEAD
-            return self._build_safe_reply_intent(
-                transcript,
-                resolved_confidence,
-                "Online AI is currently disabled. Switch back to Local AI or enable the online backend.",
-                validation_status="disabled",
-                validation_message=message,
-            ), message
-=======
             safe_reply = self._build_safe_reply_intent(
                 transcript,
                 resolved_confidence,
@@ -6154,19 +5914,13 @@ class OnlineAIOrchestrator:
             )
             self._remember_local_conversation_turn(transcript, reply_text)
             return safe_reply, message
->>>>>>> upstream/main
 
         model = str(self.config.get("online_ai_model", DEFAULT_ONLINE_AI_MODEL)).strip() or DEFAULT_ONLINE_AI_MODEL
         if not model:
             message = "Online AI model is empty."
-<<<<<<< HEAD
-            self.state.record_online_response(
-                reply_text="Online AI is not configured yet. Set an OpenAI model name before testing it.",
-=======
             reply_text = "Online AI is not configured yet. Set an OpenAI model name before testing it."
             self.state.record_online_response(
                 reply_text=reply_text,
->>>>>>> upstream/main
                 validation_result="config_error",
                 validation_failure=message,
                 response_summary=message,
@@ -6174,15 +5928,6 @@ class OnlineAIOrchestrator:
                 latency_ms=-1.0,
                 source_backend=self.source_backend,
             )
-<<<<<<< HEAD
-            return self._build_safe_reply_intent(
-                transcript,
-                resolved_confidence,
-                "Online AI is not configured yet. Set an OpenAI model name before testing it.",
-                validation_status="config_error",
-                validation_message=message,
-            ), message
-=======
             safe_reply = self._build_safe_reply_intent(
                 transcript,
                 resolved_confidence,
@@ -6192,23 +5937,17 @@ class OnlineAIOrchestrator:
             )
             self._remember_local_conversation_turn(transcript, reply_text)
             return safe_reply, message
->>>>>>> upstream/main
 
         api_key_found, env_var = self.state.refresh_online_key_status()
         api_key = os.environ.get(env_var, "").strip()
         if not api_key_found or not api_key:
             message = build_missing_online_api_key_message(env_var)
-<<<<<<< HEAD
-            self.state.record_online_response(
-                reply_text="I cannot use online AI until the OpenAI API key is available in the app's local secret store or configured environment variable.",
-=======
             reply_text = (
                 "I cannot use online AI until the OpenAI API key is available in the app's local secret "
                 "store or configured environment variable."
             )
             self.state.record_online_response(
                 reply_text=reply_text,
->>>>>>> upstream/main
                 validation_result="missing_api_key",
                 validation_failure=message,
                 response_summary=message,
@@ -6216,15 +5955,6 @@ class OnlineAIOrchestrator:
                 latency_ms=-1.0,
                 source_backend=self.source_backend,
             )
-<<<<<<< HEAD
-            return self._build_safe_reply_intent(
-                transcript,
-                resolved_confidence,
-                "I cannot use online AI until the OpenAI API key is available in the app's local secret store or configured environment variable.",
-                validation_status="missing_api_key",
-                validation_message=message,
-            ), message
-=======
             safe_reply = self._build_safe_reply_intent(
                 transcript,
                 resolved_confidence,
@@ -6234,7 +5964,6 @@ class OnlineAIOrchestrator:
             )
             self._remember_local_conversation_turn(transcript, reply_text)
             return safe_reply, message
->>>>>>> upstream/main
 
         reply_streamer = self._build_reply_streamer(connection_test=False)
         self.state.record_online_request_started(model)
@@ -6259,24 +5988,16 @@ class OnlineAIOrchestrator:
                 latency_ms=latency_ms,
                 source_backend=self.source_backend,
             )
-<<<<<<< HEAD
-            return self._build_safe_reply_intent(
-=======
             safe_reply = self._build_safe_reply_intent(
->>>>>>> upstream/main
                 transcript,
                 resolved_confidence,
                 reply_text,
                 validation_status="http_error",
                 validation_message=error_message,
                 reply_already_spoken=bool(reply_streamer and reply_streamer.reply_already_spoken),
-<<<<<<< HEAD
-            ), f"online_http_error: {error_message}"
-=======
             )
             self._remember_local_conversation_turn(transcript, reply_text)
             return safe_reply, f"online_http_error: {error_message}"
->>>>>>> upstream/main
 
         if reply_streamer is not None and reply_streamer.failure_message:
             self.state.log("warn", f"Online reply speech streaming degraded: {reply_streamer.failure_message}")
@@ -6304,13 +6025,10 @@ class OnlineAIOrchestrator:
             latency_ms=latency_ms,
             source_backend=normalized_intent.get("source_backend", self.source_backend),
         )
-<<<<<<< HEAD
-=======
         self._remember_local_conversation_turn(
             transcript,
             str(normalized_intent.get("reply_text", "")).strip(),
         )
->>>>>>> upstream/main
         self._streaming_online_reply_ready = True
         return normalized_intent, message
 
@@ -6364,11 +6082,6 @@ class OnlineAIOrchestrator:
                 1.0,
                 payload)
             reply_text = normalized_intent.get("reply_text", "")
-<<<<<<< HEAD
-            result_message = (
-                f"Online AI connection OK. Model={model}. "
-                f"{validation_message}. Reply='{reply_text}'."
-=======
             emotion_reaction = normalized_intent.get("emotion_reaction", {})
             emotion_key = ""
             if isinstance(emotion_reaction, dict):
@@ -6377,7 +6090,6 @@ class OnlineAIOrchestrator:
                 f"Online AI connection OK. Model={model}. "
                 f"{validation_message}. "
                 + (f"Emotion='{emotion_key}'." if emotion_key else f"Reply='{reply_text}'.")
->>>>>>> upstream/main
             )
             self.state.record_online_response(
                 reply_text=reply_text,
@@ -6967,12 +6679,9 @@ class OnlineAIOrchestrator:
                 "default_min": float(self.config.get("joint_min_degrees", -180.0)),
                 "default_max": float(self.config.get("joint_max_degrees", 180.0)),
             },
-<<<<<<< HEAD
-=======
             "emotion_reactions": list(
                 self._get_enabled_online_ai_emotion_reactions()
             ),
->>>>>>> upstream/main
             "allowed_action_intents": list(ONLINE_ALLOWED_INTENTS),
             "semantic_motion_assist": {
                 "enabled": self._semantic_motion_assist_enabled(),
@@ -7004,12 +6713,9 @@ class OnlineAIOrchestrator:
                 ],
             },
         }
-<<<<<<< HEAD
-=======
         conversation_memory = self.state.build_online_conversation_memory_payload()
         if conversation_memory is not None:
             user_payload["conversation_memory"] = conversation_memory
->>>>>>> upstream/main
         return {
             "model": str(self.config.get("online_ai_model", DEFAULT_ONLINE_AI_MODEL)).strip() or DEFAULT_ONLINE_AI_MODEL,
             "temperature": float(self.config.get("online_ai_temperature", 0.2)),
@@ -7332,9 +7038,6 @@ class OnlineAIOrchestrator:
         operator_prompt = (
             str(self.config.get("online_ai_system_prompt", DEFAULT_ONLINE_AI_ASSISTANT_SYSTEM_PROMPT)).strip()
             or DEFAULT_ONLINE_AI_ASSISTANT_SYSTEM_PROMPT)
-<<<<<<< HEAD
-        persona_mode = str(self.config.get("online_ai_persona_mode", DEFAULT_ONLINE_AI_PERSONA_MODE)).strip().lower()
-=======
         persona_mode = normalize_online_ai_persona_mode(
             self.config.get("online_ai_persona_mode", DEFAULT_ONLINE_AI_PERSONA_MODE)
         )
@@ -7358,7 +7061,6 @@ class OnlineAIOrchestrator:
                 "- Do not produce any spoken reply.\n"
             )
 
->>>>>>> upstream/main
         persona_rules = (
             "- In fortune_teller mode, do not proactively ask for robot movement commands, setup tasks, or Reachy operator instructions.\n"
             "- In fortune_teller mode, only discuss robot control or movement when the operator explicitly asks for it.\n"
@@ -7375,11 +7077,8 @@ class OnlineAIOrchestrator:
             "Rules:\n"
             "- Return valid JSON only.\n"
             "- Keep spoken output in reply_text.\n"
-<<<<<<< HEAD
-=======
             "- The user payload may include conversation_memory with earlier local-session messages in chronological order, excluding the current user_transcript.\n"
             "- Use conversation_memory to answer follow-up questions about what either side just said before claiming there is no context.\n"
->>>>>>> upstream/main
             "- Put one robot action in action.intent.\n"
             "- Always include action.pose_name, action.joint_name, action.joint_degrees, action.speed_scale, action.joint_targets, and action.motion_steps; use null or [] when a field does not apply.\n"
             "- Use intent 'none' when no robot action is needed.\n"
@@ -7413,8 +7112,6 @@ class OnlineAIOrchestrator:
             },
             "required": ["joint_name", "joint_degrees"],
         }
-<<<<<<< HEAD
-=======
         emotion_reaction_schema = {
             "type": ["object", "null"],
             "additionalProperties": False,
@@ -7426,7 +7123,6 @@ class OnlineAIOrchestrator:
             },
             "required": ["emotion_key", "display_name", "confidence", "reason"],
         }
->>>>>>> upstream/main
         motion_step_schema = {
             "type": "object",
             "additionalProperties": False,
@@ -7447,10 +7143,7 @@ class OnlineAIOrchestrator:
             "properties": {
                 "reply_text": {"type": "string"},
                 "confidence": {"type": "number"},
-<<<<<<< HEAD
-=======
                 "emotion_reaction": emotion_reaction_schema,
->>>>>>> upstream/main
                 "action": {
                     "type": "object",
                     "additionalProperties": False,
@@ -7483,11 +7176,7 @@ class OnlineAIOrchestrator:
                     ],
                 },
             },
-<<<<<<< HEAD
-            "required": ["reply_text", "confidence", "action"],
-=======
             "required": ["reply_text", "confidence", "emotion_reaction", "action"],
->>>>>>> upstream/main
         }
 
     @staticmethod
@@ -7767,32 +7456,20 @@ class OnlineAIOrchestrator:
         confidence: float,
         payload: dict,
     ) -> tuple[dict, str]:
-<<<<<<< HEAD
-=======
         persona_mode = normalize_online_ai_persona_mode(
             self.config.get("online_ai_persona_mode", DEFAULT_ONLINE_AI_PERSONA_MODE)
         )
->>>>>>> upstream/main
         if not isinstance(payload, dict):
             return self._build_safe_reply_intent(
                 transcript,
                 confidence,
-<<<<<<< HEAD
-                "I could not understand the online AI response safely, so I did not move.",
-=======
                 "" if persona_mode == "emotion_reactions" else "I could not understand the online AI response safely, so I did not move.",
->>>>>>> upstream/main
                 validation_status="invalid_schema",
                 validation_message="Top-level online response is not a JSON object.",
             ), "Online AI response rejected: top-level payload is not an object."
 
         reply_text_value = payload.get("reply_text", "")
         reply_text = "" if reply_text_value is None else str(reply_text_value).strip()
-<<<<<<< HEAD
-        if not reply_text:
-            reply_text = "I am ready."
-
-=======
         if persona_mode == "emotion_reactions":
             reply_text = ""
         elif not reply_text:
@@ -7837,7 +7514,6 @@ class OnlineAIOrchestrator:
                 f"Online AI emotion reaction validated for '{emotion_reaction.get('emotion_key', '')}'.",
             )
 
->>>>>>> upstream/main
         action = payload.get("action")
         if not isinstance(action, dict):
             return self._build_safe_reply_intent(
@@ -7879,10 +7555,7 @@ class OnlineAIOrchestrator:
             "source_mode": "online",
             "validation_status": "validated",
             "validation_message": "",
-<<<<<<< HEAD
-=======
             "emotion_reaction": emotion_reaction,
->>>>>>> upstream/main
             "transcript_is_final": True,
         }
 
@@ -8123,10 +7796,7 @@ class OnlineAIOrchestrator:
             "source_mode": "online",
             "validation_status": str(validation_status or "").strip(),
             "validation_message": str(validation_message or "").strip(),
-<<<<<<< HEAD
-=======
             "emotion_reaction": self._build_empty_emotion_reaction(),
->>>>>>> upstream/main
             "reply_already_spoken": bool(reply_already_spoken),
             "transcript_is_final": True,
         }
@@ -8139,11 +7809,7 @@ class App:
         self.parser = Parser(config)
         self.tts = TTS(config, self.state)
         self.online = OnlineAIOrchestrator(config, self.state, self.tts)
-<<<<<<< HEAD
-        self.stt = build_stt_runtime(config, self.state, self.parser, self.online)
-=======
         self.stt = build_stt_runtime(config, self.state, self.parser, self.online, self.tts)
->>>>>>> upstream/main
         self.help_responder = LocalHelpResponder(config, self.state)
 
     def start(self) -> None:
@@ -8524,13 +8190,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--log-file",
         type=str,
-<<<<<<< HEAD
-        default="",
-        help="Optional log file path for sidecar startup/runtime diagnostics.",
-=======
         default=str(Path(__file__).with_name("local_voice_agent_sidecar_last_run.log")),
         help="Log file path for sidecar startup/runtime diagnostics.",
->>>>>>> upstream/main
     )
     return parser.parse_args()
 
