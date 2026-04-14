@@ -2315,6 +2315,7 @@ class State:
         self.last_tts_barge_in_detector = ""
         self.last_tts_barge_in_rms = 0.0
         self.last_tts_barge_in_utc = ""
+        self.last_tts_barge_in_monotonic = 0.0
 
     def log(self, level: str, message: str) -> None:
         msg = (message or "").strip() or "n/a"
@@ -2593,6 +2594,7 @@ class State:
             self.last_tts_barge_in_detector = str(detector or "").strip()
             self.last_tts_barge_in_rms = max(0.0, float(rms or 0.0))
             self.last_tts_barge_in_utc = self._utc_now_text()
+            self.last_tts_barge_in_monotonic = time.monotonic()
 
     def process_transcript(
         self,
@@ -3484,6 +3486,7 @@ class MicrophoneSTTBase:
         self._tts_barge_interrupted_current_session = False
         self._tts_barge_loud_candidate_started_at = 0.0
         self._tts_barge_loud_candidate_reference_rms = 0.0
+        self._tts_barge_session_reference_rms = 0.0
 
     def start(self) -> None:
         self.thread = threading.Thread(target=self._run, daemon=True, name=self.thread_name)
@@ -3529,11 +3532,13 @@ class MicrophoneSTTBase:
     def _begin_tts_barge_session(self) -> None:
         self._tts_barge_session_active = True
         self._tts_barge_interrupted_current_session = False
+        self._tts_barge_session_reference_rms = 0.0
         self._reset_tts_barge_loudness_candidate()
 
     def _end_tts_barge_session(self) -> None:
         self._tts_barge_session_active = False
         self._tts_barge_interrupted_current_session = False
+        self._tts_barge_session_reference_rms = 0.0
         self._reset_tts_barge_loudness_candidate()
 
     def _record_tts_barge_baseline_rms(self, rms: float, now: float) -> None:
@@ -3619,14 +3624,30 @@ class MicrophoneSTTBase:
                 DEFAULT_TTS_BARGE_IN_LOUDNESS_MIN_REFERENCE_RMS,
             )
         )
-        if baseline_reference < minimum_reference:
+        if self._tts_barge_loud_candidate_started_at <= 0.0 and rms > 0.0:
+            if self._tts_barge_session_reference_rms <= 0.0:
+                self._tts_barge_session_reference_rms = max(0.0, float(rms))
+            else:
+                self._tts_barge_session_reference_rms = max(
+                    float(rms),
+                    self._tts_barge_session_reference_rms * 0.92,
+                )
+
+        effective_reference = max(
+            baseline_reference,
+            self._tts_barge_session_reference_rms,
+        )
+        if effective_reference < minimum_reference:
             self._reset_tts_barge_loudness_candidate()
             return False
 
         if self._tts_barge_loud_candidate_started_at <= 0.0:
-            self._tts_barge_loud_candidate_reference_rms = baseline_reference
+            self._tts_barge_loud_candidate_reference_rms = effective_reference
 
-        reference_rms = max(baseline_reference, self._tts_barge_loud_candidate_reference_rms)
+        reference_rms = max(
+            effective_reference,
+            self._tts_barge_loud_candidate_reference_rms,
+        )
         multiplier = float(
             self.config.get(
                 "tts_barge_in_loudness_multiplier",
@@ -3729,6 +3750,13 @@ class MicrophoneSTTBase:
         ):
             return True
         return False
+
+    def _should_keep_resumed_audio_after_barge_in(self) -> bool:
+        detector = str(self.state.last_tts_barge_in_detector or "").strip().lower()
+        transcript = str(self.state.last_tts_barge_in_transcript or "").strip()
+        if transcript:
+            return True
+        return detector not in ("", "loudness")
 
     @staticmethod
     def _is_virtual_input_name(name: str) -> bool:
@@ -4721,9 +4749,13 @@ class VoskSTT(MicrophoneSTTBase):
                     continue
                 if tts_gate_active:
                     interrupted_by_barge_in = self._tts_barge_interrupted_current_session
+                    keep_resumed_audio = (
+                        interrupted_by_barge_in and self._should_keep_resumed_audio_after_barge_in())
                     tts_gate_active = False
                     self._end_tts_barge_session()
                     self._reset_recognizer(recognizer)
+                    if not keep_resumed_audio:
+                        audio_input.clear_buffers()
                     self.state.log(
                         "info",
                         "STT input resumed after TTS completed."
@@ -5098,13 +5130,15 @@ class OpenAITranscribeSTT(MicrophoneSTTBase):
                     continue
                 if tts_gate_active:
                     interrupted_by_barge_in = self._tts_barge_interrupted_current_session
+                    keep_resumed_audio = (
+                        interrupted_by_barge_in and self._should_keep_resumed_audio_after_barge_in())
                     tts_gate_active = False
                     self._end_tts_barge_session()
                     reset_segment()
                     self._reset_tts_barge_in_transcribe_state(tts_barge_transcribe_state)
                     if keyword_spotter is not None:
                         keyword_spotter.reset()
-                    if not interrupted_by_barge_in:
+                    if not keep_resumed_audio:
                         audio_input.clear_buffers()
                     self.state.log(
                         "info",
@@ -5875,6 +5909,30 @@ class OnlineAIOrchestrator:
 
         return trimmed
 
+    def _should_suppress_recent_tts_echo(self, transcript: str) -> tuple[bool, str]:
+        normalized_transcript = normalize(transcript)
+        if len(normalized_transcript) < 12:
+            return False, ""
+
+        last_barge_in = float(getattr(self.state, "last_tts_barge_in_monotonic", 0.0) or 0.0)
+        if last_barge_in <= 0.0:
+            return False, ""
+        if (time.monotonic() - last_barge_in) > 4.0:
+            return False, ""
+
+        normalized_reply = normalize(getattr(self.state, "online_last_reply_text", ""))
+        if not normalized_reply:
+            return False, ""
+        if normalized_transcript not in normalized_reply:
+            return False, ""
+
+        detector = str(getattr(self.state, "last_tts_barge_in_detector", "") or "").strip().lower()
+        detector_label = detector or "unknown"
+        return True, (
+            "Suppressed a transcript that matched a recently interrupted online reply "
+            f"(detector={detector_label})."
+        )
+
     def handle_transcript(self, transcript: str, confidence: float) -> tuple[dict | None, str]:
         resolved_confidence = max(0.0, min(1.0, confidence if confidence > 0.0 else 0.85))
         if not self.is_selected_mode():
@@ -5890,6 +5948,26 @@ class OnlineAIOrchestrator:
                 str(suppressed_intent.get("reply_text", "")).strip(),
             )
             return suppressed_intent, suppression_message
+
+        suppress_echo, suppress_message = self._should_suppress_recent_tts_echo(transcript)
+        if suppress_echo:
+            self.state.record_online_response(
+                reply_text="",
+                validation_result="suppressed_recent_tts_echo",
+                validation_failure="",
+                response_summary=suppress_message,
+                http_error="",
+                latency_ms=-1.0,
+                source_backend=self.source_backend,
+            )
+            suppressed_reply = self._build_safe_reply_intent(
+                transcript,
+                resolved_confidence,
+                "",
+                validation_status="suppressed_recent_tts_echo",
+                validation_message=suppress_message,
+            )
+            return suppressed_reply, suppress_message
 
         if not parse_bool(self.config.get("online_ai_enabled"), False):
             message = "Online AI mode is selected, but the online backend is disabled."
