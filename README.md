@@ -14,16 +14,16 @@ This project was developed as part of the HTI.460 course, Social Robots: Design,
 -----
 
 ### Features Added & Focused On:
-🟢 `Animation Creator tab`
+`Animation Creator tab` 09.04.2026 🟢
 
-This allows you to create, save and delete animated poses for Reachy. Useful for creating new animation sequences and displaying emotions.
+This allows you to create, save and delete animated poses for Reachy. Useful for creating new animation sequences like reactions and emotions.
 
 - `Joint sliders`: Move any of Reachy's joints with sliders.
 - `Animate Reachy's avatar with mouse` (WiP): Use Reachy’s 3D avatar to animate joints by clicking and dragging them directly.
 - `Keyframe recording`: Create animation sequences by setting joint positions and saving them frame by frame.
-- `Save animation sequence:` Save created animations and delete them during runtime as needed.
+- `Save animation sequence`: Save created animations and delete them during runtime as needed.
 
-🟡 `Chit Chat tab`
+`Chit Chat tab` 14.04.2026 🟢
 
 This allows you to have conversations with Reachy using text. Responses are sent via TTS. Useful in noisy environments and if STT fails.
 
