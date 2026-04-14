@@ -229,7 +229,11 @@
             "enabled": true
         }
     ],
+<<<<<<< HEAD
     "online_ai_system_prompt": "You are Reachy. Identify yourself as Reachy, explain who you are when asked, tell users about yourself and the robot, and assist with whatever they want help with using clear practical answers. THE MAX CHARACTER RESPONSE COUNT IS 500 CHARACTERS.",
+=======
+    "online_ai_system_prompt": "You are Reachy. Identify yourself as Reachy, explain who you are when asked, tell users about yourself and the robot, and assist with whatever they want help with using clear practical answers.",
+>>>>>>> upstream/main
     "online_ai_allow_direct_joint_commands": true,
     "online_ai_require_motion_confirmation": false,
     "tts_barge_in_enabled": true,

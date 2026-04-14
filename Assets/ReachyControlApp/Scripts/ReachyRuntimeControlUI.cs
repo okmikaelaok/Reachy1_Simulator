@@ -188,6 +188,12 @@ namespace Reachy.ControlApp
         private const float DesignViewTopBarGap = 8f;
         private const float DesignMinimumTopBarWidth = 1220f;
         private const float DesignTopBarGroupGap = 24f;
+        private const float DesignTopBarControlHeight = 24f;
+        private const float DesignTopBarHorizontalPadding = 10f;
+        private const float DesignTopBarVerticalPadding = 9f;
+        private const float DesignTopBarRowSpacing = 6f;
+        private const float DesignTopBarItemSpacing = 8f;
+        private const float DesignTopBarTextFieldWidth = 58f;
         private const float DesignAiPanelWidthRatio = 0.32f;
         private const float DesignAiPanelMinWidth = 340f;
         private const float DesignAiPanelMaxWidth = 620f;
@@ -4508,6 +4514,7 @@ namespace Reachy.ControlApp
                     {
                         _voiceLastHelpAnswer = bridgeSnapshot.LastHelpAnswer;
                         _voiceLastActionResult = $"Local help answer: {bridgeSnapshot.LastHelpAnswer}";
+<<<<<<< HEAD
                     QueueVoiceFeedback(
                         bridgeSnapshot.LastHelpAnswer,
                         interrupt: false,
@@ -4515,6 +4522,15 @@ namespace Reachy.ControlApp
                     CompleteChitChatRequest(
                         bridgeSnapshot.LastHelpAnswer,
                         resetStatusToDefault: true);
+=======
+                        QueueVoiceFeedback(
+                            bridgeSnapshot.LastHelpAnswer,
+                            interrupt: false,
+                            bypassRateLimit: true);
+                        CompleteChitChatRequest(
+                            bridgeSnapshot.LastHelpAnswer,
+                            resetStatusToDefault: true);
+>>>>>>> upstream/main
                     }
                 }
             }
@@ -15392,28 +15408,45 @@ namespace Reachy.ControlApp
                 : DesignLeftPanelWidth + DesignPanelGap + DesignRightPanelWidth;
             float topBarWidth = Mathf.Max(topPanelsWidth, DesignMinimumTopBarWidth);
             float designTotalWidth = topBarWidth;
-            float designTotalHeight =
-                (_collapsed ? DesignCollapsedPanelHeight : DesignExpandedPanelHeight) +
-                DesignViewTopBarHeight +
-                DesignViewTopBarGap;
-
             float availableWidth = Mathf.Max(160f, Screen.width - (2f * DesignMarginPixels));
             float availableHeight = Mathf.Max(160f, Screen.height - (2f * DesignMarginPixels));
-            _uiScale = Mathf.Min(1f, availableWidth / designTotalWidth, availableHeight / designTotalHeight);
-            _uiScale = Mathf.Max(0.1f, _uiScale);
+
+            float designPanelHeight = _collapsed ? DesignCollapsedPanelHeight : DesignExpandedPanelHeight;
+            float topBarHeight = DesignViewTopBarHeight;
+            float logicalScreenWidth = Screen.width;
+
+            for (int i = 0; i < 2; i++)
+            {
+                float designTotalHeight = designPanelHeight + topBarHeight + DesignViewTopBarGap;
+                _uiScale = ComputeDesignUiScale(designTotalWidth, designTotalHeight, availableWidth, availableHeight);
+                logicalScreenWidth = Screen.width / _uiScale;
+                topBarHeight = GetViewTopBarHeight(logicalScreenWidth);
+            }
+
+            float finalDesignTotalHeight = designPanelHeight + topBarHeight + DesignViewTopBarGap;
+            _uiScale = ComputeDesignUiScale(designTotalWidth, finalDesignTotalHeight, availableWidth, availableHeight);
+            logicalScreenWidth = Screen.width / _uiScale;
+
+            float finalMeasuredTopBarHeight = GetViewTopBarHeight(logicalScreenWidth);
+            if (finalMeasuredTopBarHeight > topBarHeight)
+            {
+                topBarHeight = finalMeasuredTopBarHeight;
+                finalDesignTotalHeight = designPanelHeight + topBarHeight + DesignViewTopBarGap;
+                _uiScale = ComputeDesignUiScale(designTotalWidth, finalDesignTotalHeight, availableWidth, availableHeight);
+                logicalScreenWidth = Screen.width / _uiScale;
+            }
 
             Matrix4x4 previousMatrix = GUI.matrix;
             GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(_uiScale, _uiScale, 1f));
 
             float logicalMargin = DesignMarginPixels / _uiScale;
-            float logicalScreenWidth = Screen.width / _uiScale;
             float logicalScreenHeight = Screen.height / _uiScale;
             float topBarX = 0f;
             float topBarY = logicalMargin;
-            DrawViewTopBar(new Rect(topBarX, topBarY, logicalScreenWidth, DesignViewTopBarHeight));
+            DrawViewTopBar(new Rect(topBarX, topBarY, logicalScreenWidth, topBarHeight));
 
             float leftPanelX = logicalMargin;
-            float topY = topBarY + DesignViewTopBarHeight + DesignViewTopBarGap;
+            float topY = topBarY + topBarHeight + DesignViewTopBarGap;
 
             if (_activeMenuView != RuntimeMenuView.General)
             {
@@ -15556,61 +15589,275 @@ namespace Reachy.ControlApp
 
         private void DrawViewTopBar(Rect area)
         {
-            GUILayout.BeginArea(area, GUI.skin.box);
-            GUILayout.BeginHorizontal();
-            GUILayout.Label("Views", GUILayout.Width(44f));
+            GUI.Box(area, GUIContent.none, GUI.skin.box);
 
-            for (int i = 0; i < RuntimeMenuViewLabels.Length; i++)
+            Rect contentRect = new Rect(
+                area.x + DesignTopBarHorizontalPadding,
+                area.y + DesignTopBarVerticalPadding,
+                Mathf.Max(0f, area.width - (2f * DesignTopBarHorizontalPadding)),
+                Mathf.Max(0f, area.height - (2f * DesignTopBarVerticalPadding)));
+
+            bool useWrappedLayout = ShouldUseWrappedViewTopBarLayout(area.width);
+            float windowControlsWidth = GetViewTopBarWindowControlsWidth();
+
+            if (!useWrappedLayout)
             {
-                RuntimeMenuView candidateView = (RuntimeMenuView)i;
-                bool isActive = candidateView == _activeMenuView;
-                float buttonWidth = CalcUiButtonWidth(RuntimeMenuViewLabels[i], 72f);
-                bool toggled = GUILayout.Toggle(
-                    isActive,
-                    RuntimeMenuViewLabels[i],
-                    GUI.skin.button,
-                    GUILayout.Width(buttonWidth),
-                    GUILayout.Height(24f));
-                if (toggled && !isActive)
-                {
-                    _activeMenuView = candidateView;
-                    if (_activeMenuView != RuntimeMenuView.General)
-                    {
-                        localAiAgentPanelExpanded = false;
-                    }
-                }
+                float controlsX = contentRect.xMax - windowControlsWidth;
+                Rect viewRowRect = new Rect(
+                    contentRect.x,
+                    contentRect.y,
+                    Mathf.Max(0f, controlsX - contentRect.x - DesignTopBarGroupGap),
+                    DesignTopBarControlHeight);
+                Rect controlsRect = new Rect(
+                    controlsX,
+                    contentRect.y,
+                    windowControlsWidth,
+                    DesignTopBarControlHeight);
 
-                if (i < RuntimeMenuViewLabels.Length - 1)
+                DrawViewTopBarViewButtonsRow(viewRowRect, 0, RuntimeMenuViewLabels.Length, true);
+                DrawViewTopBarWindowControls(controlsRect);
+                return;
+            }
+
+            float firstRowY = contentRect.y;
+            float secondRowY = contentRect.y + DesignTopBarControlHeight + DesignTopBarRowSpacing;
+            Rect firstRowRect = new Rect(contentRect.x, firstRowY, contentRect.width, DesignTopBarControlHeight);
+            Rect secondRowRect = new Rect(contentRect.x, secondRowY, contentRect.width, DesignTopBarControlHeight);
+            float wrappedControlsX = firstRowRect.xMax - windowControlsWidth;
+            float firstRowViewsWidth = Mathf.Max(0f, wrappedControlsX - firstRowRect.x - DesignTopBarGroupGap);
+            Rect firstRowViewsRect = new Rect(
+                firstRowRect.x,
+                firstRowRect.y,
+                firstRowViewsWidth,
+                DesignTopBarControlHeight);
+            Rect wrappedControlsRect = new Rect(
+                wrappedControlsX,
+                firstRowRect.y,
+                windowControlsWidth,
+                DesignTopBarControlHeight);
+
+            int firstRowViewCount = GetWrappedViewTopBarFirstRowCount(firstRowViewsWidth, contentRect.width);
+            bool drawViewsLabelOnSecondRow = firstRowViewCount <= 0;
+
+            if (firstRowViewCount > 0)
+            {
+                DrawViewTopBarViewButtonsRow(firstRowViewsRect, 0, firstRowViewCount, true);
+            }
+
+            DrawViewTopBarWindowControls(wrappedControlsRect);
+
+            if (firstRowViewCount < RuntimeMenuViewLabels.Length)
+            {
+                DrawViewTopBarViewButtonsRow(
+                    secondRowRect,
+                    Mathf.Max(0, firstRowViewCount),
+                    RuntimeMenuViewLabels.Length,
+                    drawViewsLabelOnSecondRow);
+            }
+        }
+
+        private static float ComputeDesignUiScale(
+            float designTotalWidth,
+            float designTotalHeight,
+            float availableWidth,
+            float availableHeight)
+        {
+            float widthScale = availableWidth / Mathf.Max(1f, designTotalWidth);
+            float heightScale = availableHeight / Mathf.Max(1f, designTotalHeight);
+            return Mathf.Clamp(Mathf.Min(1f, widthScale, heightScale), 0.1f, 1f);
+        }
+
+        private float GetViewTopBarHeight(float availableWidth)
+        {
+            if (!ShouldUseWrappedViewTopBarLayout(availableWidth))
+            {
+                return DesignViewTopBarHeight;
+            }
+
+            return
+                (2f * DesignTopBarVerticalPadding) +
+                (2f * DesignTopBarControlHeight) +
+                DesignTopBarRowSpacing;
+        }
+
+        private bool ShouldUseWrappedViewTopBarLayout(float availableWidth)
+        {
+            float contentWidth = Mathf.Max(0f, availableWidth - (2f * DesignTopBarHorizontalPadding));
+            return GetSingleRowViewTopBarWidth() > contentWidth;
+        }
+
+        private float GetSingleRowViewTopBarWidth()
+        {
+            return
+                GetViewTopBarViewsRowWidth(0, RuntimeMenuViewLabels.Length, true) +
+                DesignTopBarGroupGap +
+                GetViewTopBarWindowControlsWidth();
+        }
+
+        private float GetViewTopBarViewsRowWidth(int startIndex, int endIndex, bool includeViewsLabel)
+        {
+            float width = 0f;
+
+            if (includeViewsLabel)
+            {
+                width += CalcUiLabelWidth("Views", 4f);
+                if (startIndex < endIndex)
                 {
-                    GUILayout.Space(8f);
+                    width += DesignTopBarItemSpacing;
                 }
             }
 
-            GUILayout.FlexibleSpace();
-            GUILayout.Space(DesignTopBarGroupGap);
+            for (int i = startIndex; i < endIndex; i++)
+            {
+                width += CalcUiButtonWidth(RuntimeMenuViewLabels[i], 72f);
+                if (i < endIndex - 1)
+                {
+                    width += DesignTopBarItemSpacing;
+                }
+            }
 
-            GUILayout.Label("Windowed", GUILayout.Width(CalcUiLabelWidth("Windowed", 4f)));
-            _windowedWidthText = GUILayout.TextField(_windowedWidthText, GUILayout.Width(58f));
-            GUILayout.Label("x", GUILayout.Width(CalcUiLabelWidth("x", 2f)));
-            _windowedHeightText = GUILayout.TextField(_windowedHeightText, GUILayout.Width(58f));
+            return width;
+        }
 
-            if (GUILayout.Button("Windowed", GUILayout.Width(CalcUiButtonWidth("Windowed", 76f)), GUILayout.Height(24f)))
+        private float GetViewTopBarWindowControlsWidth()
+        {
+            return
+                CalcUiLabelWidth("Windowed", 4f) +
+                DesignTopBarItemSpacing +
+                DesignTopBarTextFieldWidth +
+                DesignTopBarItemSpacing +
+                CalcUiLabelWidth("x", 2f) +
+                DesignTopBarItemSpacing +
+                DesignTopBarTextFieldWidth +
+                DesignTopBarItemSpacing +
+                CalcUiButtonWidth("Windowed", 76f) +
+                DesignTopBarItemSpacing +
+                CalcUiButtonWidth("Fullscreen", 88f) +
+                DesignTopBarItemSpacing +
+                CalcUiButtonWidth("Exit", 52f);
+        }
+
+        private int GetWrappedViewTopBarFirstRowCount(float firstRowViewsWidth, float secondRowAvailableWidth)
+        {
+            for (int firstRowCount = RuntimeMenuViewLabels.Length; firstRowCount >= 0; firstRowCount--)
+            {
+                bool drawViewsLabelOnFirstRow = firstRowCount > 0;
+                bool drawViewsLabelOnSecondRow = firstRowCount <= 0;
+                float firstRowWidth = GetViewTopBarViewsRowWidth(
+                    0,
+                    firstRowCount,
+                    drawViewsLabelOnFirstRow);
+                float remainingViewsWidth = GetViewTopBarViewsRowWidth(
+                    firstRowCount,
+                    RuntimeMenuViewLabels.Length,
+                    drawViewsLabelOnSecondRow);
+
+                if (firstRowWidth <= firstRowViewsWidth && remainingViewsWidth <= secondRowAvailableWidth)
+                {
+                    return firstRowCount;
+                }
+            }
+
+            return 0;
+        }
+
+        private void DrawViewTopBarViewButtonsRow(Rect rowRect, int startIndex, int endIndex, bool includeViewsLabel)
+        {
+            float currentX = rowRect.x;
+
+            if (includeViewsLabel)
+            {
+                float labelWidth = CalcUiLabelWidth("Views", 4f);
+                GUI.Label(new Rect(currentX, rowRect.y, labelWidth, rowRect.height), "Views");
+                currentX += labelWidth;
+                if (startIndex < endIndex)
+                {
+                    currentX += DesignTopBarItemSpacing;
+                }
+            }
+
+            for (int i = startIndex; i < endIndex; i++)
+            {
+                float buttonWidth = CalcUiButtonWidth(RuntimeMenuViewLabels[i], 72f);
+                Rect buttonRect = new Rect(currentX, rowRect.y, buttonWidth, rowRect.height);
+                RuntimeMenuView candidateView = (RuntimeMenuView)i;
+                bool isActive = candidateView == _activeMenuView;
+                bool toggled = GUI.Toggle(
+                    buttonRect,
+                    isActive,
+                    RuntimeMenuViewLabels[i],
+                    GUI.skin.button);
+
+                if (toggled && !isActive)
+                {
+                    SetActiveMenuView(candidateView);
+                }
+
+                currentX += buttonWidth;
+                if (i < endIndex - 1)
+                {
+                    currentX += DesignTopBarItemSpacing;
+                }
+            }
+        }
+
+        private void DrawViewTopBarWindowControls(Rect area)
+        {
+            float currentX = area.x;
+            float windowedLabelWidth = CalcUiLabelWidth("Windowed", 4f);
+            float xLabelWidth = CalcUiLabelWidth("x", 2f);
+            float windowedButtonWidth = CalcUiButtonWidth("Windowed", 76f);
+            float fullscreenButtonWidth = CalcUiButtonWidth("Fullscreen", 88f);
+            float exitButtonWidth = CalcUiButtonWidth("Exit", 52f);
+
+            GUI.Label(new Rect(currentX, area.y, windowedLabelWidth, area.height), "Windowed");
+            currentX += windowedLabelWidth + DesignTopBarItemSpacing;
+
+            _windowedWidthText = GUI.TextField(
+                new Rect(currentX, area.y, DesignTopBarTextFieldWidth, area.height),
+                _windowedWidthText);
+            currentX += DesignTopBarTextFieldWidth + DesignTopBarItemSpacing;
+
+            GUI.Label(new Rect(currentX, area.y, xLabelWidth, area.height), "x");
+            currentX += xLabelWidth + DesignTopBarItemSpacing;
+
+            _windowedHeightText = GUI.TextField(
+                new Rect(currentX, area.y, DesignTopBarTextFieldWidth, area.height),
+                _windowedHeightText);
+            currentX += DesignTopBarTextFieldWidth + DesignTopBarItemSpacing;
+
+            if (GUI.Button(
+                new Rect(currentX, area.y, windowedButtonWidth, area.height),
+                "Windowed"))
             {
                 ApplyWindowedResolutionFromFields();
             }
 
-            if (GUILayout.Button("Fullscreen", GUILayout.Width(CalcUiButtonWidth("Fullscreen", 88f)), GUILayout.Height(24f)))
+            currentX += windowedButtonWidth + DesignTopBarItemSpacing;
+
+            if (GUI.Button(
+                new Rect(currentX, area.y, fullscreenButtonWidth, area.height),
+                "Fullscreen"))
             {
                 SetFullscreenToDesktopResolution();
             }
 
-            if (GUILayout.Button("Exit", GUILayout.Width(CalcUiButtonWidth("Exit", 52f)), GUILayout.Height(24f)))
+            currentX += fullscreenButtonWidth + DesignTopBarItemSpacing;
+
+            if (GUI.Button(new Rect(currentX, area.y, exitButtonWidth, area.height), "Exit"))
             {
                 SetStatus("Exit requested", "Closing application.");
                 Application.Quit();
             }
-            GUILayout.EndHorizontal();
-            GUILayout.EndArea();
+        }
+
+        private void SetActiveMenuView(RuntimeMenuView candidateView)
+        {
+            _activeMenuView = candidateView;
+            if (_activeMenuView != RuntimeMenuView.General)
+            {
+                localAiAgentPanelExpanded = false;
+            }
         }
 
         private static float CalcUiButtonWidth(string text, float minWidth)
@@ -16199,6 +16446,10 @@ namespace Reachy.ControlApp
             {
                 SubmitChitChatPrompt(_chitChatInput, clearInputAfterQueue: true);
             }
+<<<<<<< HEAD
+=======
+
+>>>>>>> upstream/main
             GUI.enabled = IsCurrentAiModeEnabled();
             if (GUILayout.Button("Stop", GUILayout.Width(92f), GUILayout.Height(26f)))
             {
@@ -16213,6 +16464,10 @@ namespace Reachy.ControlApp
             {
                 GUILayout.Label($"Pending: {_chitChatPendingPrompt}");
             }
+<<<<<<< HEAD
+=======
+
+>>>>>>> upstream/main
             GUILayout.EndArea();
         }
 
