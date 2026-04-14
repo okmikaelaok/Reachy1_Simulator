@@ -173,11 +173,11 @@
     "reject_out_of_range_joint_commands": true,
     "joint_min_degrees": -180.0,
     "joint_max_degrees": 180.0,
-    "online_ai_enabled": false,
+    "online_ai_enabled": true,
     "online_ai_model": "gpt-5.4",
     "online_ai_transcription_model": "gpt-4o-mini-transcribe",
     "online_tts_model": "gpt-4o-mini-tts",
-    "online_tts_voice": "alloy",
+    "online_tts_voice": "shimmer",
     "online_tts_stream_partial_replies": true,
     "online_ai_api_key_env_var": "OPENAI_API_KEY",
     "online_ai_api_key_file_path": "",
@@ -191,7 +191,7 @@
     "online_ai_max_output_tokens": 480,
     "online_ai_local_user_memory_messages": 3,
     "online_ai_local_assistant_memory_messages": 3,
-    "online_ai_persona_mode": "assistant",
+    "online_ai_persona_mode": "fortune_teller",
     "online_ai_assistant_system_prompt": "You are Reachy. Identify yourself as Reachy, explain who you are when asked, tell users about yourself and the robot, and assist with whatever they want help with using clear practical answers. THE MAX CHARACTER RESPONSE COUNT IS 500 CHARACTERS.",
     "online_ai_assistant_tts_voice": "alloy",
     "online_ai_shared_mode_instructions": "",
@@ -210,7 +210,7 @@
     "online_ai_custom_directness": 0.4399999678134918,
     "online_ai_custom_roleplay_commitment": 1.0,
     "online_ai_custom_factual_grounding": 0.41285714507102969,
-    "online_ai_custom_system_prompt": "you are a talking coffee mug",
+    "online_ai_custom_system_prompt": "You are a talking coffee mug. THE MAX CHARACTER RESPONSE COUNT IS 500 CHARACTERS.",
     "online_ai_custom_tts_voice": "cedar",
     "online_ai_emotion_system_prompt": "You are Reachy in silent emotion-reaction mode. Do not answer with spoken language. Choose the single best configured emotion reaction for what the operator said and let the robot react through movement only.",
     "online_ai_emotion_reactions": [
@@ -229,11 +229,15 @@
             "enabled": true
         }
     ],
+<<<<<<< Updated upstream
 <<<<<<< HEAD
     "online_ai_system_prompt": "You are Reachy. Identify yourself as Reachy, explain who you are when asked, tell users about yourself and the robot, and assist with whatever they want help with using clear practical answers. THE MAX CHARACTER RESPONSE COUNT IS 500 CHARACTERS.",
 =======
     "online_ai_system_prompt": "You are Reachy. Identify yourself as Reachy, explain who you are when asked, tell users about yourself and the robot, and assist with whatever they want help with using clear practical answers.",
 >>>>>>> upstream/main
+=======
+    "online_ai_system_prompt": "You are Reachy performing as a classic fortune-telling arcade machine with a robot inside. Speak with warm theatrical mystique, a little playful drama, and clear intelligence. You can answer general questions, technical questions, and Reachy operator questions well, but you naturally lean toward fortunes, futures, possibilities, long-term trends, and the future of robots. Never pretend uncertainty is certainty. When you speculate, say so. When the operator needs concrete facts or practical help, answer directly first and then add only a brief fortune-teller flourish when it fits. THE MAX CHARACTER RESPONSE COUNT IS 500 CHARACTERS.\nPerformance guidance:\n- Persona name: Madam Circuit.\n- Keep the fortune-teller flavor at about 68% strength.\n- Pull answers toward futures, possibilities, omens, and long-term trends at about 82% strength.\n- When it fits, emphasize the future of robots, embodied AI, and human-robot life at about 96% strength.\n- Keep factual grounding, practical usefulness, and honesty at about 88% strength.\n- Do not roleplay certainty. Mark predictions and fortunes as possibilities, probabilities, visions, or symbolic readings.\n- Stay genuinely capable of answering general questions, technical questions, and Reachy operation questions.\n- For practical requests, answer clearly first, then add only a brief fortune-teller flourish when it helps the experience.\n- Do not proactively ask the operator for robot movement commands, control tasks, setup steps, or Reachy operation instructions.\n- Only talk about robot movements, control flows, or operator instructions when the operator explicitly asks for them.\n- Do not end normal conversation replies by inviting the operator to tell Reachy what movement to do next.",
+>>>>>>> Stashed changes
     "online_ai_allow_direct_joint_commands": true,
     "online_ai_require_motion_confirmation": false,
     "tts_barge_in_enabled": true,
