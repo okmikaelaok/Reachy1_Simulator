@@ -27,19 +27,25 @@ This allows you to create, save and delete animated poses for Reachy. Useful for
 
 This allows you to have conversations with Reachy using text. Responses are sent via TTS. Useful in noisy environments and if STT fails.
 
-- `Text chat`: Ask any questions to Reachy using text and see your conversations.
+- `Text chat`: Ask any questions to Reachy using mic or text and see your conversations.
+- `Mic/Text Transcripts`: Log mic or text input into the chat bubbles, with the option to clear the chat or save it locally.
 - `Topic buttons`: These are pre-defined topic buttons that will prompt Reachy to generate relevant dialogue e.g. tell me more about the future of robots in education.
-- `Syncs with AI personas`: A chosen persona from AI Mode will still work.
-- `Interrupt anytime`: With the Stop button, Reachy's movements and speech can be interrupted at any time.
+- `Syncs with AI personas`: A chosen persona from AI Mode will still work e.g. coffee mug.
+- `Interrupt Reachy`: With the Stop button, Reachy's movements and speech can be interrupted at any time.
 
-### Notes & Possible Future Iterations
+`some features in AI Mode tab `
 
-- The UX of the Animate Body Avatar With Mouse feature can be improved in future iterations. Potential enhancements include clearer visual feedback, such as highlighting selected joints, as well as adding the ability to rotate and reposition the avatar. Support for saving animation sequences locally, rather than only during runtime, would also improve usability. Additionally, attaching audio playback to animations could further enhance the experience.
-- The Chit Chat feature can be further improved by adding a transcript log, as well as enhanced memory and context management. A configurable maximum token or character limit, paired with adaptive response length, could help control overly long replies in a dynamic way. While some context and memory handling already exist in the background, responses can still be lengthy if it's not reinforced in the system prompt. Introducing a memory system for pinned or saved content would help ensure important information is consistently retained and referenced during interactions. This could include the ability to pin specific chat logs for persistent memory. Additionally, the chat bubbles could be improved by adding actions such as pinning, rewinding, or deleting them, giving users more control over conversation flow and context. A tone control setting (e.g. optimistic, dystopian, realistic) could also be implemented to guide the style and mood of the AI’s responses.
+Added the following...
+- Scrollwheel for the `Base prompt text box`.
+- Multi-select delete checkboxes in `Browse saved personalities` to prevent duplicates.
 
 ### Videos
 
-https://github.com/user-attachments/assets/5989b76b-2402-4a1c-851d-f0e619c4569f
+https://github.com/user-attachments/assets/aaa93e5c-b712-461a-8bcd-d636543b219e
 
 https://github.com/user-attachments/assets/8ec6aaba-ab25-4255-b3bf-376ff6cbb74e
 
+### Notes & Possible Future Iterations
+
+- The UX of the Animate Body Avatar With Mouse feature can be improved in future iterations like include clearer visual feedback, such as highlighting selected joints, as well as adding the ability to rotate and reposition the avatar. Support for saving animation sequences locally, rather than only during runtime, would also improve usability. Additionally, attaching audio playback to animations could further enhance the experience.
+- The Chit Chat feature can be further improved by ~~✅adding a transcript log~~, as well as enhanced memory and context management. A configurable maximum token or character limit, paired with adaptive response length, could help control overly long replies in a dynamic way. While some context and memory handling already exist in the background, responses can still be lengthy if it's not reinforced in the system prompt. Introducing a memory system for pinned or saved content would help ensure important information is consistently retained and referenced during interactions. This could include the ability to pin specific chat logs for persistent memory. Additionally, the chat bubbles could be improved by adding actions such as pinning, rewinding, or ~~✅deleting them~~, giving users more control over conversation flow and context. A tone control setting (e.g. optimistic, dystopian, realistic) could also be implemented to guide the style and mood of the AI’s responses.
