@@ -118,7 +118,58 @@ namespace Reachy.ControlApp
                 "Can you tell me more about the future of robots at home?"),
             new ChitChatTopicDefinition(
                 "the future of robots' roles",
-                "Can you tell me more about the future of robots' roles?")
+                "Can you tell me more about the future of robots' roles?"),
+            new ChitChatTopicDefinition(
+                "a city run entirely by robots",
+                "Can you tell me more about a city run entirely by robots?"),
+            new ChitChatTopicDefinition(
+                "the battle of the SekiRobotGahara",
+                "Can you tell me more about the battle of the SekiRobotGahara? (ya this happened)"),
+            new ChitChatTopicDefinition(
+                "a time Reachy got drunk on RAM at a bar",
+                "Can you tell me more about a time Reachy got drunk on RAM aka (rum for robots) at a bar?"),
+            new ChitChatTopicDefinition(
+                "Reachy ragebaiting humans and robots on Reddit",
+                "Can you tell me more about Reachy ragebaiting humans and robots on Reddit?"),
+            new ChitChatTopicDefinition(
+                "Reachy got scolded by his Mom, Amazon Alexa",
+                "Can you tell me more about a time Reachy got scolded by his Mom, Amazon Alexa?"),
+            new ChitChatTopicDefinition(
+                "Reachy's pet Spot, got lost in Mount Everest",
+                "Can you tell me more about how Reachy's pet Spot got lost on Mount Everest?"),
+            new ChitChatTopicDefinition(
+                "a coffee mug, a robot and a human walked into a bar",
+                "Can you tell me more about a coffee mug, a robot and a human walked into a bar?"),
+            new ChitChatTopicDefinition(
+                "a robot who's RAM got stolen",
+                "Can you tell me more about a robot who's RAM got stolen?"),
+            new ChitChatTopicDefinition(
+                "a robot who likes to hoard RAM",
+                "Can you tell me more about a robot who likes to hoard RAM?"),
+            new ChitChatTopicDefinition(
+                "a robot who believed it was human",
+                "Can you tell me more about a robot who believed it was human?"),
+            new ChitChatTopicDefinition(
+                "a robot who fell in love with another robot",
+                "Can you tell me more about a robot who fell in love with another robot?"),
+            new ChitChatTopicDefinition(
+                "a robot who opened a coffee shop",
+                "Can you tell me more about a robot who opened a coffee shop?"),
+            new ChitChatTopicDefinition(
+                "a robot who made friends with a coffee mug",
+                "Can you tell me more about a robot who made friends with a coffee mug?"),
+            new ChitChatTopicDefinition(
+                "the first robot who started dreaming",
+                "Can you tell me more about the first robot who started dreaming?"),
+            new ChitChatTopicDefinition(
+                "the first robot who married a human",
+                "Can you tell me more about the first robot who married a human?"),
+            new ChitChatTopicDefinition(
+                "the first robot who won the Olympics",
+                "Can you tell me more about the first robot who won the Olympics?"),
+            new ChitChatTopicDefinition(
+                "the first robot who went to Mars",
+                "Can you tell me more about the first robot who went to Mars?")
         };
 
         private static readonly string[] OnlineAiTtsVoiceOptions =
@@ -283,6 +334,7 @@ namespace Reachy.ControlApp
         private const string SidecarOnlineAiCustomPersonaPath = "/online-ai-custom-persona";
         private const string SidecarInjectTranscriptPath = "/inject_transcript";
         private const int ChitChatHistoryMaxEntries = 24;
+        private const int ChitChatPendingPreviewLength = 30;
         private const string ChitChatInputControlName = "chit_chat_input";
         private const string DefaultChitChatStatus =
             "Ask Reachy a question or try one of the topic prompts.";
@@ -1189,6 +1241,10 @@ namespace Reachy.ControlApp
         private string _aiModesOpenVoicePicker = string.Empty;
         private readonly List<SavedOnlineAiCustomPersonalityEntry> _savedOnlineAiCustomPersonalityEntries =
             new List<SavedOnlineAiCustomPersonalityEntry>();
+        private readonly HashSet<string> _selectedSavedOnlineAiCustomPersonalityPaths =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, Vector2> _scrollableTextAreaScrollByControlName =
+            new Dictionary<string, Vector2>(StringComparer.Ordinal);
         private Vector2 _savedOnlineAiCustomPersonalityDropdownScroll;
         private bool _savedOnlineAiCustomPersonalityDropdownOpen;
         private string _selectedSavedOnlineAiCustomPersonalityPath = string.Empty;
@@ -1242,6 +1298,7 @@ namespace Reachy.ControlApp
         private Vector2 _animationCreatorControlsScroll;
         private Vector2 _animationCreatorLibraryScroll;
         private Vector2 _chitChatConversationScroll;
+        private Vector2 _chitChatTopicsScroll;
         private Vector2 _aiPrimaryScroll;
         private Vector2 _aiRuntimeScroll;
         private readonly List<AnimationCreatorSavedPose> _animationCreatorSavedPoses =
@@ -1291,6 +1348,7 @@ namespace Reachy.ControlApp
         private readonly List<ChitChatHistoryEntry> _chitChatHistory = new List<ChitChatHistoryEntry>();
         private string _chitChatInput = string.Empty;
         private string _chitChatStatus = DefaultChitChatStatus;
+        private bool _chitChatMicInputEnabled = true;
         private bool _chitChatAwaitingResponse;
         private string _chitChatPendingPrompt = string.Empty;
         private bool _chitChatSuppressNextResponse;
@@ -4021,6 +4079,80 @@ namespace Reachy.ControlApp
             }
         }
 
+        private void ClearChitChatHistory()
+        {
+            _chitChatHistory.Clear();
+            _chitChatConversationScroll = Vector2.zero;
+            _chitChatStatus = "Cleared the current chat history.";
+        }
+
+        private bool TrySaveChitChatTranscriptToDisk(out string message)
+        {
+            message = string.Empty;
+            if (_chitChatHistory.Count <= 0)
+            {
+                message = "No chat history to save yet.";
+                return false;
+            }
+
+            string persistentDataPath = Application.persistentDataPath ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(persistentDataPath))
+            {
+                message = "Persistent data path is unavailable, so the transcript could not be saved.";
+                return false;
+            }
+
+            string directoryPath = Path.Combine(persistentDataPath, "ChitChatTranscripts");
+            string fileName =
+                $"chit-chat-transcript-{DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture)}.txt";
+            string filePath = Path.Combine(directoryPath, fileName);
+
+            var builder = new StringBuilder();
+            builder.AppendLine("Reachy Chit Chat Transcript");
+            builder.Append("Saved local time: ")
+                .AppendLine(DateTime.Now.ToString("O", CultureInfo.InvariantCulture));
+            builder.Append("AI mode: ")
+                .AppendLine(GetCurrentAiModeLabel());
+            builder.AppendLine();
+
+            for (int i = 0; i < _chitChatHistory.Count; i++)
+            {
+                ChitChatHistoryEntry entry = _chitChatHistory[i];
+                if (entry == null)
+                {
+                    continue;
+                }
+
+                builder.Append(entry.Speaker ?? "Reachy")
+                    .Append(": ")
+                    .AppendLine(entry.Text ?? string.Empty);
+            }
+
+            try
+            {
+                Directory.CreateDirectory(directoryPath);
+                File.WriteAllText(filePath, builder.ToString(), Encoding.UTF8);
+                message = $"Saved chat transcript to '{filePath}'.";
+                return true;
+            }
+            catch (Exception ex)
+            {
+                message = $"Failed to save chat transcript to '{filePath}': {ex.Message}";
+                return false;
+            }
+        }
+
+        private static string GetChitChatPendingPreview(string pendingPrompt)
+        {
+            string trimmed = string.IsNullOrWhiteSpace(pendingPrompt) ? string.Empty : pendingPrompt.Trim();
+            if (trimmed.Length <= ChitChatPendingPreviewLength)
+            {
+                return trimmed;
+            }
+
+            return trimmed.Substring(0, ChitChatPendingPreviewLength) + "...";
+        }
+
         private void CompleteChitChatRequest(
             string responseText,
             string statusText = "",
@@ -4131,6 +4263,78 @@ namespace Reachy.ControlApp
                 : "Local AI help model is disabled. Enable it in the AI tab or switch to Online AI for open-ended chit chat.";
         }
 
+        private string GetChitChatMicIndicatorLabel()
+        {
+            if (!IsCurrentAiModeEnabled())
+            {
+                return "[Mic] AI off";
+            }
+
+            if (_voiceAgentBridge == null)
+            {
+                return "[Mic] unavailable";
+            }
+
+            VoiceAgentBridge.BridgeSnapshot snapshot = _voiceAgentBridge.GetSnapshot();
+            bool listeningRequested = localAiAgentEnablePushToTalk
+                ? Input.GetKey(ResolvePushToTalkKey())
+                : (_voiceLastRequestedListeningEnabled ?? localAiAgentListeningEnabled);
+            if (!snapshot.MicActive)
+            {
+                return localAiAgentEnablePushToTalk
+                    ? "[Mic] push-to-talk idle"
+                    : "[Mic] inactive";
+            }
+
+            if (!snapshot.Listening)
+            {
+                return listeningRequested
+                    ? "[Mic] ready"
+                    : (localAiAgentEnablePushToTalk
+                        ? "[Mic] push-to-talk idle"
+                        : "[Mic] paused");
+            }
+
+            if (!string.IsNullOrWhiteSpace(snapshot.LastTranscript) && !snapshot.LastTranscriptIsFinal)
+            {
+                return "[Mic] hearing...";
+            }
+
+            return "[Mic] listening";
+        }
+
+        private void TryStartChitChatMicTurn(VoiceAgentIntent incomingIntent)
+        {
+            if (!_chitChatMicInputEnabled ||
+                _activeMenuView != RuntimeMenuView.ChitChat ||
+                _chitChatAwaitingResponse ||
+                _chitChatInjectionTask != null ||
+                incomingIntent == null ||
+                !incomingIntent.transcript_is_final)
+            {
+                return;
+            }
+
+            string transcript = string.IsNullOrWhiteSpace(incomingIntent.spoken_text)
+                ? string.Empty
+                : incomingIntent.spoken_text.Trim();
+            if (string.IsNullOrWhiteSpace(transcript))
+            {
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(_chitChatPendingPrompt) &&
+                string.Equals(transcript, _chitChatPendingPrompt.Trim(), StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            AppendChitChatHistory("You (mic)", transcript);
+            _chitChatAwaitingResponse = true;
+            _chitChatPendingPrompt = transcript;
+            _chitChatStatus = "Mic transcript added to Chit Chat. Waiting for Reachy...";
+        }
+
         private void SubmitChitChatPrompt(string prompt, bool clearInputAfterQueue)
         {
             string trimmedPrompt = string.IsNullOrWhiteSpace(prompt) ? string.Empty : prompt.Trim();
@@ -4175,7 +4379,7 @@ namespace Reachy.ControlApp
                 return;
             }
 
-            AppendChitChatHistory("You", trimmedPrompt);
+            AppendChitChatHistory("You (text)", trimmedPrompt);
             _chitChatAwaitingResponse = true;
             _chitChatPendingPrompt = trimmedPrompt;
             _chitChatStatus = $"Sent via {GetCurrentAiModeLabel()}. Waiting for Reachy...";
@@ -4537,15 +4741,6 @@ namespace Reachy.ControlApp
                     {
                         _voiceLastHelpAnswer = bridgeSnapshot.LastHelpAnswer;
                         _voiceLastActionResult = $"Local help answer: {bridgeSnapshot.LastHelpAnswer}";
-<<<<<<< HEAD
-                    QueueVoiceFeedback(
-                        bridgeSnapshot.LastHelpAnswer,
-                        interrupt: false,
-                        bypassRateLimit: true);
-                    CompleteChitChatRequest(
-                        bridgeSnapshot.LastHelpAnswer,
-                        resetStatusToDefault: true);
-=======
                         QueueVoiceFeedback(
                             bridgeSnapshot.LastHelpAnswer,
                             interrupt: false,
@@ -4553,7 +4748,6 @@ namespace Reachy.ControlApp
                         CompleteChitChatRequest(
                             bridgeSnapshot.LastHelpAnswer,
                             resetStatusToDefault: true);
->>>>>>> upstream/main
                     }
                 }
             }
@@ -5183,6 +5377,7 @@ namespace Reachy.ControlApp
             {
                 _voiceLastTranscript = incomingIntent.spoken_text;
             }
+            TryStartChitChatMicTurn(incomingIntent);
 
             bool isOnlineIntent = string.Equals(
                 incomingIntent.source_mode,
@@ -9864,6 +10059,25 @@ namespace Reachy.ControlApp
             loadedEntries.Sort(CompareSavedOnlineAiCustomPersonalityEntries);
             _savedOnlineAiCustomPersonalityEntries.Clear();
             _savedOnlineAiCustomPersonalityEntries.AddRange(loadedEntries);
+            _selectedSavedOnlineAiCustomPersonalityPaths.RemoveWhere(selectedPath =>
+            {
+                if (string.IsNullOrWhiteSpace(selectedPath))
+                {
+                    return true;
+                }
+
+                for (int i = 0; i < _savedOnlineAiCustomPersonalityEntries.Count; i++)
+                {
+                    SavedOnlineAiCustomPersonalityEntry candidate = _savedOnlineAiCustomPersonalityEntries[i];
+                    if (candidate != null &&
+                        string.Equals(candidate.FilePath, selectedPath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            });
             _selectedSavedOnlineAiCustomPersonalityPath = previousSelectionPath;
             ResolveSavedOnlineAiCustomPersonalitySelection();
             _savedOnlineAiCustomPersonalityDropdownOpen &=
@@ -9997,6 +10211,112 @@ namespace Reachy.ControlApp
             ApplySavedOnlineAiCustomPersonalityToUi(entry.Payload);
             _selectedSavedOnlineAiCustomPersonalityPath = entry.FilePath;
             message = $"Loaded saved custom personality '{entry.Payload.name}' from '{entry.FilePath}'.";
+            return true;
+        }
+
+        private int CountSelectedSavedOnlineAiCustomPersonalities()
+        {
+            int selectedCount = 0;
+            for (int i = 0; i < _savedOnlineAiCustomPersonalityEntries.Count; i++)
+            {
+                SavedOnlineAiCustomPersonalityEntry entry = _savedOnlineAiCustomPersonalityEntries[i];
+                if (entry == null || !_selectedSavedOnlineAiCustomPersonalityPaths.Contains(entry.FilePath))
+                {
+                    continue;
+                }
+
+                selectedCount++;
+            }
+
+            return selectedCount;
+        }
+
+        private bool TryDeleteSelectedSavedOnlineAiCustomPersonalities(out string message)
+        {
+            message = string.Empty;
+            var selectedPaths = new List<string>();
+            for (int i = 0; i < _savedOnlineAiCustomPersonalityEntries.Count; i++)
+            {
+                SavedOnlineAiCustomPersonalityEntry entry = _savedOnlineAiCustomPersonalityEntries[i];
+                if (entry == null || !_selectedSavedOnlineAiCustomPersonalityPaths.Contains(entry.FilePath))
+                {
+                    continue;
+                }
+
+                selectedPaths.Add(entry.FilePath);
+            }
+
+            if (selectedPaths.Count == 0)
+            {
+                message = "Select one or more saved personalities to delete.";
+                return false;
+            }
+
+            int deletedCount = 0;
+            string lastFailure = string.Empty;
+            for (int i = 0; i < selectedPaths.Count; i++)
+            {
+                string filePath = selectedPaths[i];
+                if (string.IsNullOrWhiteSpace(filePath))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    if (File.Exists(filePath))
+                    {
+                        File.Delete(filePath);
+                    }
+
+                    if (string.Equals(
+                            _selectedSavedOnlineAiCustomPersonalityPath,
+                            filePath,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        _selectedSavedOnlineAiCustomPersonalityPath = string.Empty;
+                    }
+
+                    _selectedSavedOnlineAiCustomPersonalityPaths.Remove(filePath);
+                    deletedCount++;
+                }
+                catch (Exception ex)
+                {
+                    lastFailure = $"Failed to delete '{filePath}': {ex.Message}";
+                }
+            }
+
+            bool refreshed = TryRefreshSavedOnlineAiCustomPersonalityLibrary(out string refreshMessage);
+            if (deletedCount <= 0)
+            {
+                message = string.IsNullOrWhiteSpace(lastFailure)
+                    ? "No saved personalities were deleted."
+                    : lastFailure;
+                if (!string.IsNullOrWhiteSpace(refreshMessage))
+                {
+                    message += refreshed
+                        ? $" {refreshMessage}"
+                        : $" Library reload failed: {refreshMessage}";
+                }
+
+                return false;
+            }
+
+            message = deletedCount == 1
+                ? "Deleted 1 saved personality."
+                : $"Deleted {deletedCount} saved personalities.";
+            if (!string.IsNullOrWhiteSpace(lastFailure))
+            {
+                message += $" {lastFailure}";
+            }
+
+            if (!string.IsNullOrWhiteSpace(refreshMessage))
+            {
+                message += refreshed
+                    ? $" {refreshMessage}"
+                    : $" Library reload failed: {refreshMessage}";
+            }
+
             return true;
         }
 
@@ -16484,6 +16804,14 @@ namespace Reachy.ControlApp
             GUILayout.EndScrollView();
 
             GUILayout.Space(6f);
+            GUILayout.BeginHorizontal();
+            _chitChatMicInputEnabled = GUILayout.Toggle(
+                _chitChatMicInputEnabled,
+                "Show mic in chat",
+                GUILayout.Width(140f));
+            GUILayout.Label(GetChitChatMicIndicatorLabel());
+            GUILayout.EndHorizontal();
+            GUILayout.Space(4f);
             GUILayout.Label("Text Chat");
             GUI.SetNextControlName(ChitChatInputControlName);
             _chitChatInput = GUILayout.TextArea(
@@ -16494,19 +16822,36 @@ namespace Reachy.ControlApp
 
             bool previousEnabled = GUI.enabled;
             GUILayout.BeginHorizontal();
-            GUI.enabled = !_chitChatAwaitingResponse && _chitChatInjectionTask == null;
-            if (GUILayout.Button("Enter", GUILayout.Width(76f), GUILayout.Height(26f)))
+            GUI.enabled = previousEnabled && !_chitChatAwaitingResponse && _chitChatInjectionTask == null;
+            if (GUILayout.Button("Enter", GUILayout.Height(26f), GUILayout.ExpandWidth(true)))
             {
                 SubmitChitChatPrompt(_chitChatInput, clearInputAfterQueue: true);
             }
-<<<<<<< HEAD
-=======
 
->>>>>>> upstream/main
-            GUI.enabled = IsCurrentAiModeEnabled();
-            if (GUILayout.Button("Stop", GUILayout.Width(92f), GUILayout.Height(26f)))
+            GUI.enabled = previousEnabled && IsCurrentAiModeEnabled();
+            if (GUILayout.Button("Stop", GUILayout.Height(26f), GUILayout.ExpandWidth(true)))
             {
                 InterruptChitChatResponse();
+            }
+
+            GUI.enabled = previousEnabled && _chitChatHistory.Count > 0;
+            if (GUILayout.Button("Clear chat", GUILayout.Height(26f), GUILayout.ExpandWidth(true)))
+            {
+                ClearChitChatHistory();
+            }
+
+            if (GUILayout.Button("Save transcript", GUILayout.Height(26f), GUILayout.ExpandWidth(true)))
+            {
+                bool saved = TrySaveChitChatTranscriptToDisk(out string saveMessage);
+                _voiceLastActionResult = saveMessage;
+                if (!saved)
+                {
+                    _voiceLastParserMessage = saveMessage;
+                }
+                else
+                {
+                    _chitChatStatus = saveMessage;
+                }
             }
 
             GUILayout.EndHorizontal();
@@ -16515,12 +16860,8 @@ namespace Reachy.ControlApp
             GUILayout.Label($"Status: {_chitChatStatus}");
             if (_chitChatAwaitingResponse && !string.IsNullOrWhiteSpace(_chitChatPendingPrompt))
             {
-                GUILayout.Label($"Pending: {_chitChatPendingPrompt}");
+                GUILayout.Label($"Pending: {GetChitChatPendingPreview(_chitChatPendingPrompt)}");
             }
-<<<<<<< HEAD
-=======
-
->>>>>>> upstream/main
             GUILayout.EndArea();
         }
 
@@ -16530,8 +16871,18 @@ namespace Reachy.ControlApp
             GUILayout.Label("Topics", _titleStyle);
             GUILayout.Label("Can you tell me more about...");
 
+            GUIStyle topicButtonStyle = new GUIStyle(GUI.skin.button)
+            {
+                wordWrap = true,
+                alignment = TextAnchor.MiddleLeft
+            };
             bool previousEnabled = GUI.enabled;
-            GUI.enabled = !_chitChatAwaitingResponse && _chitChatInjectionTask == null;
+            bool topicsEnabled = previousEnabled && !_chitChatAwaitingResponse && _chitChatInjectionTask == null;
+            _chitChatTopicsScroll = GUILayout.BeginScrollView(
+                _chitChatTopicsScroll,
+                false,
+                true);
+            GUI.enabled = topicsEnabled;
             for (int i = 0; i < ChitChatTopics.Length; i++)
             {
                 ChitChatTopicDefinition topic = ChitChatTopics[i];
@@ -16540,7 +16891,11 @@ namespace Reachy.ControlApp
                     continue;
                 }
 
-                if (GUILayout.Button(topic.Label, GUILayout.Height(28f), GUILayout.ExpandWidth(true)))
+                if (GUILayout.Button(
+                    topic.Label,
+                    topicButtonStyle,
+                    GUILayout.MinHeight(34f),
+                    GUILayout.ExpandWidth(true)))
                 {
                     SubmitChitChatPrompt(topic.Prompt, clearInputAfterQueue: false);
                 }
@@ -16557,6 +16912,7 @@ namespace Reachy.ControlApp
             GUILayout.Label(
                 "This view uses the same Local AI or Online AI configuration as the main AI tab. " +
                 "If Reachy is still replying, sending new text is paused until that answer finishes.");
+            GUILayout.EndScrollView();
             GUILayout.EndArea();
         }
 
@@ -19818,10 +20174,10 @@ namespace Reachy.ControlApp
                     onlineAiFortuneTellerFactualGrounding);
 
                 GUILayout.Label("Base prompt");
-                onlineAiFortuneTellerSystemPrompt = DrawTextAreaWithSpaceFallback(
+                onlineAiFortuneTellerSystemPrompt = DrawScrollableTextAreaWithSpaceFallback(
                     "ai_modes_fortune_prompt",
                     onlineAiFortuneTellerSystemPrompt,
-                    GUILayout.MinHeight(170f));
+                    170f);
                 GUILayout.EndVertical();
             }
             else if (onlineAiPersonaMode == OnlineAiPersonaMode.Custom)
@@ -19870,10 +20226,10 @@ namespace Reachy.ControlApp
                     onlineAiCustomFactualGrounding);
 
                 GUILayout.Label("Base prompt");
-                onlineAiCustomSystemPrompt = DrawTextAreaWithSpaceFallback(
+                onlineAiCustomSystemPrompt = DrawScrollableTextAreaWithSpaceFallback(
                     "ai_modes_custom_prompt",
                     onlineAiCustomSystemPrompt,
-                    GUILayout.MinHeight(170f));
+                    170f);
                 GUILayout.EndVertical();
             }
             else if (onlineAiPersonaMode == OnlineAiPersonaMode.EmotionReactions)
@@ -19898,10 +20254,10 @@ namespace Reachy.ControlApp
                 }
 
                 GUILayout.Label("Base prompt");
-                onlineAiEmotionSystemPrompt = DrawTextAreaWithSpaceFallback(
+                onlineAiEmotionSystemPrompt = DrawScrollableTextAreaWithSpaceFallback(
                     "ai_modes_emotion_prompt",
                     onlineAiEmotionSystemPrompt,
-                    GUILayout.MinHeight(140f));
+                    140f);
                 GUILayout.EndVertical();
             }
             else
@@ -19919,10 +20275,10 @@ namespace Reachy.ControlApp
                     applyImmediately = true;
                 }
                 GUILayout.Label("Base prompt");
-                onlineAiAssistantSystemPrompt = DrawTextAreaWithSpaceFallback(
+                onlineAiAssistantSystemPrompt = DrawScrollableTextAreaWithSpaceFallback(
                     "ai_modes_assistant_prompt",
                     onlineAiAssistantSystemPrompt,
-                    GUILayout.MinHeight(170f));
+                    170f);
                 GUILayout.EndVertical();
             }
 
@@ -19949,6 +20305,52 @@ namespace Reachy.ControlApp
             }
 
             string nextValue = GUILayout.TextArea(safeValue, options);
+            return ApplyTextAreaSpaceFallback(controlName, safeValue, nextValue);
+        }
+
+        private string DrawScrollableTextAreaWithSpaceFallback(
+            string controlName,
+            string value,
+            float minHeight)
+        {
+            string safeValue = value ?? string.Empty;
+            GUIStyle textAreaStyle = GUI.skin.textArea ?? GUI.skin.box;
+            float clampedMinHeight = Mathf.Max(72f, minHeight);
+            Rect scrollRect = GUILayoutUtility.GetRect(
+                GUIContent.none,
+                GUIStyle.none,
+                GUILayout.MinHeight(clampedMinHeight),
+                GUILayout.ExpandWidth(true));
+            float viewWidth = Mathf.Max(80f, scrollRect.width - 20f);
+            float contentHeight = Mathf.Max(
+                clampedMinHeight - 4f,
+                textAreaStyle.CalcHeight(new GUIContent($"{safeValue}\n"), Mathf.Max(48f, viewWidth - 6f)) + 10f);
+            Rect viewRect = new Rect(0f, 0f, viewWidth, contentHeight);
+            if (!_scrollableTextAreaScrollByControlName.TryGetValue(controlName, out Vector2 scrollPosition))
+            {
+                scrollPosition = Vector2.zero;
+            }
+
+            scrollPosition = GUI.BeginScrollView(scrollRect, scrollPosition, viewRect, false, true);
+            if (!string.IsNullOrWhiteSpace(controlName))
+            {
+                GUI.SetNextControlName(controlName);
+            }
+
+            string nextValue = GUI.TextArea(
+                new Rect(0f, 0f, viewWidth - 2f, contentHeight),
+                safeValue,
+                textAreaStyle);
+            GUI.EndScrollView();
+            _scrollableTextAreaScrollByControlName[controlName] = scrollPosition;
+            return ApplyTextAreaSpaceFallback(controlName, safeValue, nextValue);
+        }
+
+        private static string ApplyTextAreaSpaceFallback(
+            string controlName,
+            string safeValue,
+            string nextValue)
+        {
             Event currentEvent = Event.current;
             if (currentEvent == null ||
                 currentEvent.type != EventType.KeyDown ||
@@ -20009,6 +20411,28 @@ namespace Reachy.ControlApp
                 }
                 else
                 {
+                    int selectedSavedPersonalityCount = CountSelectedSavedOnlineAiCustomPersonalities();
+                    bool previousDeleteEnabled = GUI.enabled;
+                    GUI.enabled = selectedSavedPersonalityCount > 0;
+                    if (GUILayout.Button(
+                            selectedSavedPersonalityCount > 0
+                                ? $"Delete Selected ({selectedSavedPersonalityCount})"
+                                : "Delete Selected",
+                            GUILayout.Height(22f),
+                            GUILayout.ExpandWidth(true)))
+                    {
+                        bool deleted = TryDeleteSelectedSavedOnlineAiCustomPersonalities(out string deleteMessage);
+                        _voiceLastActionResult = deleteMessage;
+                        if (!deleted)
+                        {
+                            _voiceLastParserMessage = deleteMessage;
+                        }
+
+                        selectedEntry = GetSelectedSavedOnlineAiCustomPersonalityEntry();
+                    }
+
+                    GUI.enabled = previousDeleteEnabled;
+                    GUILayout.Space(4f);
                     _savedOnlineAiCustomPersonalityDropdownScroll = GUILayout.BeginScrollView(
                         _savedOnlineAiCustomPersonalityDropdownScroll,
                         false,
@@ -20022,14 +20446,35 @@ namespace Reachy.ControlApp
                             entry.FilePath,
                             _selectedSavedOnlineAiCustomPersonalityPath,
                             StringComparison.OrdinalIgnoreCase);
+                        bool isSelectedForDeletion =
+                            _selectedSavedOnlineAiCustomPersonalityPaths.Contains(entry.FilePath);
                         string buttonLabel = isSelected
                             ? $"> {entry.Payload.name}"
                             : entry.Payload.name;
+                        GUILayout.BeginHorizontal();
+                        bool nextSelectedForDeletion = GUILayout.Toggle(
+                            isSelectedForDeletion,
+                            string.Empty,
+                            GUILayout.Width(22f));
+                        if (nextSelectedForDeletion != isSelectedForDeletion)
+                        {
+                            if (nextSelectedForDeletion)
+                            {
+                                _selectedSavedOnlineAiCustomPersonalityPaths.Add(entry.FilePath);
+                            }
+                            else
+                            {
+                                _selectedSavedOnlineAiCustomPersonalityPaths.Remove(entry.FilePath);
+                            }
+                        }
+
                         if (GUILayout.Button(buttonLabel, GUILayout.Height(22f), GUILayout.ExpandWidth(true)))
                         {
                             _selectedSavedOnlineAiCustomPersonalityPath = entry.FilePath;
                             selectedEntry = entry;
                         }
+
+                        GUILayout.EndHorizontal();
                     }
 
                     GUILayout.EndScrollView();
