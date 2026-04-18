@@ -25,6 +25,7 @@ This allows you to create, edit, save, import, export, and play custom animated 
 - `Per-animation controls`: Play, stop, edit, update, save locally, and bulk-select animations directly from the lists.
 - `UI feedback improvements`: Status messages, active/idle pose-capture indicators, selected-joint highlighting, and clearer editing state labels improve discoverability.
 - `Mirror limb editing`: Toggle left/right limb mirroring during pose editing so paired arm joints can be adjusted symmetrically.
+- `Example animation JSON`: A sample crab-dance animation is included at `Examples/ReachyAnimations/crab-dance.json`.
 
 `Chit Chat tab` 14.04.2026 🟢
 
@@ -46,7 +47,7 @@ Added the following...
 
 https://github.com/user-attachments/assets/aaa93e5c-b712-461a-8bcd-d636543b219e
 
-https://github.com/user-attachments/assets/8ec6aaba-ab25-4255-b3bf-376ff6cbb74e
+Examples/Videos/animation_creator_latest.mp4
 
 ### Notes & Possible Future Iterations
 
