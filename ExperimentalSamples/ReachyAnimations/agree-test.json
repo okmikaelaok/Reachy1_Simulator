@@ -1,0 +1,100 @@
+{
+    "schema_version": 1,
+    "name": "Agree_Test",
+    "description": "Use when the transcript asks for confirmation, agreement in a yes or no question.",
+    "suggested_emotion_key": "agree",
+    "suggested_ai_use": "Use when the transcript asks for confirmation, agreement in a yes or no question.",
+    "use_in_ai_mode": true,
+    "saved_utc": "2026-04-18T16:49:18.9771166Z",
+    "keyframes": [
+        {
+            "hold_duration_seconds": 0.3199999928474426,
+            "joints": [
+                {
+                    "joint_name": "neck_roll",
+                    "degrees": -1.7722169160842896
+                },
+                {
+                    "joint_name": "neck_pitch",
+                    "degrees": 23.514516830444337
+                },
+                {
+                    "joint_name": "neck_yaw",
+                    "degrees": -5.508099555969238
+                },
+                {
+                    "joint_name": "l_antenna",
+                    "degrees": 0.0
+                },
+                {
+                    "joint_name": "r_antenna",
+                    "degrees": 0.0
+                },
+                {
+                    "joint_name": "l_shoulder_pitch",
+                    "degrees": 0.0
+                },
+                {
+                    "joint_name": "l_shoulder_roll",
+                    "degrees": 0.0
+                },
+                {
+                    "joint_name": "l_arm_yaw",
+                    "degrees": 0.0
+                },
+                {
+                    "joint_name": "l_elbow_pitch",
+                    "degrees": 0.0
+                },
+                {
+                    "joint_name": "l_forearm_yaw",
+                    "degrees": 0.0
+                },
+                {
+                    "joint_name": "l_wrist_pitch",
+                    "degrees": 0.0
+                },
+                {
+                    "joint_name": "l_wrist_roll",
+                    "degrees": 0.0
+                },
+                {
+                    "joint_name": "l_gripper",
+                    "degrees": 0.0
+                },
+                {
+                    "joint_name": "r_shoulder_pitch",
+                    "degrees": 0.0
+                },
+                {
+                    "joint_name": "r_shoulder_roll",
+                    "degrees": 0.0
+                },
+                {
+                    "joint_name": "r_arm_yaw",
+                    "degrees": 0.0
+                },
+                {
+                    "joint_name": "r_elbow_pitch",
+                    "degrees": 0.0
+                },
+                {
+                    "joint_name": "r_forearm_yaw",
+                    "degrees": 0.0
+                },
+                {
+                    "joint_name": "r_wrist_pitch",
+                    "degrees": 0.0
+                },
+                {
+                    "joint_name": "r_wrist_roll",
+                    "degrees": 0.0
+                },
+                {
+                    "joint_name": "r_gripper",
+                    "degrees": 0.0
+                }
+            ]
+        }
+    ]
+}
