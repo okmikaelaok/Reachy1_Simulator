@@ -1,5 +1,32 @@
-
 # Reachy 1 Controller and Simulator
+
+## Experimental Branch Note
+
+You are currently viewing the `experimental-animation-creator` branch.
+
+This branch contains work-in-progress changes for:
+
+- local JSON save/load for Animation Creator animations
+- optional AI metadata on saved animations
+- Emotion Reactions mapping from saved animations
+- fallback logic back to default hardcoded emotions
+
+Before using this branch, read:
+
+- `EXPERIMENTAL_ANIMATION_CREATOR_SETUP.md`
+
+Quick workflow:
+
+1. Open the Unity project from this branch.
+2. Use the Animation Creator tab to create or import an animation.
+3. Fill in the optional AI metadata fields if you want to test Emotion Reactions integration.
+4. Save locally and use the experimental mapping flow described in the setup note.
+
+Important:
+
+- This branch is a WIP and may be clunky or unstable.
+- Local JSON animation files are machine-local unless you explicitly share them.
+- Unity play mode testing is still recommended before relying on this branch for demos or training.
 
 **Upstream:** [Sami Kamara's project](https://github.com/SamiKamara/reachy1-unityproject) was used to extend these features.
 
