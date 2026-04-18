@@ -45,15 +45,16 @@ Added the following...
 
 ### Videos
 
+https://github.com/user-attachments/assets/8df364da-c103-4d8a-b9a3-8499f3dc0664
+
 https://github.com/user-attachments/assets/aaa93e5c-b712-461a-8bcd-d636543b219e
 
-Examples/Videos/animation_creator_latest.mp4
 
 ### Notes & Possible Future Iterations
 
 * The UX and UI can still be refined further, but the core Animation Creator workflow is now substantially more complete than the original runtime-only prototype.
 
-* `Animation Creator tab` now includes:
+* `Animation Creator tab` can be improved by adding:
 
   * ✅ permanent local saving of animation sequences as JSON files instead of runtime-only storage
   * ✅ separate `Draft` and `Saved Animations` lists for clearer session-vs-local workflow
