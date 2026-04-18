@@ -47,5 +47,32 @@ https://github.com/user-attachments/assets/8ec6aaba-ab25-4255-b3bf-376ff6cbb74e
 
 ### Notes & Possible Future Iterations
 
-- The UX of the Animate Body Avatar With Mouse feature can be improved in future iterations like include clearer visual feedback, such as highlighting selected joints, as well as adding the ability to rotate and reposition the avatar. Support for saving animation sequences locally, rather than only during runtime, would also improve usability. Additionally, attaching audio playback to animations could further enhance the experience.
-- The Chit Chat feature can be further improved by ~~✅adding a transcript log~~, as well as enhanced memory and context management. A configurable maximum token or character limit, paired with adaptive response length, could help control overly long replies in a dynamic way. While some context and memory handling already exist in the background, responses can still be lengthy if it's not reinforced in the system prompt. Introducing a memory system for pinned or saved content would help ensure important information is consistently retained and referenced during interactions. This could include the ability to pin specific chat logs for persistent memory. Additionally, the chat bubbles could be improved by adding actions such as pinning, rewinding, or ~~✅deleting them~~, giving users more control over conversation flow and context. A tone control setting (e.g. optimistic, dystopian, realistic) could also be implemented to guide the style and mood of the AI’s responses.
+* The UX and UI can be improved. Utility and core functionality were prioritized first.
+
+* `Animation Creator tab` can be improved by adding:
+
+  * permanent local saving of animation sequences (JSON-based) instead of runtime-only storage, reducing hardcoded logic
+  * import/export functionality to improve sharing and management of animations
+  * sync and mapping with AI Mode so created animations can be directly linked to behaviors, emotions, or triggers
+  * a 3D rotation XYZ control (gizmo/ball) to allow easier camera manipulation instead of a static front-facing view
+  * highlighting of selected joints to improve usability, with synchronization between the 3D avatar and corresponding UI buttons
+  * mirror left/right functionality so paired joints (e.g. shoulders, arms) move symmetrically, improving consistency in body movements
+  * support for attaching audio to specific animations for more expressive behavior
+  * an option to save animations to a General (or Quick Actions) section for quick access
+
+
+* `Chit Chat tab` can be improved by adding:
+
+  * ✅ a transcript log that distinguishes between mic and text input (useful for verifying what input was successfully processed)
+  * ✅ local saving of transcripts
+  * ✅ ability to clear chats 
+  * pinning of specific chat bubbles for persistent memory and easy reference
+
+* `AI Mode tab` can be improved by adding:
+
+  * sync and mapping with the Animation Creator tab
+  * Dance mode (to trigger predefined animation sequences such as Macarena, Crab Rave, SpongeBob Electric Zoo)
+  * Tone control (e.g. optimistic, dystopian, realistic) to adjust response style and behavior
+  * Max response control (in characters/tokens) to manage response length
+
+
