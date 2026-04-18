@@ -1657,6 +1657,14 @@ def build_online_ai_emotion_display_name(emotion_key: str) -> str:
     return " ".join(part[:1].upper() + part[1:] for part in parts)
 
 
+def build_online_ai_emotion_selection_guidance(description, display_name: str) -> str:
+    guidance = str(description or "").strip() or f"{display_name} is the closest match"
+    use_when_prefix = "use when "
+    if guidance.lower().startswith(use_when_prefix):
+        guidance = guidance[len(use_when_prefix):].strip()
+    return guidance.rstrip(" .\t\r\n") + "."
+
+
 def build_default_online_ai_emotion_reactions() -> list[dict]:
     return [dict(item) for item in DEFAULT_ONLINE_AI_EMOTION_REACTIONS]
 
@@ -7148,6 +7156,19 @@ class OnlineAIOrchestrator:
             self.config.get("online_ai_persona_mode", DEFAULT_ONLINE_AI_PERSONA_MODE)
         )
         if persona_mode == "emotion_reactions":
+            enabled_reactions = self._get_enabled_online_ai_emotion_reactions()
+            reaction_guidance_lines = []
+            for reaction in enabled_reactions:
+                display_name = str(reaction.get("display_name", "") or "").strip() or build_online_ai_emotion_display_name(
+                    reaction.get("emotion_key", "")
+                )
+                reaction_guidance_lines.append(
+                    "- Prefer "
+                    + display_name
+                    + " when "
+                    + build_online_ai_emotion_selection_guidance(reaction.get("description", ""), display_name)
+                )
+            reaction_guidance = "".join(f"{line}\n" for line in reaction_guidance_lines)
             return (
                 f"{operator_prompt}\n"
                 "You are producing one JSON object for a Reachy robot controller.\n"
@@ -7160,10 +7181,8 @@ class OnlineAIOrchestrator:
                 "- Use emotion_reaction to choose exactly one configured emotion key from the provided emotion_reactions list.\n"
                 "- Do not invent new emotion keys.\n"
                 "- Base the choice on the emotional tone of user_transcript.\n"
-                "- Favor happy for upbeat, relieved, grateful, proud, excited, affectionate, amused, or celebratory content.\n"
-                "- Favor curious for inquisitive, puzzled, exploratory, fascinated, surprised, or discovery-oriented content.\n"
-                "- Favor bored for flat, uninterested, unimpressed, tired, impatient, or under-stimulated content.\n"
-                "- Favor sad for disappointed, hurt, lonely, worried, grieving, apologetic, exhausted, or emotionally heavy content.\n"
+                "- Use each configured reaction's guidance as the main rule for deciding which emotion key to return.\n"
+                f"{reaction_guidance}"
                 "- When the feeling is mixed or subtle, choose the closest configured emotion instead of leaving it blank.\n"
                 "- Keep emotion_reaction.reason short.\n"
                 "- Do not produce any spoken reply.\n"
